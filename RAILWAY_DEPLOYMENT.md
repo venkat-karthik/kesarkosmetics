@@ -32,6 +32,22 @@
 2. Go to **"Variables"** tab
 3. Click **"Raw Editor"** or add one-by-one:
 
+### Step 3A: Get Brevo SMTP Credentials (Recommended for Email)
+
+**Why Brevo?** Free 300 emails/day, works reliably from Railway, no timeout issues.
+
+1. Go to https://www.brevo.com/en/
+2. Click **"Sign up free"** (or login if you have account)
+3. After signup, go to **Settings** (top menu)
+4. Click **"SMTP & API"** in left sidebar
+5. Find **"SMTP Configuration"** section:
+   - **SMTP Server**: `smtp-relay.brevo.com`
+   - **SMTP Port**: `587`
+   - **Login**: Your Brevo email address
+   - **Password**: Click **"Generate SMTP password"** and copy it
+
+**Copy these values** - you'll paste them in Railway variables below.
+
 ### Copy-Paste All Variables:
 
 ```
@@ -43,27 +59,49 @@ SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsI
 RAZORPAY_KEY_ID=rzp_test_1ksAJ0pZ7Bffa2
 RAZORPAY_KEY_SECRET=XXXXXXXXXXXXXXXX
 RAZORPAY_WEBHOOK_SECRET=webhook_secret_test
-SMTP_HOST=[your smtp host]
+SMTP_HOST=smtp-relay.brevo.com
 SMTP_PORT=587
-SMTP_USER=[your smtp username]
-SMTP_PASS=[your smtp password or app password]
-SMTP_FROM=[optional from email]
+SMTP_SECURE=false
+SMTP_USER=[your Brevo email or API key]
+SMTP_PASS=[your Brevo SMTP password]
+SMTP_FROM=[your sender email]
 FRONTEND_URL=https://YOUR_FRONTEND_DOMAIN_HERE
 CORS_ORIGINS=https://YOUR_FRONTEND_DOMAIN_HERE,http://localhost:3000
 ```
 
+### Important: Brevo SMTP Values Explained
+
+- **SMTP_HOST=smtp-relay.brevo.com** ← Always this for Brevo
+- **SMTP_PORT=587** ← Always 587 for Brevo  
+- **SMTP_SECURE=false** ← Always false with port 587
+- **SMTP_USER** ← Your Brevo account email (example: your@gmail.com)
+- **SMTP_PASS** ← The SMTP password you generated in Brevo Settings (NOT your regular password)
+- **SMTP_FROM** ← Email address that will appear as sender (usually same as SMTP_USER)
+
 ---
 
-## STEP 4: Get Your Backend URL
+## STEP 4: Add Brevo Variables to Railway
+
+1. Go to **Railway Dashboard** → Your **Backend service**
+2. Click **Variables** tab
+3. Paste all variables from above, replacing placeholders:
+   - `[your Brevo email or API key]` → Your Brevo account email
+   - `[your Brevo SMTP password]` → The SMTP password from Brevo Settings (NOT your regular password)
+   - `[your sender email]` → Same as SMTP_USER
+4. **Save** → Railway automatically redeploys with new variables ✅
+
+---
+
+## STEP 5: Get Your Backend URL
 
 1. After deployment succeeds (check **Deployments** tab)
 2. Click your service → **Settings**
-3. Look for **"Public URL"** (something like: `https://client11-backend-prod-xxx.railway.app`)
+3. Look for **"Public URL"** (something like: `https://kesarkosmotiescom-production.up.railway.app`)
 4. **Copy this URL** - you'll need it for frontend
 
 ---
 
-## STEP 5: Deploy Frontend (Vercel Recommended)
+## STEP 6: Deploy Frontend (Vercel Recommended)
 
 ### Using Vercel (Easiest):
 
@@ -78,13 +116,13 @@ CORS_ORIGINS=https://YOUR_FRONTEND_DOMAIN_HERE,http://localhost:3000
    ```
    REACT_APP_SUPABASE_URL=https://vmyaljqxutoxntcjvhhq.supabase.co
    REACT_APP_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-   REACT_APP_BACKEND_URL=https://YOUR_RAILWAY_BACKEND_URL (from Step 4)
+   REACT_APP_BACKEND_URL=https://YOUR_RAILWAY_BACKEND_URL (from Step 5)
    ```
 6. Click **"Deploy"**
 
 ---
 
-## STEP 6: Update Frontend Backend URL
+## STEP 7: Update Frontend Backend URL in Railway
 
 After you deploy frontend on Vercel:
 
@@ -100,7 +138,20 @@ After you deploy frontend on Vercel:
 
 ---
 
-## STEP 7: Test Connection
+## STEP 8: Test Email Registration
+
+1. Open your frontend URL: `https://your-frontend.vercel.app/register`
+2. Fill in form and click **"Create Account"**
+3. Should receive OTP email in inbox (sent by Brevo)
+4. Enter OTP and complete registration
+5. Check:
+   - ✅ OTP received in email
+   - ✅ User created in Supabase (check Table Editor → users)
+   - ✅ No errors in browser console
+
+---
+
+## STEP 9: Test Connection
 
 1. Open your frontend URL: `https://your-frontend.vercel.app`
 2. Go to **Register** page
@@ -113,6 +164,28 @@ After you deploy frontend on Vercel:
 ---
 
 ## Troubleshooting
+
+### Email not being sent (Brevo)
+
+**Problem:** Registration works but no OTP email received
+
+**Solution:**
+1. Verify Brevo variables in Railway exactly match what you generated:
+   - `SMTP_HOST=smtp-relay.brevo.com` (no typos)
+   - `SMTP_PORT=587` (exactly 587, not 465)
+   - `SMTP_SECURE=false` (false with port 587)
+   - `SMTP_USER=` (your Brevo account email)
+   - `SMTP_PASS=` (the generated SMTP password, NOT your Brevo login password)
+
+2. Check Railway logs for SMTP errors:
+   - Railway Dashboard → Backend Service → Logs
+   - Look for "SMTP" or "mail" errors
+
+3. Check Brevo quota:
+   - Login to Brevo: https://app.brevo.com
+   - Check if you still have emails remaining (300/day free)
+
+4. Resend: Try registration again after 1-2 minutes (may take time to connect)
 
 ### Backend won't deploy
 - Check Railway **Deployments** tab for error logs
