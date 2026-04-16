@@ -1,0 +1,26 @@
+name: Auto Deploy Default
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Vercel Deploy Hook
+        if: ${{ secrets.VERCEL_DEPLOY_HOOK_URL != '' }}
+        env:
+          VERCEL_DEPLOY_HOOK_URL: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+        run: curl -fsS -X POST "$VERCEL_DEPLOY_HOOK_URL"
+
+      - name: Trigger Railway Deploy Hook
+        if: ${{ secrets.RAILWAY_DEPLOY_HOOK_URL != '' }}
+        env:
+          RAILWAY_DEPLOY_HOOK_URL: ${{ secrets.RAILWAY_DEPLOY_HOOK_URL }}
+        run: curl -fsS -X POST "$RAILWAY_DEPLOY_HOOK_URL"
+
+      - name: No deploy hooks configured
+        if: ${{ secrets.VERCEL_DEPLOY_HOOK_URL == '' && secrets.RAILWAY_DEPLOY_HOOK_URL == '' }}
+        run: echo "No deploy hooks found. Add VERCEL_DEPLOY_HOOK_URL and/or RAILWAY_DEPLOY_HOOK_URL secrets to enable auto deploy."

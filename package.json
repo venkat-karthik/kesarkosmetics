@@ -8,7 +8,9 @@
     "start:frontend": "npm --prefix frontend run start",
     "build": "npm --prefix frontend run build",
     "build:frontend": "npm --prefix frontend run build",
-    "start:web": "serve -s frontend/build -l $PORT"
+    "start:web": "serve -s frontend/build -l $PORT",
+    "autopush": "node scripts/auto-push.mjs",
+    "ship": "node scripts/auto-push.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

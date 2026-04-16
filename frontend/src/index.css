@@ -10,11 +10,6 @@
     --foreground: 16 28% 14%;
   }
 
-  html {
-    /* Scale all rem-based typography across the site for consistent readability */
-    font-size: clamp(14px, 0.25vw + 13px, 16px);
-  }
-
   * {
     box-sizing: border-box;
   }
@@ -23,7 +18,8 @@
     @apply bg-[#FAF7F2] text-[#3E2723];
     margin: 0;
     font-family: 'Outfit', sans-serif;
-    font-size: 1rem;
+    font-size: 17px;
+    font-weight: 500;
     line-height: 1.5;
   }
 
@@ -38,6 +34,13 @@
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Cormorant Garamond', serif;
     @apply tracking-tight;
+    font-weight: 600;
+  }
+
+  p,
+  li,
+  a {
+    font-size: 1.03em;
   }
 }
 
@@ -48,15 +51,6 @@
 
   .font-body {
     font-family: 'Outfit', sans-serif;
-  }
-
-  .price-number {
-    font-family: 'Outfit', sans-serif;
-    font-variant-numeric: tabular-nums;
-    font-feature-settings: 'tnum' 1, 'lnum' 1;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    white-space: nowrap;
   }
 
   .glass-effect {
@@ -255,12 +249,8 @@
 
 /* Responsive Breakpoints for Small Screens */
 @media (max-width: 640px) {
-  html {
-    font-size: 14px;
-  }
-
   body {
-    font-size: 1rem;
+    font-size: 15px;
   }
 
   h1 {
@@ -285,12 +275,6 @@
 
   .xs\:text-base {
     font-size: 1rem;
-  }
-}
-
-@media (min-width: 1536px) {
-  html {
-    font-size: 17px;
   }
 }
 
