@@ -662,7 +662,7 @@ const HomePage = ({ setShakeCart, setTriggerCartRefresh }) => {
 								return (
 								<div
 									key={productId}
-									className="group"
+									className="group flex h-full flex-col"
 									onMouseEnter={() => startProductHoverScroll(productId, product.images?.length || 0)}
 									onMouseLeave={() => stopProductHoverScroll(productId)}
 									onFocus={() => startProductHoverScroll(productId, product.images?.length || 0)}
@@ -703,29 +703,27 @@ const HomePage = ({ setShakeCart, setTriggerCartRefresh }) => {
 										</Link>
 									</div>
 
-									<div className="text-left">
+									<div className="flex h-full flex-col text-left">
 										<Link to={`/product/${productId}`}>
-											<h3 className="font-heading text-2xl sm:text-3xl lg:text-[2rem] font-bold leading-[1.08] text-[#111111] mb-2 hover:text-[#111111] transition-colors">
+											<h3 className="font-heading text-2xl sm:text-3xl lg:text-[2rem] font-bold leading-[1.08] text-[#111111] mb-2 min-h-[4.25rem] sm:min-h-[4.8rem] lg:min-h-[5.1rem] line-clamp-2 hover:text-[#111111] transition-colors">
 												{product.name}
 											</h3>
 										</Link>
 
-										<div className="flex items-center gap-2 mb-2 sm:mb-3">
+										<div className="flex items-center gap-2 mb-2 sm:mb-3 min-h-[1.5rem] sm:min-h-[1.75rem]">
 											<div className="flex items-center gap-1.5">
 												<Star className="w-[18px] h-[18px] sm:w-5 sm:h-5 fill-[#D97736] text-[#D97736]" />
 												<span className="text-lg sm:text-xl font-bold text-[#5D4037]">{product.rating || 4.8}</span>
 											</div>
 										</div>
 
-										<div className="flex items-center gap-2 mb-4 sm:mb-5">
+										<div className="flex items-center gap-2 mb-4 sm:mb-5 min-h-[2.2rem] sm:min-h-[2.6rem]">
 											<span className="text-2xl sm:text-3xl lg:text-[2rem] font-bold text-[#111111] leading-none">
 												{formatPrice(product.price)}
 											</span>
-											{product.oldPrice && (
-												<span className="text-lg sm:text-xl lg:text-2xl font-semibold text-[#5D4037] line-through leading-none">
-													{formatPrice(product.oldPrice)}
-												</span>
-											)}
+											<span className={`text-lg sm:text-xl lg:text-2xl font-semibold text-[#5D4037] line-through leading-none ${product.oldPrice ? "" : "invisible"}`}>
+												{formatPrice(product.oldPrice || product.price)}
+											</span>
 										</div>
 
 										<Button
@@ -734,7 +732,7 @@ const HomePage = ({ setShakeCart, setTriggerCartRefresh }) => {
 										}}
 										onClick={() => addToCart(product)}
 										disabled={addingToCart === productId}
-												className={`w-full bg-gradient-to-r from-[#D97736] to-[#F5A962] hover:from-[#C96626] hover:to-[#E59650] text-white rounded-full transition-all font-bold shadow-lg text-sm sm:text-base ${
+												className={`mt-auto w-full bg-gradient-to-r from-[#D97736] to-[#F5A962] hover:from-[#C96626] hover:to-[#E59650] text-white rounded-full transition-all font-bold shadow-lg text-sm sm:text-base ${
 											addingToCart === productId
 												? "scale-95 opacity-75 animate-magic-pulse"
 												: "hover:-translate-y-1 hover:shadow-xl active:scale-95"
