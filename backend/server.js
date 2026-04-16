@@ -13,6 +13,8 @@ require("dotenv").config();
 const app = express();
 const PORT = Number(process.env.PORT || process.env.BACKEND_PORT || 8001);
 const isProduction = process.env.NODE_ENV === "production";
+const shouldServeFrontendBuild =
+  isProduction || String(process.env.SERVE_FRONTEND_BUILD || "").toLowerCase() === "true";
 const razKeyId = process.env.RAZORPAY_KEY_ID || "";
 const razKeySecret = process.env.RAZORPAY_KEY_SECRET || "";
 const razWebhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET || "";
@@ -51,11 +53,12 @@ const authCookieOptions = {
   path: "/",
 };
 const frontendBuildPath = path.resolve(__dirname, "../frontend/build");
-const hasFrontendBuild = fs.existsSync(path.join(frontendBuildPath, "index.html"));
+const hasFrontendBuild = shouldServeFrontendBuild && fs.existsSync(path.join(frontendBuildPath, "index.html"));
 const isAllowedOrigin = (origin) => {
   if (!origin) return true;
   if (allowedFrontendOrigins.has(origin)) return true;
   return (
+    /^https:\/\/.*\.vercel\.app$/.test(origin) ||
     /^http:\/\/localhost:\d+$/.test(origin) ||
     /^http:\/\/127\.0\.0\.1:\d+$/.test(origin)
   );

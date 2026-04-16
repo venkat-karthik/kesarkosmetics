@@ -78,7 +78,7 @@ CORS_ORIGINS=https://YOUR_FRONTEND_DOMAIN_HERE,http://localhost:3000
    ```
    REACT_APP_SUPABASE_URL=https://vmyaljqxutoxntcjvhhq.supabase.co
    REACT_APP_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-   REACT_APP_API_URL=https://YOUR_RAILWAY_BACKEND_URL (from Step 4)
+   REACT_APP_BACKEND_URL=https://YOUR_RAILWAY_BACKEND_URL (from Step 4)
    ```
 6. Click **"Deploy"**
 
@@ -120,7 +120,7 @@ After you deploy frontend on Vercel:
 - Verify `package.json` exists in backend folder
 
 ### Frontend can't reach backend
-- Verify `REACT_APP_API_URL` points to Railway backend URL (not localhost)
+- Verify `REACT_APP_BACKEND_URL` points to Railway backend URL (not localhost)
 - Check browser **Network** tab for failed API calls
 - Check CORS errors (look at backend console logs)
 

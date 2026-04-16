@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
-import { Star, ShoppingCart, Heart } from "lucide-react";
+import { Star, ShoppingCart, Heart, ChevronLeft, ChevronRight } from "lucide-react";
 import axios from "axios";
 import { Button } from "../components/ui/button";
 import { formatPrice } from "../utils/helpers";
