@@ -2,6 +2,8 @@ const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const crypto = require("crypto");
+const fs = require("fs");
+const path = require("path");
 const bcrypt = require("bcryptjs");
 const nodemailer = require("nodemailer");
 const Razorpay = require("razorpay");
@@ -48,6 +50,8 @@ const authCookieOptions = {
   secure: cookieSecure,
   path: "/",
 };
+const frontendBuildPath = path.resolve(__dirname, "../frontend/build");
+const hasFrontendBuild = fs.existsSync(path.join(frontendBuildPath, "index.html"));
 const isAllowedOrigin = (origin) => {
   if (!origin) return true;
   if (allowedFrontendOrigins.has(origin)) return true;
@@ -76,8 +80,22 @@ app.use(
 );
 
 app.get("/", (req, res) => {
+  if (hasFrontendBuild) {
+    return res.sendFile(path.join(frontendBuildPath, "index.html"));
+  }
   return res.status(200).json({ status: "ok", service: "app-backend" });
 });
+
+if (hasFrontendBuild) {
+  app.use(express.static(frontendBuildPath));
+
+  app.get(/^\/(?!api\/).*/, (req, res, next) => {
+    if (req.path.startsWith("/api/")) {
+      return next();
+    }
+    return res.sendFile(path.join(frontendBuildPath, "index.html"));
+  });
+}
 
 app.get("/health", (req, res) => {
   return res.status(200).json({ status: "ok" });
