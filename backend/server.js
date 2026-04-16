@@ -9,7 +9,8 @@ const { createClient } = require("@supabase/supabase-js");
 require("dotenv").config();
 
 const app = express();
-const PORT = process.env.BACKEND_PORT || (process.env.PORT && process.env.PORT !== "3001" ? process.env.PORT : 8001);
+const PORT = Number(process.env.PORT || process.env.BACKEND_PORT || 8001);
+const isProduction = process.env.NODE_ENV === "production";
 const razKeyId = process.env.RAZORPAY_KEY_ID || "";
 const razKeySecret = process.env.RAZORPAY_KEY_SECRET || "";
 const razWebhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET || "";
@@ -18,13 +19,35 @@ const supabaseServiceKey =
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY || "";
 const supabase = supabaseUrl && supabaseServiceKey ? createClient(supabaseUrl, supabaseServiceKey) : null;
 const razorpay = razKeyId && razKeySecret ? new Razorpay({ key_id: razKeyId, key_secret: razKeySecret }) : null;
+const normalizeOrigin = (value) => {
+  const raw = String(value || "").trim();
+  if (!raw) return null;
+  if (/^https?:\/\//i.test(raw)) return raw;
+  return `https://${raw}`;
+};
+const corsOriginsFromEnv = String(process.env.CORS_ORIGINS || "")
+  .split(",")
+  .map((value) => normalizeOrigin(value))
+  .filter(Boolean);
 const allowedFrontendOrigins = new Set(
   [
-    process.env.FRONTEND_URL,
-    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
-    process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : null,
+    normalizeOrigin(process.env.FRONTEND_URL),
+    normalizeOrigin(process.env.VERCEL_URL),
+    normalizeOrigin(process.env.VERCEL_PROJECT_PRODUCTION_URL),
+    ...corsOriginsFromEnv,
   ].filter(Boolean)
 );
+const cookieSameSite = (process.env.COOKIE_SAMESITE || (isProduction ? "none" : "lax")).toLowerCase();
+const cookieSecure =
+  typeof process.env.COOKIE_SECURE === "string"
+    ? process.env.COOKIE_SECURE.toLowerCase() === "true"
+    : cookieSameSite === "none";
+const authCookieOptions = {
+  httpOnly: true,
+  sameSite: cookieSameSite,
+  secure: cookieSecure,
+  path: "/",
+};
 const isAllowedOrigin = (origin) => {
   if (!origin) return true;
   if (allowedFrontendOrigins.has(origin)) return true;
@@ -644,7 +667,7 @@ app.post("/api/auth/login", async (req, res) => {
 
   const token = crypto.randomBytes(32).toString("hex");
   sessions.set(token, { user: publicUser(user), createdAt: Date.now() });
-  res.cookie("access_token", token, { httpOnly: true, sameSite: "lax", path: "/" });
+  res.cookie("access_token", token, authCookieOptions);
   return res.json(publicUser(user));
 });
 
@@ -696,7 +719,7 @@ app.post("/api/auth/register/verify-code", async (req, res) => {
   if (user.email_verified) {
     const token = crypto.randomBytes(32).toString("hex");
     sessions.set(token, { user: publicUser(user), createdAt: Date.now() });
-    res.cookie("access_token", token, { httpOnly: true, sameSite: "lax", path: "/" });
+    res.cookie("access_token", token, authCookieOptions);
     return res.json(publicUser(user));
   }
 
@@ -716,7 +739,7 @@ app.post("/api/auth/register/verify-code", async (req, res) => {
 
   const token = crypto.randomBytes(32).toString("hex");
   sessions.set(token, { user: publicUser(user), createdAt: Date.now() });
-  res.cookie("access_token", token, { httpOnly: true, sameSite: "lax", path: "/" });
+  res.cookie("access_token", token, authCookieOptions);
   return res.json(publicUser(user));
 });
 
@@ -807,7 +830,7 @@ app.get("/api/auth/me", (req, res) => {
 app.post("/api/auth/logout", (req, res) => {
   const token = req.cookies.access_token;
   if (token) sessions.delete(token);
-  res.clearCookie("access_token", { path: "/" });
+  res.clearCookie("access_token", authCookieOptions);
   return res.json({ message: "Logged out" });
 });
 
