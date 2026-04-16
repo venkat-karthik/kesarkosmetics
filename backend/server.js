@@ -46,7 +46,7 @@ const cookieSecure =
   typeof process.env.COOKIE_SECURE === "string"
     ? process.env.COOKIE_SECURE.toLowerCase() === "true"
     : cookieSameSite === "none";
-const allowAuthFallbackWhenEmailFails = String(process.env.ALLOW_AUTH_FALLBACK_WHEN_EMAIL_FAILS || "true").toLowerCase() === "true";
+const allowAuthFallbackWhenEmailFails = String(process.env.ALLOW_AUTH_FALLBACK_WHEN_EMAIL_FAILS || "false").toLowerCase() === "true";
 const authCookieOptions = {
   httpOnly: true,
   sameSite: cookieSameSite,
@@ -388,6 +388,13 @@ function getSmtpConfig() {
     process.env.EMAIL_PASSWORD ||
     "";
   const from = process.env.SMTP_FROM || process.env.MAIL_FROM || process.env.EMAIL_FROM || user || "no-reply@kesarkosmetics.com";
+  const secureOverride = String(process.env.SMTP_SECURE || "").trim().toLowerCase();
+  const secure =
+    secureOverride === "true"
+      ? true
+      : secureOverride === "false"
+        ? false
+        : port === 465;
 
   return {
     host,
@@ -395,11 +402,28 @@ function getSmtpConfig() {
     user,
     pass,
     from,
-    secure: port === 465,
+    secure,
     connectionTimeout: Number(process.env.SMTP_CONNECTION_TIMEOUT_MS || 10000),
     greetingTimeout: Number(process.env.SMTP_GREETING_TIMEOUT_MS || 10000),
     socketTimeout: Number(process.env.SMTP_SOCKET_TIMEOUT_MS || 15000),
   };
+}
+
+function getSmtpErrorDetail(err) {
+  const code = String(err?.code || "").toUpperCase();
+  const message = String(err?.message || "SMTP error");
+
+  if (code === "EAUTH") {
+    return "SMTP authentication failed. Use your real email in SMTP_USER and an App Password in SMTP_PASS.";
+  }
+  if (code === "ETIMEDOUT" || code === "ESOCKET") {
+    return "SMTP connection timed out. Verify SMTP_HOST/SMTP_PORT and firewall/network rules.";
+  }
+  if (message.toLowerCase().includes("certificate") || message.toLowerCase().includes("ssl")) {
+    return "SMTP TLS/SSL mismatch. Use SMTP_PORT=587 with SMTP_SECURE=false (or 465 with SMTP_SECURE=true).";
+  }
+
+  return `SMTP delivery failed: ${message}`;
 }
 
 function createSmtpTransporter(smtp) {
@@ -726,7 +750,7 @@ app.post("/api/auth/register", async (req, res) => {
             message: "Email service unavailable. Account verified automatically.",
           });
         }
-        return res.status(500).json({ detail: "Failed to send verification code" });
+        return res.status(500).json({ detail: getSmtpErrorDetail(err) });
       }
       
       return res.status(200).json({
@@ -774,7 +798,7 @@ app.post("/api/auth/register", async (req, res) => {
         message: "Email service unavailable. Account verified automatically.",
       });
     }
-    return res.status(500).json({ detail: "Failed to send verification code" });
+    return res.status(500).json({ detail: getSmtpErrorDetail(err) });
   }
 
   return res.status(201).json({
@@ -833,7 +857,7 @@ app.post("/api/auth/register/resend-code", async (req, res) => {
     await sendVerificationEmail(safeEmail, code);
   } catch (err) {
     console.error("Failed to resend verification email:", err);
-    return res.status(500).json({ detail: "Failed to send verification code" });
+    return res.status(500).json({ detail: getSmtpErrorDetail(err) });
   }
 
   return res.json({ message: "Verification code sent to your email" });

@@ -33,7 +33,14 @@ const RegisterPage = () => {
 		setIsSubmitting(true);
 		try {
 			const safeEmail = email.trim().toLowerCase();
-			await register(name, safeEmail, phone, password);
+			const result = await register(name, safeEmail, phone, password);
+
+			if (result && result.requires_verification === false) {
+				toast.success(result.message || "Account created successfully");
+				navigate("/");
+				return;
+			}
+
 			setRegisteredEmail(safeEmail);
 			setIsVerificationStep(true);
 			toast.success("Verification code sent to your email");
