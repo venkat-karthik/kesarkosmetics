@@ -621,8 +621,40 @@ app.post("/api/auth/register", async (req, res) => {
   if (!name || !safeEmail || !phone || !password) {
     return res.status(400).json({ detail: "Missing required fields" });
   }
-  if (usersByEmail.has(safeEmail)) {
-    return res.status(400).json({ detail: "Email already registered" });
+
+  const existingUserId = usersByEmail.get(safeEmail);
+  if (existingUserId) {
+    const existingUser = users.get(existingUserId);
+    
+    // If email is already verified, ask user to login
+    if (existingUser && existingUser.email_verified) {
+      return res.status(400).json({ 
+        detail: "Email already registered and verified. Please login instead.",
+        alreadyVerified: true 
+      });
+    }
+    
+    // If email exists but not verified, resend verification code
+    if (existingUser && !existingUser.email_verified) {
+      const code = generateVerificationCode();
+      existingUser.email_verification_code_hash = hashResetCode(safeEmail, code);
+      existingUser.email_verification_expires_at = Date.now() + 10 * 60 * 1000;
+      await saveUserToStore(existingUser);
+      
+      try {
+        await sendVerificationEmail(safeEmail, code);
+      } catch (err) {
+        console.error("Failed to resend verification email:", err);
+        return res.status(500).json({ detail: "Failed to send verification code" });
+      }
+      
+      return res.status(200).json({
+        message: "New verification code sent to your email",
+        email: safeEmail,
+        requires_verification: true,
+        isResend: true,
+      });
+    }
   }
 
   const id = crypto.randomUUID();

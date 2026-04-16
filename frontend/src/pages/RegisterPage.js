@@ -38,8 +38,24 @@ const RegisterPage = () => {
 			setIsVerificationStep(true);
 			toast.success("Verification code sent to your email");
 		} catch (err) {
-			setError(err?.response?.data?.detail || err.message);
-			toast.error(err?.response?.data?.detail || err.message);
+			const errorMessage = err?.response?.data?.detail || err.message;
+			const isAlreadyVerified = err?.response?.data?.alreadyVerified;
+			const isResend = err?.response?.data?.isResend;
+			
+			setError(errorMessage);
+			
+			if (isAlreadyVerified) {
+				toast.error(errorMessage);
+			} else if (isResend) {
+				// Email exists but not verified - show OTP form
+				const safeEmail = email.trim().toLowerCase();
+				setRegisteredEmail(safeEmail);
+				setIsVerificationStep(true);
+				setError("");
+				toast.success("A new verification code has been sent to your email");
+			} else {
+				toast.error(errorMessage);
+			}
 		} finally {
 			setIsSubmitting(false);
 		}
