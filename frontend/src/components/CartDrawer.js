@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { X, Minus, Plus, ShoppingBag, Truck, Sparkles } from "lucide-react";
+import { X, Minus, Plus, ShoppingBag, Truck, Sparkles, LogIn } from "lucide-react";
 import { Button } from "./ui/button";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -7,13 +7,12 @@ import { formatPrice } from "../utils/helpers";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
 
-const GUEST_CART_STORAGE_KEY = "guestCartItems";
-
 const CartDrawer = ({ isOpen, onClose }) => {
 	const [cart, setCart] = useState({ items: [], total: 0 });
 	const [scrollIndex, setScrollIndex] = useState(0);
 	const navigate = useNavigate();
 	const { user } = useAuth();
+	const isAuthenticated = Boolean(user && user._id);
 
 	const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
 	const FREE_SHIPPING_THRESHOLD = 2000;
@@ -21,16 +20,8 @@ const CartDrawer = ({ isOpen, onClose }) => {
 	useEffect(() => {
 		const fetchCart = async () => {
 			if (!isOpen) return;
-			if (!user || !user._id) {
-				try {
-					const raw = localStorage.getItem(GUEST_CART_STORAGE_KEY);
-					const guestItems = raw ? JSON.parse(raw) : [];
-					const normalizedItems = Array.isArray(guestItems) ? guestItems : [];
-					const total = normalizedItems.reduce((sum, item) => sum + Number(item?.product?.price || 0) * Number(item?.quantity || 0), 0);
-					setCart({ items: normalizedItems, total });
-				} catch {
-					setCart({ items: [], total: 0 });
-				}
+			if (!isAuthenticated) {
+				setCart({ items: [], total: 0 });
 				return;
 			}
 			try {
@@ -41,54 +32,32 @@ const CartDrawer = ({ isOpen, onClose }) => {
 			}
 		};
 		fetchCart();
-	}, [isOpen, BACKEND_URL]);
+	}, [isOpen, BACKEND_URL, isAuthenticated]);
 
 	useEffect(() => {
 		if (!isOpen) return;
 		const handleCartUpdated = () => {
-			if (!user || !user._id) {
-				try {
-					const raw = localStorage.getItem(GUEST_CART_STORAGE_KEY);
-					const guestItems = raw ? JSON.parse(raw) : [];
-					const normalizedItems = Array.isArray(guestItems) ? guestItems : [];
-					const total = normalizedItems.reduce((sum, item) => sum + Number(item?.product?.price || 0) * Number(item?.quantity || 0), 0);
-					setCart({ items: normalizedItems, total });
-				} catch {
-					setCart({ items: [], total: 0 });
-				}
+			if (!isAuthenticated) {
+				setCart({ items: [], total: 0 });
 			}
 		};
 
 		window.addEventListener("cart:updated", handleCartUpdated);
 		return () => window.removeEventListener("cart:updated", handleCartUpdated);
-	}, [isOpen, user]);
+	}, [isOpen, isAuthenticated]);
 
 	// Auto-scroll animation for cart items
 	useEffect(() => {
-		if (!isOpen || cart.items.length === 0) return;
+		if (!isOpen || !isAuthenticated || cart.items.length === 0) return;
 		const interval = setInterval(() => {
 			setScrollIndex((prev) => (prev + 1) % cart.items.length);
 		}, 4000);
 		return () => clearInterval(interval);
-	}, [isOpen, cart.items.length]);
+	}, [isOpen, isAuthenticated, cart.items.length]);
 
 	const updateQuantity = async (productId, newQuantity) => {
-		if (!user || !user._id) {
-			try {
-				const raw = localStorage.getItem(GUEST_CART_STORAGE_KEY);
-				const guestItems = raw ? JSON.parse(raw) : [];
-				const nextItems = (Array.isArray(guestItems) ? guestItems : []).flatMap((item) => {
-					if (item?.product?.id !== productId) return [item];
-					if (newQuantity <= 0) return [];
-					return [{ ...item, quantity: newQuantity }];
-				});
-				localStorage.setItem(GUEST_CART_STORAGE_KEY, JSON.stringify(nextItems));
-				const total = nextItems.reduce((sum, item) => sum + Number(item?.product?.price || 0) * Number(item?.quantity || 0), 0);
-				setCart({ items: nextItems, total });
-				window.dispatchEvent(new Event("cart:updated"));
-			} catch {
-				toast.error("Failed to update cart");
-			}
+		if (!isAuthenticated) {
+			toast.error("Please login to update your cart");
 			return;
 		}
 		if (newQuantity === 0) {
@@ -110,19 +79,8 @@ const CartDrawer = ({ isOpen, onClose }) => {
 	};
 
 	const removeItem = async (productId) => {
-		if (!user || !user._id) {
-			try {
-				const raw = localStorage.getItem(GUEST_CART_STORAGE_KEY);
-				const guestItems = raw ? JSON.parse(raw) : [];
-				const nextItems = (Array.isArray(guestItems) ? guestItems : []).filter((item) => item?.product?.id !== productId);
-				localStorage.setItem(GUEST_CART_STORAGE_KEY, JSON.stringify(nextItems));
-				const total = nextItems.reduce((sum, item) => sum + Number(item?.product?.price || 0) * Number(item?.quantity || 0), 0);
-				setCart({ items: nextItems, total });
-				window.dispatchEvent(new Event("cart:updated"));
-				toast.success("Item removed from cart");
-			} catch {
-				toast.error("Failed to remove item");
-			}
+		if (!isAuthenticated) {
+			toast.error("Please login to manage your cart");
 			return;
 		}
 		try {
@@ -185,7 +143,26 @@ const CartDrawer = ({ isOpen, onClose }) => {
 
 				{/* Main Content */}
 				<div className="flex-1 overflow-y-auto">
-					{cart.items.length === 0 ? (
+					{!isAuthenticated ? (
+						<div className="flex flex-col items-center justify-center h-full py-12 xs:py-16 px-4 text-center">
+							<div className="bg-gradient-to-br from-[#F5EEE6] to-[#E0D8C8] rounded-full p-6 xs:p-8 mb-4">
+								<LogIn className="w-12 xs:w-16 h-12 xs:h-16 text-[#D97736]" />
+							</div>
+							<p className="font-heading text-lg xs:text-xl font-semibold text-[#3E2723] mb-2">Login required</p>
+							<p className="text-xs xs:text-sm text-[#5D4037] text-center mb-6 max-w-[220px]">
+								Please login to view your cart and continue to checkout.
+							</p>
+							<Button
+								onClick={() => {
+									onClose();
+									navigate("/login?redirect=/cart");
+								}}
+								className="bg-[#D97736] hover:bg-[#C96626] text-white px-6 py-2 rounded-full text-sm xs:text-base font-medium transition-all hover:shadow-lg hover:-translate-y-1"
+							>
+								Login now
+							</Button>
+						</div>
+					) : cart.items.length === 0 ? (
 						/* Empty Cart State */
 						<div className="flex flex-col items-center justify-center h-full py-12 xs:py-16 px-4">
 							<div className="bg-gradient-to-br from-[#F5EEE6] to-[#E0D8C8] rounded-full p-6 xs:p-8 mb-4">

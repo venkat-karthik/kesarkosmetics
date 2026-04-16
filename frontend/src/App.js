@@ -40,7 +40,14 @@ function AppLayout() {
   const navigate = useNavigate();
 
   const handleCartClick = () => {
-    setIsCartOpen(true);
+    if (loading) return;
+
+    if (user && user._id) {
+      setIsCartOpen(true);
+      return;
+    }
+
+    setShowCartLoginModal(true);
   };
 
   return (
@@ -62,7 +69,7 @@ function AppLayout() {
         onClose={() => setShowCartLoginModal(false)}
         onLogin={() => {
           setShowCartLoginModal(false);
-          navigate("/login");
+          navigate("/login?redirect=/cart");
         }}
         onContinueShopping={() => setShowCartLoginModal(false)}
       />
