@@ -357,38 +357,56 @@ className={`rounded-2xl border-2 px-4 py-3 text-left transition ${selectedVarian
 </div>
 </div>
 
-<div className="rounded-[2rem] border-2 border-[#E6DCCB] bg-white p-5 sm:p-7 shadow-sm">
-<p className="text-xs font-bold uppercase tracking-[0.24em] text-[#D97736]">Customer Reviews</p>
-<div className="mt-4 flex flex-col gap-6 lg:flex-row lg:items-center">
-<div className="flex items-center gap-4">
-<div className="text-5xl font-bold text-[#3E2723]">{averageRating.toFixed(1)}</div>
-<div>
-<div className="flex items-center gap-1 text-[#D97736]">
-{Array.from({ length: 5 }).map((_, index) => (
-<Star key={index} className="h-4 w-4 fill-current" />
-))}
-</div>
-<p className="mt-2 text-sm text-[#6B5B52]">11 verified reviews</p>
-</div>
-</div>
-<div className="flex-1 space-y-2">
-{reviewBars.map((row) => (
-<div key={row.rating} className="flex items-center gap-3 text-sm text-[#6B5B52]">
-<span className="w-6">{row.rating}</span>
-<div className="h-2 flex-1 overflow-hidden rounded-full bg-[#EEE5D7]">
-<div className="h-full rounded-full bg-[#D97736]" style={{ width: `${row.count === 0 ? 0 : 100}%` }} />
-</div>
-<span className="w-8 text-right">{row.count}</span>
-</div>
-))}
-</div>
-</div>
-<div className="mt-6 rounded-2xl bg-[#FAF7F2] p-4 text-sm text-[#6B5B52]">
-<button onClick={() => setIsReviewModalOpen(true)} className="font-semibold text-[#D97736] hover:underline">
-Write a review
-</button>
-<span> and help other shoppers choose confidently.</span>
-</div>
+
+<div className="rounded-[2rem] border-2 border-[#E6DCCB] bg-white p-5 sm:p-7 shadow-sm mb-8">
+	<p className="text-xs font-bold uppercase tracking-[0.24em] text-[#D97736]">Customer Reviews</p>
+	<div className="mt-4 flex flex-col gap-6 lg:flex-row lg:items-center">
+		<div className="flex items-center gap-4">
+			<div className="text-5xl font-bold text-[#3E2723]">{averageRating.toFixed(1)}</div>
+			<div>
+				<div className="flex items-center gap-1 text-[#D97736]">
+					{Array.from({ length: 5 }).map((_, index) => (
+						<Star key={index} className="h-4 w-4 fill-current" />
+					))}
+				</div>
+				<p className="mt-2 text-sm text-[#6B5B52]">11 verified reviews</p>
+			</div>
+		</div>
+		<div className="flex-1 space-y-2">
+			{reviewBars.map((row) => (
+				<div key={row.rating} className="flex items-center gap-3 text-sm text-[#6B5B52]">
+					<span className="w-6">{row.rating}</span>
+					<div className="h-2 flex-1 overflow-hidden rounded-full bg-[#EEE5D7]">
+						<div className="h-full rounded-full bg-[#D97736]" style={{ width: `${row.count === 0 ? 0 : 100}%` }} />
+					</div>
+					<span className="w-8 text-right">{row.count}</span>
+				</div>
+			))}
+		</div>
+	</div>
+	<div className="mt-6 rounded-2xl bg-[#FAF7F2] p-4 text-sm text-[#6B5B52]">
+		<button onClick={() => setIsReviewModalOpen(true)} className="font-semibold text-[#D97736] hover:underline">
+			Write a review
+		</button>
+		<span> and help other shoppers choose confidently.</span>
+	</div>
+	{/* User Reviews List */}
+	{Array.isArray(product?.reviews) && product.reviews.length > 0 && (
+		<div className="mt-8">
+			<h3 className="font-heading text-xl font-bold mb-4 text-[#3E2723]">What users are saying</h3>
+			<div className="space-y-4">
+				{product.reviews.map((review, idx) => (
+					<div key={idx} className="rounded-xl border border-[#E9E0D2] bg-[#FCFAF7] p-4">
+						<div className="flex items-center gap-2 mb-1">
+							<span className="font-semibold text-[#D97736]">{review.user_name || 'Anonymous'}</span>
+							<span className="text-xs text-[#6B5B52]">{review.rating}★</span>
+						</div>
+						<div className="text-[#3E2723]">{review.comment}</div>
+					</div>
+				))}
+			</div>
+		</div>
+	)}
 </div>
 
 <section className="rounded-[2rem] border-2 border-[#E6DCCB] bg-white p-5 sm:p-7 shadow-sm">
