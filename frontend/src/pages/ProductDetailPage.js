@@ -415,8 +415,8 @@ className={`rounded-2xl border-2 px-4 py-3 text-left transition ${selectedVarian
 
 <div className="mt-8 lg:mt-10 hidden md:block">
 <div className="rounded-2xl border border-[#E3DBCE] bg-[#FCFAF7] p-4 lg:p-5">
-<div className="flex flex-col gap-4 lg:flex-row lg:items-center">
-<div className="flex h-12 w-full items-center justify-between rounded-xl border-2 border-[#8B2C6D] px-3 text-[#5D5D5D] lg:w-[132px]">
+<div className="flex flex-col gap-4 lg:grid lg:grid-cols-[104px_minmax(0,1fr)] lg:items-center lg:gap-3">
+<div className="flex h-12 w-full items-center justify-between rounded-xl border-2 border-[#8B2C6D] px-3 text-[#5D5D5D] lg:w-full">
 <button onClick={() => setQuantity(Math.max(1, quantity - 1))} aria-label="Decrease quantity">
 <Minus className="h-4 w-4" />
 </button>
@@ -425,11 +425,11 @@ className={`rounded-2xl border-2 px-4 py-3 text-left transition ${selectedVarian
 <Plus className="h-4 w-4" />
 </button>
 </div>
-<div className="grid w-full grid-cols-2 gap-3">
-<Button onClick={addToCart} className="h-12 rounded-xl bg-[#111111] font-semibold text-white hover:bg-[#2A2A2A] lg:text-sm">
+<div className="grid w-full grid-cols-2 gap-3 lg:flex-1">
+<Button onClick={addToCart} className="h-12 rounded-xl bg-[#111111] font-semibold text-white hover:bg-[#2A2A2A] lg:text-xs">
 ADD TO CART
 </Button>
-<Button onClick={buyNow} className="h-12 rounded-xl bg-[#D97736] font-semibold text-white hover:bg-[#C96626] lg:text-sm">
+<Button onClick={buyNow} className="h-12 rounded-xl bg-[#D97736] font-semibold text-white hover:bg-[#C96626] lg:text-xs">
 BUY IT NOW
 </Button>
 </div>
