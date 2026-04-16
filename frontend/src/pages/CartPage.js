@@ -200,9 +200,9 @@ const CartPage = () => {
 					<>
 					<div className="grid gap-6 lg:grid-cols-[1.85fr_0.8fr]">
 						<div className="space-y-4">
-							{cart.items.map((item) => (
-								<div key={item.product.id} className="rounded-[1.75rem] border-2 border-[#E6DCCB] bg-white p-4 sm:p-5 shadow-sm">
-									<div className="grid grid-cols-1 gap-4 sm:grid-cols-[112px_1fr] lg:grid-cols-[132px_1fr_190px_140px] lg:items-start">
+							{cart.items.map((item, index) => (
+								<div key={`${item.product.id}-${item.variant}-${index}`} className="rounded-[1.75rem] border-2 border-[#E6DCCB] bg-white p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
+									<div className="grid grid-cols-1 gap-4 sm:grid-cols-[112px_1fr] lg:grid-cols-[132px_1fr_190px_120px_160px] lg:items-start">
 										<Link to={`/product/${item.product.id}`} className="shrink-0">
 											<img
 												src={item.product.images?.[0]}
@@ -212,35 +212,37 @@ const CartPage = () => {
 										</Link>
 
 										<div className="min-w-0">
-											<Link to={`/product/${item.product.id}`} className="font-heading text-2xl text-[#3E2723] hover:text-[#D97736] transition-colors line-clamp-2">
+											<Link to={`/product/${item.product.id}`} className="font-heading text-2xl font-bold text-[#3E2723] hover:text-[#D97736] transition-colors line-clamp-2">
 												{item.product.name}
 											</Link>
 											<p className="mt-1 text-2xl text-[#3E2723]">{formatPrice(item.product.price)}</p>
 											<p className="mt-2 text-xl text-[#5D4037]">{item.variant ? `Size: ${item.variant}` : `Size: ${item.product.category || "Standard"}`}</p>
 										</div>
 
-										<div className="flex items-center gap-4 lg:justify-center">
-											<div className="flex items-center gap-4 rounded-xl border border-[#7A7A7A] px-3 py-2 text-[#1E1E1E]">
-												<button onClick={() => updateQuantity(item.product.id, item.quantity - 1)} className="p-1" aria-label="Decrease quantity">
-													<Minus className="h-5 w-5" />
-												</button>
-												<span className="w-7 text-center text-3xl font-medium leading-none">{item.quantity}</span>
-												<button onClick={() => updateQuantity(item.product.id, item.quantity + 1)} className="p-1" aria-label="Increase quantity">
-													<Plus className="h-5 w-5" />
-												</button>
-											</div>
-											<button
-												onClick={() => removeItem(item.product.id)}
-												className="p-2 text-[#4B4B4B] hover:text-[#B2443E]"
-												aria-label="Remove item"
-											>
-												<Trash2 className="h-4 w-4" />
+										<div className="flex items-center gap-2 rounded-xl border border-[#7A7A7A] px-3 py-2 text-[#1E1E1E] justify-center">
+											<button onClick={() => updateQuantity(item.product.id, item.quantity - 1)} className="p-1" aria-label="Decrease quantity">
+												<Minus className="h-5 w-5" />
+											</button>
+											<span className="w-7 text-center text-3xl font-medium leading-none">{item.quantity}</span>
+											<button onClick={() => updateQuantity(item.product.id, item.quantity + 1)} className="p-1" aria-label="Increase quantity">
+												<Plus className="h-5 w-5" />
 											</button>
 										</div>
 
 										<div className="text-left lg:text-right">
 											<p className="text-4xl font-medium text-[#111111]">{formatPrice(item.product.price * item.quantity)}</p>
 											<p className="mt-1 text-xl text-[#5D4037]">{formatPrice(item.product.price)} each</p>
+										</div>
+
+										<div className="flex items-center justify-center lg:justify-end">
+											<button
+												onClick={() => removeItem(item.product.id)}
+												className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-white bg-[#B2443E] hover:bg-[#A03935] transition-colors font-medium"
+												aria-label="Remove item"
+											>
+												<Trash2 className="h-5 w-5" />
+												<span className="hidden sm:inline">Delete</span>
+											</button>
 										</div>
 									</div>
 								</div>
@@ -284,7 +286,7 @@ const CartPage = () => {
 									<Link key={product.id} to={`/product/${product.id}`} className="group flex gap-4 rounded-2xl border border-[#E9E0D2] p-3 transition hover:border-[#D97736] hover:bg-[#FCFAF7]">
 										<img src={product.images?.[0]} alt={product.name} className="h-20 w-20 rounded-xl object-cover" />
 										<div className="min-w-0 flex-1">
-											<h3 className="font-semibold text-[#3E2723] line-clamp-2 group-hover:text-[#D97736]">{product.name}</h3>
+											<h3 className="font-heading text-lg font-bold text-[#3E2723] line-clamp-2 group-hover:text-[#D97736]">{product.name}</h3>
 											<p className="mt-1 text-sm text-[#6B5B52] line-clamp-2">{product.description}</p>
 											<div className="mt-2 flex items-center justify-between text-sm">
 												<span className="font-semibold text-[#D97736]">{formatPrice(product.price)}</span>
@@ -318,7 +320,7 @@ const CartPage = () => {
 									<div key={`review-${item.product.id}`} className="rounded-2xl border border-[#E8DECF] p-5">
 										<div className="flex items-start justify-between gap-4">
 											<div>
-												<h3 className="font-heading text-2xl text-[#3E2723]">{item.product.name}</h3>
+												<h3 className="font-heading text-2xl font-bold text-[#3E2723]">{item.product.name}</h3>
 												<p className="text-sm text-[#6B5B52] mt-1">Current rating: {item.product.rating || 0} / 5</p>
 											</div>
 										</div>

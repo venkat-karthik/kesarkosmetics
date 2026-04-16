@@ -336,8 +336,9 @@ async function sendOrderNotificationEmail(order, subject, html, text) {
   if (!email) return;
   try {
     await sendEmail(email, subject, text, html);
+    console.log(`[order-email:success] Sent to ${email}: ${subject}`);
   } catch (error) {
-    console.error("Failed to send order email:", error);
+    console.error(`[order-email:error] Failed to send to ${email}:`, error.message);
   }
 }
 
@@ -350,18 +351,25 @@ async function sendEmail(to, subject, text, html) {
 
   if (!host || !user || !pass) {
     console.log(`[email:fallback] to=${to} subject=${subject}`);
+    console.warn(`[SMTP Config Missing] Host: ${!host}, User: ${!user}, Pass: ${!pass}`);
     return { delivered: false };
   }
 
-  const transporter = nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465,
-    auth: { user, pass },
-  });
+  try {
+    const transporter = nodemailer.createTransport({
+      host,
+      port,
+      secure: port === 465,
+      auth: { user, pass },
+    });
 
-  await transporter.sendMail({ from, to, subject, text, html });
-  return { delivered: true };
+    await transporter.sendMail({ from, to, subject, text, html });
+    console.log(`[email:success] Email sent to ${to} - ${subject}`);
+    return { delivered: true };
+  } catch (err) {
+    console.error(`[email:error] Failed to send email to ${to}:`, err.message);
+    throw err;
+  }
 }
 
 function buildOrderSummary(order) {
@@ -453,25 +461,32 @@ async function sendResetCodeEmail(email, code) {
 
   if (!host || !user || !pass) {
     console.log(`[reset-code:fallback] ${email} -> ${code}`);
+    console.warn(`[SMTP Config Missing] Host: ${!host}, User: ${!user}, Pass: ${!pass}`);
     return { delivered: false };
   }
 
-  const transporter = nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465,
-    auth: { user, pass },
-  });
+  try {
+    const transporter = nodemailer.createTransport({
+      host,
+      port,
+      secure: port === 465,
+      auth: { user, pass },
+    });
 
-  await transporter.sendMail({
-    from,
-    to: email,
-    subject: "Your Kesar Kosmetics password reset code",
-    text: `Use this verification code to reset your password: ${code}. This code expires in 10 minutes.`,
-    html: `<div style="font-family: Arial, sans-serif; line-height: 1.6; color: #3E2723;"><h2>Password Reset Code</h2><p>Use this verification code to reset your password:</p><p style="font-size: 28px; font-weight: bold; letter-spacing: 3px; color: #D97736;">${code}</p><p>This code expires in 10 minutes.</p><p>If you did not request this, you can ignore this email.</p></div>`,
-  });
+    await transporter.sendMail({
+      from,
+      to: email,
+      subject: "Your Kesar Kosmetics password reset code",
+      text: `Use this verification code to reset your password: ${code}. This code expires in 10 minutes.`,
+      html: `<div style="font-family: Arial, sans-serif; line-height: 1.6; color: #3E2723;"><h2>Password Reset Code</h2><p>Use this verification code to reset your password:</p><p style="font-size: 28px; font-weight: bold; letter-spacing: 3px; color: #D97736;">${code}</p><p>This code expires in 10 minutes.</p><p>If you did not request this, you can ignore this email.</p></div>`,
+    });
 
-  return { delivered: true };
+    console.log(`[reset-code:success] Email sent to ${email}`);
+    return { delivered: true };
+  } catch (err) {
+    console.error(`[reset-code:error] Failed to send email to ${email}:`, err.message);
+    throw err;
+  }
 }
 
 async function sendVerificationEmail(email, code) {
@@ -483,25 +498,32 @@ async function sendVerificationEmail(email, code) {
 
   if (!host || !user || !pass) {
     console.log(`[email-verify:fallback] ${email} -> ${code}`);
+    console.warn(`[SMTP Config Missing] Host: ${!host}, User: ${!user}, Pass: ${!pass}`);
     return { delivered: false };
   }
 
-  const transporter = nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465,
-    auth: { user, pass },
-  });
+  try {
+    const transporter = nodemailer.createTransport({
+      host,
+      port,
+      secure: port === 465,
+      auth: { user, pass },
+    });
 
-  await transporter.sendMail({
-    from,
-    to: email,
-    subject: "Verify your Kesar Kosmetics email",
-    text: `Use this verification code to activate your account: ${code}. This code expires in 10 minutes.`,
-    html: `<div style="font-family: Arial, sans-serif; line-height: 1.6; color: #3E2723;"><h2>Email Verification Code</h2><p>Use this verification code to activate your account:</p><p style="font-size: 28px; font-weight: bold; letter-spacing: 3px; color: #D97736;">${code}</p><p>This code expires in 10 minutes.</p></div>`,
-  });
+    await transporter.sendMail({
+      from,
+      to: email,
+      subject: "Verify your Kesar Kosmetics email",
+      text: `Use this verification code to activate your account: ${code}. This code expires in 10 minutes.`,
+      html: `<div style="font-family: Arial, sans-serif; line-height: 1.6; color: #3E2723;"><h2>Email Verification Code</h2><p>Use this verification code to activate your account:</p><p style="font-size: 28px; font-weight: bold; letter-spacing: 3px; color: #D97736;">${code}</p><p>This code expires in 10 minutes.</p></div>`,
+    });
 
-  return { delivered: true };
+    console.log(`[email-verify:success] Verification email sent to ${email}`);
+    return { delivered: true };
+  } catch (err) {
+    console.error(`[email-verify:error] Failed to send verification email to ${email}:`, err.message);
+    throw err;
+  }
 }
 
 function buildTrackingSteps(status) {
@@ -802,10 +824,13 @@ app.post("/api/auth/forgot-password/send-code", async (req, res) => {
   });
 
   try {
-    await sendResetCodeEmail(safeEmail, code);
+    const emailResult = await sendResetCodeEmail(safeEmail, code);
+    if (!emailResult.delivered) {
+      console.warn(`[forgot-password] Email not delivered for ${safeEmail}, but code stored`);
+    }
   } catch (err) {
-    console.error("Failed to send reset code email:", err);
-    return res.status(500).json({ detail: "Failed to send verification code" });
+    console.error("Failed to send reset code email:", err.message);
+    return res.status(500).json({ detail: "Failed to send verification code. Please check your email configuration or try again later." });
   }
 
   return res.json({ message: "If this email is registered, a verification code has been sent." });

@@ -135,7 +135,19 @@ const LoginPage = () => {
 				<div className="bg-white p-8 rounded-3xl shadow-lg border border-[#E0D8C8]">
 					{!isForgotMode ? (
 						<>
-							<h2 className="font-heading text-2xl font-semibold text-[#3E2723] mb-6">Login</h2>
+							<div className="flex items-center gap-3 mb-6">
+								<button
+									type="button"
+									onClick={() => navigate("/")}
+									className="text-[#D97736] hover:text-[#C96626] transition-colors"
+									title="Go back"
+								>
+									<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+									</svg>
+								</button>
+								<h2 className="font-heading text-2xl font-semibold text-[#3E2723]">Login</h2>
+							</div>
 							{error && <p className="text-red-600 mb-4">{error}</p>}
 							<form onSubmit={submit} className="space-y-4">
 								<div>
@@ -182,7 +194,19 @@ const LoginPage = () => {
 						</>
 					) : (
 						<>
-							<h2 className="font-heading text-2xl font-semibold text-[#3E2723] mb-2">Forgot Password</h2>
+							<div className="flex items-center gap-3 mb-2">
+								<button
+									type="button"
+									onClick={switchToLogin}
+									className="text-[#D97736] hover:text-[#C96626] transition-colors"
+									title="Go back"
+								>
+									<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+									</svg>
+								</button>
+								<h2 className="font-heading text-2xl font-semibold text-[#3E2723]">Forgot Password</h2>
+							</div>
 							<p className="text-sm text-[#5D4037] mb-6">
 								{forgotStep === "email"
 									? "Enter your registered email and we will send a verification code."

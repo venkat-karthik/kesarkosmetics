@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { Star, ShoppingCart, Heart } from "lucide-react";
 import axios from "axios";
@@ -43,7 +43,11 @@ const HomePage = ({ setShakeCart, setTriggerCartRefresh }) => {
 	const [flyingWishlist, setFlyingWishlist] = useState({ active: false, start: null, end: null });
 	const [isAutoScrolling, setIsAutoScrolling] = useState(true);
 	const [selectedCircleProductId, setSelectedCircleProductId] = useState(null);
+	const [reviewStartIndex, setReviewStartIndex] = useState(0);
+	const [isReviewSectionVisible, setIsReviewSectionVisible] = useState(false);
 	const autoScrollTimeoutRef = useRef(null);
+	const reviewSectionRef = useRef(null);
+	const reviewSectionObserverRef = useRef(null);
 	const addToCartButtonRefs = useRef({});
 	const hoverIntervalsRef = useRef({});
 	const categoryHoverIntervalsRef = useRef({});
@@ -80,10 +84,12 @@ const HomePage = ({ setShakeCart, setTriggerCartRefresh }) => {
 			}
 		};
 		document.addEventListener("visibilitychange", handleVisibilityChange);
+		window.addEventListener("reviews:updated", fetchProducts);
 
 		return () => {
 			clearInterval(interval);
 			document.removeEventListener("visibilitychange", handleVisibilityChange);
+			window.removeEventListener("reviews:updated", fetchProducts);
 		};
 	}, [searchParams]);
 
@@ -390,6 +396,65 @@ const HomePage = ({ setShakeCart, setTriggerCartRefresh }) => {
 		})
 		.filter((item) => Boolean(item.id));
 
+	const featuredReviews = useMemo(() => {
+		return products
+			.flatMap((product) => {
+				const productId = product.id || product._id;
+				const reviews = Array.isArray(product.reviews) ? product.reviews : [];
+
+				return reviews.map((review, index) => ({
+					id: `${productId}-${index}`,
+					productId,
+					productName: product.name,
+					rating: Number(review.rating || 0),
+					comment: String(review.comment || "").trim(),
+					userName: review.user_name || "Anonymous",
+				}));
+			})
+			.filter((review) => review.rating > 0 && review.comment)
+			.slice(0, 12);
+	}, [products]);
+
+	const reviewWindow = useMemo(() => {
+		if (featuredReviews.length === 0) return [];
+		const visibleCount = Math.min(3, featuredReviews.length);
+		return Array.from({ length: visibleCount }, (_, index) => featuredReviews[(reviewStartIndex + index) % featuredReviews.length]);
+	}, [featuredReviews, reviewStartIndex]);
+
+	const handleReviewPrev = () => {
+		setReviewStartIndex((prev) => {
+			if (featuredReviews.length === 0) return 0;
+			return (prev - 1 + featuredReviews.length) % featuredReviews.length;
+		});
+	};
+
+	const handleReviewNext = () => {
+		setReviewStartIndex((prev) => {
+			if (featuredReviews.length === 0) return 0;
+			return (prev + 1) % featuredReviews.length;
+		});
+	};
+
+	useEffect(() => {
+		if (!reviewSectionRef.current) return undefined;
+
+		reviewSectionObserverRef.current?.disconnect?.();
+		reviewSectionObserverRef.current = new IntersectionObserver(
+			([entry]) => {
+				if (entry.isIntersecting) {
+					setIsReviewSectionVisible(true);
+				}
+			},
+			{ threshold: 0.22 }
+		);
+
+		reviewSectionObserverRef.current.observe(reviewSectionRef.current);
+
+		return () => {
+			reviewSectionObserverRef.current?.disconnect?.();
+		};
+	}, [featuredReviews.length]);
+
 	useEffect(() => {
 		if (heroCircleProducts.length === 0) {
 			setSelectedCircleProductId(null);
@@ -640,7 +705,7 @@ const HomePage = ({ setShakeCart, setTriggerCartRefresh }) => {
 
 									<div className="text-left">
 										<Link to={`/product/${productId}`}>
-											<h3 className="font-medium text-[#111111] mb-2 hover:text-[#111111] transition-colors">{product.name}</h3>
+											<h3 className="font-heading text-lg font-bold text-[#111111] mb-2 hover:text-[#111111] transition-colors">{product.name}</h3>
 										</Link>
 
 										<div className="flex items-center gap-2 mb-2">
@@ -680,6 +745,68 @@ const HomePage = ({ setShakeCart, setTriggerCartRefresh }) => {
 								</div>
 								);
 							})}
+						</div>
+					)}
+				</div>
+			</section>
+
+			<section ref={reviewSectionRef} id="customer-reviews" className="bg-white py-16 sm:py-20 lg:py-24 border-t border-[#E5E3DD]">
+				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+					<div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between mb-8 lg:mb-10">
+						<div>
+							<p className="text-xs font-bold uppercase tracking-[0.24em] text-[#D97736]">Customer Reviews</p>
+							<h2 className="mt-1 font-heading text-3xl sm:text-4xl text-[#3E2723]">Voices of Trust</h2>
+						</div>
+						<div className="flex items-center gap-2 self-start sm:self-auto">
+							<button
+								type="button"
+								onClick={handleReviewPrev}
+								aria-label="Previous reviews"
+								className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[#E0D8C8] bg-white text-[#8B2C6D] transition hover:border-[#D97736] hover:text-[#D97736]"
+							>
+								<ChevronLeft className="h-5 w-5" />
+							</button>
+							<button
+								type="button"
+								onClick={handleReviewNext}
+								aria-label="Next reviews"
+								className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[#E0D8C8] bg-white text-[#8B2C6D] transition hover:border-[#D97736] hover:text-[#D97736]"
+							>
+								<ChevronRight className="h-5 w-5" />
+							</button>
+						</div>
+					</div>
+
+					{featuredReviews.length === 0 ? (
+						<div className="rounded-[2rem] border border-dashed border-[#E0D8C8] bg-[#FAF7F2] p-8 text-center text-[#6B5B52]">
+							No customer reviews yet. Reviews will appear here as soon as shoppers submit them.
+						</div>
+					) : (
+						<div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
+							{reviewWindow.map((review, index) => (
+								<Link
+									key={review.id}
+									to={`/product/${review.productId}`}
+									className={`group rounded-[2rem] border-2 border-[#E6DCCB] bg-[#FCFAF7] p-6 sm:p-7 shadow-sm transition-all duration-700 ${isReviewSectionVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}
+									style={{ transitionDelay: `${index * 140}ms` }}
+								>
+									<div className="flex items-center justify-between gap-3">
+										<div>
+											<div className="flex items-center gap-1 text-[#D97736]">
+												{Array.from({ length: 5 }).map((_, starIndex) => (
+													<Star key={starIndex} className={`h-4 w-4 ${starIndex < review.rating ? "fill-current" : "text-[#E3D8C7]"}`} />
+												))}
+											</div>
+											<h3 className="mt-4 font-heading text-xl font-bold text-[#3E2723] group-hover:text-[#D97736]">
+												{review.userName}
+												<span className="ml-2 inline-flex items-center rounded-full bg-[#8B2C6D] px-2 py-0.5 text-xs font-medium text-white">Verified</span>
+											</h3>
+										</div>
+									</div>
+									<p className="mt-4 text-sm uppercase tracking-[0.18em] text-[#D97736]">{review.productName}</p>
+									<p className="mt-3 text-base leading-7 text-[#4B4038]">{review.comment}</p>
+								</Link>
+							))}
 						</div>
 					)}
 				</div>

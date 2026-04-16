@@ -242,12 +242,30 @@ return;
 navigate("/checkout");
 };
 
-const handleReviewSubmit = async () => {
+const handleReviewSubmit = async ({ rating, comment }) => {
 if (!user || !user._id) {
 toast.error("Please login to submit a review");
 return;
 }
-toast.success("Review submitted successfully!");
+
+try {
+	const { data } = await axios.post(
+		`${BACKEND_URL}/api/products/${id}/reviews`,
+		{ rating, comment },
+		{ withCredentials: true }
+	);
+
+	if (data?.product) {
+		setProduct(data.product);
+		setAllProducts((prev) => prev.map((item) => (getProductId(item) === getProductId(data.product) ? data.product : item)));
+	}
+
+	window.dispatchEvent(new Event("reviews:updated"));
+	toast.success("Review submitted successfully!");
+} catch (error) {
+	toast.error(error?.response?.data?.detail || "Failed to submit review");
+	throw error;
+}
 };
 
 if (loading) {
@@ -275,8 +293,8 @@ endPosition={flyingWishlist.end}
 Back
 </button>
 
-<div className="grid gap-6 md:gap-6 lg:gap-3 lg:grid-cols-[1.08fr_0.92fr]">
-<section className="space-y-4 lg:space-y-3">
+<div className="grid gap-6 md:gap-8 lg:gap-6 lg:grid-cols-[1.08fr_0.92fr]">
+<section className="space-y-4 lg:space-y-4">
 <div className="overflow-hidden rounded-2xl md:rounded-[2rem] bg-white shadow-sm ring-1 ring-[#E8DFD2]">
 <img
 src={images[selectedImage]}
@@ -319,8 +337,8 @@ aria-label="Next image"
 ) : null}
 </section>
 
-<section className="space-y-6 lg:space-y-2">
-<div className="rounded-[2rem] md:border-2 md:border-[#E6DCCB] md:bg-white p-0 md:p-6 lg:p-6 md:shadow-sm">
+<section className="space-y-6 lg:space-y-5">
+<div className="rounded-[2rem] md:border-2 md:border-[#E6DCCB] md:bg-white p-0 md:p-6 lg:p-7 md:shadow-sm">
 <div className="flex items-start justify-between gap-3">
 <p className="inline-block text-xs font-bold rounded-lg px-3 py-1 bg-[#E8E8E8] text-[#111111]">New Launch</p>
 <button
@@ -331,7 +349,7 @@ aria-label={isCurrentProductWishlisted ? "Remove from wishlist" : "Add to wishli
 <Heart className={`h-5 w-5 ${isCurrentProductWishlisted ? "fill-current" : ""}`} />
 </button>
 </div>
-<h1 className="mt-3 font-heading text-[42px] leading-[1.05] md:text-4xl text-[#1E1E1D]">{product.name}</h1>
+<h1 className="mt-3 font-heading text-[42px] font-bold leading-[1.05] md:text-4xl text-[#1E1E1D]">{product.name}</h1>
 <div className="mt-2 flex items-center gap-2 text-sm text-[#6B5B52]">
 <div className="flex items-center gap-1 text-[#111111]">
 {Array.from({ length: 5 }).map((_, index) => (
@@ -366,7 +384,7 @@ className={`rounded-2xl border-2 px-4 py-3 text-left transition ${selectedVarian
 </div>
 </div>
 
-<div className="mt-6 rounded-xl bg-[#CEE7CB] p-3">
+<div className="mt-8 lg:mt-10 rounded-xl bg-[#CEE7CB] p-3">
 <div className="flex items-center gap-3 text-[#1E1E1D]">
 <Check className="h-5 w-5 text-[#1D8B3A]" />
 <p className="text-sm font-medium">100 % Secure Payment Guarantee</p>
@@ -380,7 +398,7 @@ className={`rounded-2xl border-2 px-4 py-3 text-left transition ${selectedVarian
 </div>
 </div>
 
-<div className="mt-6 grid grid-cols-3 gap-3 text-center">
+<div className="mt-8 lg:mt-10 grid grid-cols-3 gap-3 text-center">
 <div className="rounded-xl bg-[#F7F4EF] p-3">
 <Truck className="h-6 w-6 text-[#8B2C6D] mx-auto" />
 <p className="mt-2 text-sm font-medium text-[#1E1E1D]">Free Shipping on Order Above <span className="font-heading tabular-nums">₹ 500</span></p>
@@ -395,8 +413,8 @@ className={`rounded-2xl border-2 px-4 py-3 text-left transition ${selectedVarian
 </div>
 </div>
 
-<div className="mt-6 hidden md:block">
-<div className="rounded-2xl border border-[#E3DBCE] bg-[#FCFAF7] p-4 lg:p-5">
+<div className="mt-8 lg:mt-10 hidden md:block">
+<div className="rounded-2xl border border-[#E3DBCE] bg-[#FCFAF7] p-4 lg:p-6">
 <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
 <div className="flex h-12 w-full items-center justify-between rounded-xl border-2 border-[#8B2C6D] px-3 text-[#5D5D5D] lg:w-[132px]">
 <button onClick={() => setQuantity(Math.max(1, quantity - 1))} aria-label="Decrease quantity">
@@ -419,7 +437,7 @@ BUY IT NOW
 </div>
 </div>
 
-	<div className="mt-2 rounded-2xl border border-[#E9E0D2] bg-[#FAF7F2] p-4 lg:p-5">
+	<div className="mt-6 lg:mt-8 rounded-2xl border border-[#E9E0D2] bg-[#FAF7F2] p-4 lg:p-6">
 	<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 		<div>
 			<p className="text-xs font-bold uppercase tracking-[0.24em] text-[#D97736]">Order Support</p>
@@ -437,7 +455,7 @@ BUY IT NOW
 </section>
 </div>
 
-<div className="mt-3 space-y-6 lg:mt-3 lg:space-y-3">
+<div className="mt-3 space-y-6 lg:mt-6 lg:space-y-5">
 <div className="rounded-[2rem] border-2 border-[#E6DCCB] bg-white p-5 sm:p-7 shadow-sm">
 <div className="flex items-center justify-between gap-4">
 <div>
@@ -513,7 +531,7 @@ Write a review
 							return (
 								<Link key={relatedProductId} to={`/product/${relatedProductId}`} className="group rounded-2xl border border-[#E9E0D2] bg-[#FCFAF7] p-3 transition hover:border-[#D97736]">
 									<img src={item.images?.[0]} alt={item.name} className="h-40 w-full rounded-xl object-cover" />
-									<h3 className="mt-3 line-clamp-2 font-semibold text-[#3E2723] group-hover:text-[#D97736]">{item.name}</h3>
+									<h3 className="mt-3 line-clamp-2 font-heading text-lg font-bold text-[#3E2723] group-hover:text-[#D97736]">{item.name}</h3>
 									<p className="mt-1 text-sm text-[#6B5B52]">{formatPrice(item.price)}</p>
 								</Link>
 							);
