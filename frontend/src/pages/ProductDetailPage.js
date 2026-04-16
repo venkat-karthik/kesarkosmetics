@@ -338,7 +338,7 @@ aria-label="Next image"
 </section>
 
 <section className="space-y-6 lg:space-y-5">
-<div className="rounded-[2rem] md:border-2 md:border-[#E6DCCB] md:bg-white p-0 md:p-6 lg:p-7 md:shadow-sm">
+<div className="rounded-[2rem] md:border-2 md:border-[#E6DCCB] md:bg-white p-0 md:p-6 lg:p-5 md:shadow-sm">
 <div className="flex items-start justify-between gap-3">
 <p className="inline-block text-xs font-bold rounded-lg px-3 py-1 bg-[#E8E8E8] text-[#111111]">New Launch</p>
 <button
@@ -349,7 +349,7 @@ aria-label={isCurrentProductWishlisted ? "Remove from wishlist" : "Add to wishli
 <Heart className={`h-5 w-5 ${isCurrentProductWishlisted ? "fill-current" : ""}`} />
 </button>
 </div>
-<h1 className="mt-3 font-heading text-[42px] font-bold leading-[1.05] md:text-4xl text-[#1E1E1D]">{product.name}</h1>
+<h1 className="mt-3 font-heading text-[42px] font-bold leading-[1.05] md:text-4xl lg:text-[30px] text-[#1E1E1D]">{product.name}</h1>
 <div className="mt-2 flex items-center gap-2 text-sm text-[#6B5B52]">
 <div className="flex items-center gap-1 text-[#111111]">
 {Array.from({ length: 5 }).map((_, index) => (
@@ -358,18 +358,18 @@ aria-label={isCurrentProductWishlisted ? "Remove from wishlist" : "Add to wishli
 </div>
 <span>{averageRating.toFixed(1)}</span>
 </div>
-<p className="mt-4 text-xl text-[#3E2723]">Your Everyday A2 Cow Ghee</p>
-<p className="mt-3 text-base leading-8 text-[#2D2D2C]">{product.description || "Authentic A2 ghee crafted with traditional care for your everyday cooking."}</p>
+<p className="mt-4 text-xl lg:text-[17px] text-[#3E2723]">Your Everyday A2 Cow Ghee</p>
+<p className="mt-3 text-base leading-8 lg:text-[15px] lg:leading-7 text-[#2D2D2C]">{product.description || "Authentic A2 ghee crafted with traditional care for your everyday cooking."}</p>
 
 <div className="mt-5 flex items-center gap-3">
-<p className="text-4xl font-semibold text-[#1E1E1D]">{formatPrice(product.price)}</p>
-<p className="text-2xl text-[#7F7F7E] line-through"><span className="font-heading tabular-nums">₹ 1,000</span></p>
-<span className="rounded-xl bg-[#111111] px-3 py-1 text-base font-semibold text-white">17% OFF</span>
+<p className="text-4xl lg:text-[32px] font-semibold text-[#1E1E1D]">{formatPrice(product.price)}</p>
+<p className="text-2xl lg:text-[18px] text-[#7F7F7E] line-through"><span className="font-heading tabular-nums">₹ 1,000</span></p>
+<span className="rounded-xl bg-[#111111] px-3 py-1 text-base lg:text-sm font-semibold text-white">17% OFF</span>
 </div>
-<p className="mt-2 text-sm text-[#4B4B4A]">( <span className="font-heading tabular-nums">₹ 1,000</span> MRP is inclusive of all taxes. )</p>
+<p className="mt-2 text-sm lg:text-xs text-[#4B4B4A]">( <span className="font-heading tabular-nums">₹ 1,000</span> MRP is inclusive of all taxes. )</p>
 
 <div className="mt-6">
-<p className="text-3xl font-semibold text-[#111111]">Size</p>
+<p className="text-3xl lg:text-2xl font-semibold text-[#111111]">Size</p>
 <div className="mt-3 grid grid-cols-2 gap-3 sm:max-w-[420px]">
 {variants.map((variant) => (
 <button
@@ -377,8 +377,8 @@ key={variant.name}
 onClick={() => setSelectedVariant(variant.name)}
 className={`rounded-2xl border-2 px-4 py-3 text-left transition ${selectedVariant === variant.name ? "border-[#111111] bg-[#111111] text-white" : "border-[#D0D0D0] bg-white"}`}
 >
-<div className="font-semibold text-3xl leading-none">{variant.name}</div>
-<div className="text-2xl leading-none mt-2">{formatPrice(variant.price || product.price)}</div>
+<div className="font-semibold text-3xl lg:text-2xl leading-none">{variant.name}</div>
+<div className="text-2xl lg:text-xl leading-none mt-2">{formatPrice(variant.price || product.price)}</div>
 </button>
 ))}
 </div>
@@ -387,34 +387,34 @@ className={`rounded-2xl border-2 px-4 py-3 text-left transition ${selectedVarian
 <div className="mt-8 lg:mt-10 rounded-xl bg-[#CEE7CB] p-3">
 <div className="flex items-center gap-3 text-[#1E1E1D]">
 <Check className="h-5 w-5 text-[#1D8B3A]" />
-<p className="text-sm font-medium">100 % Secure Payment Guarantee</p>
+<p className="text-sm lg:text-xs font-medium">100 % Secure Payment Guarantee</p>
 </div>
 <div className="mt-2 flex items-center gap-2 overflow-x-auto">
-<div className="rounded-md bg-white px-2 py-1 text-sm font-semibold text-[#6B5B52]">GPay</div>
-<div className="rounded-md bg-white px-2 py-1 text-sm font-semibold text-[#1B5FC9]">VISA</div>
-<div className="rounded-md bg-white px-2 py-1 text-sm font-semibold text-[#1B5FC9]">PayPal</div>
-<div className="rounded-md bg-white px-2 py-1 text-sm font-semibold text-[#C1483F]">Mastercard</div>
-<div className="rounded-md bg-white px-2 py-1 text-sm font-semibold text-[#111111]">Apple Pay</div>
+<div className="rounded-md bg-white px-2 py-1 text-sm lg:text-xs font-semibold text-[#6B5B52]">GPay</div>
+<div className="rounded-md bg-white px-2 py-1 text-sm lg:text-xs font-semibold text-[#1B5FC9]">VISA</div>
+<div className="rounded-md bg-white px-2 py-1 text-sm lg:text-xs font-semibold text-[#1B5FC9]">PayPal</div>
+<div className="rounded-md bg-white px-2 py-1 text-sm lg:text-xs font-semibold text-[#C1483F]">Mastercard</div>
+<div className="rounded-md bg-white px-2 py-1 text-sm lg:text-xs font-semibold text-[#111111]">Apple Pay</div>
 </div>
 </div>
 
 <div className="mt-8 lg:mt-10 grid grid-cols-3 gap-3 text-center">
-<div className="rounded-xl bg-[#F7F4EF] p-3">
+<div className="rounded-xl bg-[#F7F4EF] p-3 lg:p-2.5">
 <Truck className="h-6 w-6 text-[#8B2C6D] mx-auto" />
-<p className="mt-2 text-sm font-medium text-[#1E1E1D]">Free Shipping on Order Above <span className="font-heading tabular-nums">₹ 500</span></p>
+<p className="mt-2 text-sm lg:text-xs font-medium text-[#1E1E1D]">Free Shipping on Order Above <span className="font-heading tabular-nums">₹ 500</span></p>
 </div>
-<div className="rounded-xl bg-[#F7F4EF] p-3">
+<div className="rounded-xl bg-[#F7F4EF] p-3 lg:p-2.5">
 <Heart className="h-6 w-6 text-[#8B2C6D] mx-auto" />
-<p className="mt-2 text-sm font-medium text-[#1E1E1D]">Made with Traditional Bilona Method</p>
+<p className="mt-2 text-sm lg:text-xs font-medium text-[#1E1E1D]">Made with Traditional Bilona Method</p>
 </div>
-<div className="rounded-xl bg-[#F7F4EF] p-3">
+<div className="rounded-xl bg-[#F7F4EF] p-3 lg:p-2.5">
 <ShieldCheck className="h-6 w-6 text-[#8B2C6D] mx-auto" />
-<p className="mt-2 text-sm font-medium text-[#1E1E1D]">20+ Quality Check Pass</p>
+<p className="mt-2 text-sm lg:text-xs font-medium text-[#1E1E1D]">20+ Quality Check Pass</p>
 </div>
 </div>
 
 <div className="mt-8 lg:mt-10 hidden md:block">
-<div className="rounded-2xl border border-[#E3DBCE] bg-[#FCFAF7] p-4 lg:p-6">
+<div className="rounded-2xl border border-[#E3DBCE] bg-[#FCFAF7] p-4 lg:p-5">
 <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
 <div className="flex h-12 w-full items-center justify-between rounded-xl border-2 border-[#8B2C6D] px-3 text-[#5D5D5D] lg:w-[132px]">
 <button onClick={() => setQuantity(Math.max(1, quantity - 1))} aria-label="Decrease quantity">
@@ -426,10 +426,10 @@ className={`rounded-2xl border-2 px-4 py-3 text-left transition ${selectedVarian
 </button>
 </div>
 <div className="grid w-full grid-cols-2 gap-3">
-<Button onClick={addToCart} className="h-12 rounded-xl bg-[#111111] font-semibold text-white hover:bg-[#2A2A2A]">
+<Button onClick={addToCart} className="h-12 rounded-xl bg-[#111111] font-semibold text-white hover:bg-[#2A2A2A] lg:text-sm">
 ADD TO CART
 </Button>
-<Button onClick={buyNow} className="h-12 rounded-xl bg-[#D97736] font-semibold text-white hover:bg-[#C96626]">
+<Button onClick={buyNow} className="h-12 rounded-xl bg-[#D97736] font-semibold text-white hover:bg-[#C96626] lg:text-sm">
 BUY IT NOW
 </Button>
 </div>
@@ -440,10 +440,10 @@ BUY IT NOW
 	<div className="mt-6 lg:mt-8 rounded-2xl border border-[#E9E0D2] bg-[#FAF7F2] p-4 lg:p-6">
 	<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 		<div>
-			<p className="text-xs font-bold uppercase tracking-[0.24em] text-[#D97736]">Order Support</p>
-			<p className="mt-1 text-sm text-[#5D4037]">Already ordered? Open the tracking page from here.</p>
+			<p className="text-xs lg:text-[11px] font-bold uppercase tracking-[0.24em] text-[#D97736]">Order Support</p>
+			<p className="mt-1 text-sm lg:text-xs text-[#5D4037]">Already ordered? Open the tracking page from here.</p>
 		</div>
-		<Link to="/track-order" className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#111111] px-5 py-3 font-semibold text-white transition hover:bg-[#2A2A2A]">
+		<Link to="/track-order" className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#111111] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#2A2A2A] lg:px-4 lg:py-2.5 lg:text-xs">
 			View order
 			<ChevronRight className="h-4 w-4" />
 		</Link>
