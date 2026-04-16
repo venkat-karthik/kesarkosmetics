@@ -17,6 +17,7 @@ const RegisterPage = () => {
 	const [isVerifying, setIsVerifying] = useState(false);
 	const [isResending, setIsResending] = useState(false);
 	const [error, setError] = useState("");
+	const [fallbackCode, setFallbackCode] = useState("");
 	const { register, verifyRegistration, resendRegistrationCode } = useAuth();
 	const navigate = useNavigate();
 
@@ -43,7 +44,13 @@ const RegisterPage = () => {
 
 			setRegisteredEmail(safeEmail);
 			setIsVerificationStep(true);
-			toast.success("Verification code sent to your email");
+			setFallbackCode(result?.delivery_failed && result?.verification_code ? String(result.verification_code) : "");
+			if (result?.delivery_failed) {
+				setError(result?.detail || "Email delivery failed. Use the fallback verification code below.");
+				toast.error("Email delivery failed. Use fallback verification code.");
+			} else {
+				toast.success("Verification code sent to your email");
+			}
 		} catch (err) {
 			const errorMessage = err?.response?.data?.detail || err.message;
 			const isAlreadyVerified = err?.response?.data?.alreadyVerified;

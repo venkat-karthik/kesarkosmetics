@@ -47,6 +47,7 @@ const cookieSecure =
     ? process.env.COOKIE_SECURE.toLowerCase() === "true"
     : cookieSameSite === "none";
 const allowAuthFallbackWhenEmailFails = String(process.env.ALLOW_AUTH_FALLBACK_WHEN_EMAIL_FAILS || "false").toLowerCase() === "true";
+const exposeOtpOnEmailFailure = String(process.env.EXPOSE_OTP_ON_EMAIL_FAILURE || "true").toLowerCase() === "true";
 const authCookieOptions = {
   httpOnly: true,
   sameSite: cookieSameSite,
@@ -750,6 +751,17 @@ app.post("/api/auth/register", async (req, res) => {
             message: "Email service unavailable. Account verified automatically.",
           });
         }
+        if (exposeOtpOnEmailFailure) {
+          return res.status(200).json({
+            message: "Email delivery failed. Use the fallback verification code.",
+            email: safeEmail,
+            requires_verification: true,
+            isResend: true,
+            delivery_failed: true,
+            verification_code: code,
+            detail: getSmtpErrorDetail(err),
+          });
+        }
         return res.status(500).json({ detail: getSmtpErrorDetail(err) });
       }
       
@@ -796,6 +808,16 @@ app.post("/api/auth/register", async (req, res) => {
         ...publicUser(user),
         requires_verification: false,
         message: "Email service unavailable. Account verified automatically.",
+      });
+    }
+    if (exposeOtpOnEmailFailure) {
+      return res.status(201).json({
+        message: "Email delivery failed. Use the fallback verification code.",
+        email: safeEmail,
+        requires_verification: true,
+        delivery_failed: true,
+        verification_code: code,
+        detail: getSmtpErrorDetail(err),
       });
     }
     return res.status(500).json({ detail: getSmtpErrorDetail(err) });
@@ -857,6 +879,15 @@ app.post("/api/auth/register/resend-code", async (req, res) => {
     await sendVerificationEmail(safeEmail, code);
   } catch (err) {
     console.error("Failed to resend verification email:", err);
+    if (exposeOtpOnEmailFailure) {
+      return res.status(200).json({
+        message: "Email delivery failed. Use the fallback verification code.",
+        requires_verification: true,
+        delivery_failed: true,
+        verification_code: code,
+        detail: getSmtpErrorDetail(err),
+      });
+    }
     return res.status(500).json({ detail: getSmtpErrorDetail(err) });
   }
 
