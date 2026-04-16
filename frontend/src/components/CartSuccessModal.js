@@ -69,7 +69,7 @@ const CartSuccessModal = ({ isOpen, product, onClose, onViewCart, onContinueShop
 								className="w-20 h-20 object-cover rounded-lg"
 							/>
 							<div className="flex-1 min-w-0">
-								<h3 className="font-semibold text-[#3E2723] text-sm mb-1">{product.name}</h3>
+								<h3 className="font-heading text-lg sm:text-xl font-bold leading-[1.08] text-[#3E2723] mb-1">{product.name}</h3>
 								{product.size && (
 									<p className="text-xs text-[#5D4037] mb-2">
 										Size: <span className="font-semibold">{product.size}</span>

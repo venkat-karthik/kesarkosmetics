@@ -64,7 +64,7 @@ const SearchOverlay = ({ isOpen, onClose }) => {
 							>
 								<img src={product.images[0]} alt={product.name} className="w-16 h-16 object-cover rounded-xl" />
 								<div className="flex-1">
-									<h3 className="font-medium text-[#3E2723]">{product.name}</h3>
+									<h3 className="font-heading text-lg sm:text-xl font-bold leading-[1.08] text-[#3E2723]">{product.name}</h3>
 									<p className="text-sm text-[#5D4037]">{formatPrice(product.price)}</p>
 								</div>
 							</div>

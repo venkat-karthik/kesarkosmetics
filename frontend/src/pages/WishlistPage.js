@@ -63,7 +63,7 @@ const WishlistPage = () => {
 										/>
 									</div>
 								</Link>
-								<h2 className="mt-3 font-semibold text-[#111111] line-clamp-2">{product.name}</h2>
+								<h2 className="mt-3 font-heading text-2xl sm:text-3xl font-bold leading-[1.08] text-[#111111] line-clamp-2">{product.name}</h2>
 								<p className="mt-1 text-[#5D4037] font-medium">{formatPrice(product.price || 0)}</p>
 								<div className="mt-4 flex gap-2">
 									<Button

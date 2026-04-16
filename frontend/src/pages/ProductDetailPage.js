@@ -404,7 +404,7 @@ Write a review
 relatedProducts.map((item) => (
 <Link key={item.id} to={`/product/${item.id}`} className="group rounded-2xl border border-[#E9E0D2] bg-[#FCFAF7] p-3 transition hover:border-[#D97736]">
 <img src={item.images?.[0]} alt={item.name} className="h-40 w-full rounded-xl object-cover" />
-<h3 className="mt-3 line-clamp-2 font-semibold text-[#3E2723] group-hover:text-[#D97736]">{item.name}</h3>
+<h3 className="mt-3 line-clamp-2 font-heading text-xl sm:text-2xl font-bold leading-[1.08] text-[#3E2723] group-hover:text-[#D97736]">{item.name}</h3>
 <p className="mt-1 text-sm text-[#6B5B52]">{formatPrice(item.price)}</p>
 </Link>
 ))

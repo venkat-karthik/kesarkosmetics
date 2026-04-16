@@ -286,7 +286,7 @@ const CartPage = () => {
 									<Link key={product.id} to={`/product/${product.id}`} className="group flex gap-4 rounded-2xl border border-[#E9E0D2] p-3 transition hover:border-[#D97736] hover:bg-[#FCFAF7]">
 										<img src={product.images?.[0]} alt={product.name} className="h-20 w-20 rounded-xl object-cover" />
 										<div className="min-w-0 flex-1">
-											<h3 className="font-heading text-lg font-bold text-[#3E2723] line-clamp-2 group-hover:text-[#D97736]">{product.name}</h3>
+											<h3 className="font-heading text-xl sm:text-2xl font-bold leading-[1.08] text-[#3E2723] line-clamp-2 group-hover:text-[#D97736]">{product.name}</h3>
 											<p className="mt-1 text-sm text-[#6B5B52] line-clamp-2">{product.description}</p>
 											<div className="mt-2 flex items-center justify-between text-sm">
 												<span className="font-semibold text-[#D97736]">{formatPrice(product.price)}</span>

@@ -705,7 +705,7 @@ const HomePage = ({ setShakeCart, setTriggerCartRefresh }) => {
 
 									<div className="text-left">
 										<Link to={`/product/${productId}`}>
-											<h3 className="font-heading text-xl sm:text-2xl lg:text-[1.7rem] font-bold leading-[1.08] text-[#111111] mb-2 hover:text-[#111111] transition-colors">
+											<h3 className="font-heading text-2xl sm:text-3xl lg:text-[2rem] font-bold leading-[1.08] text-[#111111] mb-2 hover:text-[#111111] transition-colors">
 												{product.name}
 											</h3>
 										</Link>
@@ -713,16 +713,16 @@ const HomePage = ({ setShakeCart, setTriggerCartRefresh }) => {
 										<div className="flex items-center gap-2 mb-2 sm:mb-3">
 											<div className="flex items-center gap-1.5">
 												<Star className="w-[18px] h-[18px] sm:w-5 sm:h-5 fill-[#D97736] text-[#D97736]" />
-												<span className="text-base sm:text-lg font-bold text-[#5D4037]">{product.rating || 4.8}</span>
+												<span className="text-lg sm:text-xl font-bold text-[#5D4037]">{product.rating || 4.8}</span>
 											</div>
 										</div>
 
 										<div className="flex items-center gap-2 mb-4 sm:mb-5">
-											<span className="text-xl sm:text-2xl lg:text-[1.8rem] font-bold text-[#111111] leading-none">
+											<span className="text-2xl sm:text-3xl lg:text-[2rem] font-bold text-[#111111] leading-none">
 												{formatPrice(product.price)}
 											</span>
 											{product.oldPrice && (
-												<span className="text-base sm:text-lg lg:text-xl font-medium text-[#5D4037] line-through leading-none">
+												<span className="text-lg sm:text-xl lg:text-2xl font-semibold text-[#5D4037] line-through leading-none">
 													{formatPrice(product.oldPrice)}
 												</span>
 											)}

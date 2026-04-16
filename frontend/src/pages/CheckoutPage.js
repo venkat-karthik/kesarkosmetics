@@ -503,7 +503,7 @@ const CheckoutPage = () => {
 										<div className="grid grid-cols-[88px_1fr] gap-3 sm:grid-cols-[100px_1fr] lg:grid-cols-[100px_1fr_180px_140px] sm:items-center">
 											<img src={item.product.images[0]} alt={item.product.name} className="w-[88px] h-[88px] sm:w-[100px] sm:h-[100px] object-cover rounded-xl" />
 											<div className="min-w-0">
-												<p className="text-base sm:text-xl font-medium text-[#1E1E1E] line-clamp-2">{item.product.name}</p>
+												<p className="font-heading text-xl sm:text-2xl font-bold leading-[1.08] text-[#1E1E1E] line-clamp-2">{item.product.name}</p>
 												<p className="text-sm sm:text-base text-[#3E2723] mt-1">{formatPrice(item.product.price)}</p>
 												<p className="text-sm sm:text-base text-[#5D4037] mt-1">Sizes: {item.variant || "Standard"}</p>
 											</div>

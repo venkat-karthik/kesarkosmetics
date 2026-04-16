@@ -34,7 +34,7 @@ const LoginRequiredModal = ({ isOpen, product, onClose, onLogin, onContinueShopp
 								className="w-16 h-16 object-cover rounded-lg"
 							/>
 							<div className="flex-1">
-								<h3 className="font-semibold text-[#3E2723] text-sm mb-1">{product.name}</h3>
+								<h3 className="font-heading text-lg sm:text-xl font-bold leading-[1.08] text-[#3E2723] mb-1">{product.name}</h3>
 								{product.size && (
 									<p className="text-xs text-[#5D4037]">Size: {product.size}</p>
 								)}
