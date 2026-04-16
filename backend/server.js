@@ -46,6 +46,7 @@ const cookieSecure =
   typeof process.env.COOKIE_SECURE === "string"
     ? process.env.COOKIE_SECURE.toLowerCase() === "true"
     : cookieSameSite === "none";
+const allowAuthFallbackWhenEmailFails = String(process.env.ALLOW_AUTH_FALLBACK_WHEN_EMAIL_FAILS || "true").toLowerCase() === "true";
 const authCookieOptions = {
   httpOnly: true,
   sameSite: cookieSameSite,
@@ -711,6 +712,20 @@ app.post("/api/auth/register", async (req, res) => {
         await sendVerificationEmail(safeEmail, code);
       } catch (err) {
         console.error("Failed to resend verification email:", err);
+        if (allowAuthFallbackWhenEmailFails) {
+          existingUser.email_verified = true;
+          existingUser.email_verification_code_hash = null;
+          existingUser.email_verification_expires_at = null;
+          await saveUserToStore(existingUser);
+          const token = crypto.randomBytes(32).toString("hex");
+          sessions.set(token, { user: publicUser(existingUser), createdAt: Date.now() });
+          res.cookie("access_token", token, authCookieOptions);
+          return res.status(200).json({
+            ...publicUser(existingUser),
+            requires_verification: false,
+            message: "Email service unavailable. Account verified automatically.",
+          });
+        }
         return res.status(500).json({ detail: "Failed to send verification code" });
       }
       
@@ -743,6 +758,22 @@ app.post("/api/auth/register", async (req, res) => {
     await sendVerificationEmail(safeEmail, code);
   } catch (err) {
     console.error("Failed to send verification email:", err);
+    if (allowAuthFallbackWhenEmailFails) {
+      user.email_verified = true;
+      user.email_verification_code_hash = null;
+      user.email_verification_expires_at = null;
+      await saveUserToStore(user);
+
+      const token = crypto.randomBytes(32).toString("hex");
+      sessions.set(token, { user: publicUser(user), createdAt: Date.now() });
+      res.cookie("access_token", token, authCookieOptions);
+
+      return res.status(201).json({
+        ...publicUser(user),
+        requires_verification: false,
+        message: "Email service unavailable. Account verified automatically.",
+      });
+    }
     return res.status(500).json({ detail: "Failed to send verification code" });
   }
 
