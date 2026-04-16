@@ -358,6 +358,30 @@ className={`rounded-2xl border-2 px-4 py-3 text-left transition ${selectedVarian
 </div>
 
 
+
+<section className="rounded-[2rem] border-2 border-[#E6DCCB] bg-white p-5 sm:p-7 shadow-sm mb-8">
+	<div className="flex items-center justify-between gap-4">
+		<div>
+			<p className="text-xs font-bold uppercase tracking-[0.24em] text-[#D97736]">You May Also Like</p>
+			<h2 className="mt-1 font-heading text-2xl text-[#3E2723]">More from the collection</h2>
+		</div>
+		<Sparkles className="h-5 w-5 text-[#D97736]" />
+	</div>
+	<div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+		{relatedProducts.length > 0 ? (
+			relatedProducts.map((item) => (
+				<Link key={item.id} to={`/product/${item.id}`} className="group rounded-2xl border border-[#E9E0D2] bg-[#FCFAF7] p-3 transition hover:border-[#D97736]">
+					<img src={item.images?.[0]} alt={item.name} className="h-40 w-full rounded-xl object-cover" />
+					<h3 className="mt-3 line-clamp-2 font-heading text-xl sm:text-2xl font-bold leading-[1.08] text-[#3E2723] group-hover:text-[#D97736]">{item.name}</h3>
+					<p className="mt-1 text-sm text-[#6B5B52]">{formatPrice(item.price)}</p>
+				</Link>
+			))
+		) : (
+			<div className="rounded-2xl border border-dashed border-[#E0D8C8] bg-[#FAF7F2] p-6 text-sm text-[#6B5B52]">No additional products found.</div>
+		)}
+	</div>
+</section>
+
 <div className="rounded-[2rem] border-2 border-[#E6DCCB] bg-white p-5 sm:p-7 shadow-sm mb-8">
 	<p className="text-xs font-bold uppercase tracking-[0.24em] text-[#D97736]">Customer Reviews</p>
 	<div className="mt-4 flex flex-col gap-6 lg:flex-row lg:items-center">
