@@ -1,0 +1,5 @@
+[deploy]
+startCommand = "node server.js"
+
+[[providers]]
+name = "node"
