@@ -261,8 +261,8 @@ BUY IT NOW
 
 <section className="space-y-6 lg:space-y-4">
 <div className="rounded-[2rem] md:border-2 md:border-[#E6DCCB] md:bg-white p-0 md:p-6 lg:p-6 md:shadow-sm">
-<p className="inline-block text-xs font-bold rounded-lg px-3 py-1 bg-[#E8E8E8] text-[#111111]">New Launch</p>
-<h1 className="mt-3 font-heading text-[42px] leading-[1.05] md:text-4xl text-[#1E1E1D]">{product.name}</h1>
+<p className="inline-block text-sm font-bold rounded-lg px-3 py-1 bg-[#E8E8E8] text-[#111111]">New Launch</p>
+<h1 className="mt-3 font-heading text-[48px] font-bold leading-[1.02] md:text-5xl text-[#1E1E1D]">{product.name}</h1>
 <div className="mt-2 flex items-center gap-2 text-sm text-[#6B5B52]">
 <div className="flex items-center gap-1 text-[#111111]">
 {Array.from({ length: 5 }).map((_, index) => (
@@ -271,18 +271,18 @@ BUY IT NOW
 </div>
 <span>{averageRating.toFixed(1)}</span>
 </div>
-<p className="mt-4 text-xl text-[#3E2723]">Your Everyday A2 Cow Ghee</p>
-<p className="mt-3 text-base leading-8 text-[#2D2D2C]">{product.description || "Authentic A2 ghee crafted with traditional care for your everyday cooking."}</p>
+<p className="mt-4 text-2xl font-semibold text-[#3E2723]">Your Everyday A2 Cow Ghee</p>
+<p className="mt-3 text-lg font-medium leading-8 text-[#2D2D2C]">{product.description || "Authentic A2 ghee crafted with traditional care for your everyday cooking."}</p>
 
 <div className="mt-5 flex items-center gap-3">
-<p className="text-4xl font-semibold text-[#1E1E1D]">{formatPrice(product.price)}</p>
-<p className="text-2xl text-[#7F7F7E] line-through">₹ 1,000</p>
-<span className="rounded-xl bg-[#111111] px-3 py-1 text-base font-semibold text-white">17% OFF</span>
+<p className="text-5xl font-bold text-[#1E1E1D]">{formatPrice(product.price)}</p>
+<p className="text-3xl font-medium text-[#7F7F7E] line-through">₹ 1,000</p>
+<span className="rounded-xl bg-[#111111] px-3 py-1 text-lg font-bold text-white">17% OFF</span>
 </div>
-<p className="mt-2 text-sm text-[#4B4B4A]">( ₹ 1,000 MRP is inclusive of all taxes. )</p>
+<p className="mt-2 text-base font-medium text-[#4B4B4A]">( ₹ 1,000 MRP is inclusive of all taxes. )</p>
 
 <div className="mt-6">
-<p className="text-3xl font-semibold text-[#111111]">Size</p>
+<p className="text-4xl font-bold text-[#111111]">Size</p>
 <div className="mt-3 grid grid-cols-2 gap-3 sm:max-w-[420px]">
 {variants.map((variant) => (
 <button
@@ -290,8 +290,8 @@ key={variant.name}
 onClick={() => setSelectedVariant(variant.name)}
 className={`rounded-2xl border-2 px-4 py-3 text-left transition ${selectedVariant === variant.name ? "border-[#111111] bg-[#111111] text-white" : "border-[#D0D0D0] bg-white"}`}
 >
-<div className="font-semibold text-3xl leading-none">{variant.name}</div>
-<div className="text-2xl leading-none mt-2">{formatPrice(variant.price || product.price)}</div>
+<div className="font-bold text-[2rem] leading-none">{variant.name}</div>
+<div className="mt-2 text-2xl font-semibold leading-none">{formatPrice(variant.price || product.price)}</div>
 </button>
 ))}
 </div>
