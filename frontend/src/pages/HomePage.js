@@ -401,7 +401,6 @@ const HomePage = ({ setShakeCart, setTriggerCartRefresh }) => {
 			.flatMap((product) => {
 				const productId = product.id || product._id;
 				const reviews = Array.isArray(product.reviews) ? product.reviews : [];
-
 				return reviews.map((review, index) => ({
 					id: `${productId}-${index}`,
 					productId,
@@ -411,7 +410,7 @@ const HomePage = ({ setShakeCart, setTriggerCartRefresh }) => {
 					userName: review.user_name || "Anonymous",
 				}));
 			})
-			.filter((review) => review.rating > 0 && review.comment)
+			.filter((review) => (review.rating === 4 || review.rating === 5) && review.comment)
 			.slice(0, 12);
 	}, [products]);
 

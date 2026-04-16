@@ -169,12 +169,24 @@ return;
 navigate("/checkout");
 };
 
-const handleReviewSubmit = async () => {
-if (!user || !user._id) {
-toast.error("Please login to submit a review");
-return;
-}
-toast.success("Review submitted successfully!");
+const handleReviewSubmit = async ({ rating, comment, image }) => {
+	if (!user || !user._id) {
+		toast.error("Please login to submit a review");
+		return;
+	}
+	// Add the new review to the product state immediately
+	const newReview = {
+		rating,
+		comment,
+		user_name: user.name || user.email || "Anonymous",
+		image,
+	};
+	setProduct((prev) => ({
+		...prev,
+		reviews: Array.isArray(prev.reviews) ? [newReview, ...prev.reviews] : [newReview],
+	}));
+	toast.success("Review submitted successfully!");
+	// Optionally, send to backend here
 };
 
 if (loading) {
