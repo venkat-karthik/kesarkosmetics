@@ -293,9 +293,9 @@ endPosition={flyingWishlist.end}
 Back
 </button>
 
-<div className="grid gap-6 md:gap-8 lg:gap-6 lg:grid-cols-[1.08fr_0.92fr]">
-<section className="space-y-4 lg:space-y-4">
-<div className="overflow-hidden rounded-2xl md:rounded-[2rem] bg-white shadow-sm ring-1 ring-[#E8DFD2]">
+<div className="grid gap-6 md:gap-8 lg:gap-6 lg:grid-cols-[1.08fr_0.92fr] lg:items-stretch">
+<section className="space-y-4 lg:space-y-4 lg:h-full lg:rounded-[2rem] lg:border lg:border-[#E6DCCB] lg:bg-white lg:p-5 lg:shadow-sm">
+<div className="overflow-hidden rounded-2xl md:rounded-[2rem] bg-white shadow-sm ring-1 ring-[#E8DFD2] lg:shadow-none lg:ring-0">
 <img
 src={images[selectedImage]}
 alt={product.name}
