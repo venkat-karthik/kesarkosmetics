@@ -363,28 +363,69 @@ async function sendOrderNotificationEmail(order, subject, html, text) {
   }
 }
 
-async function sendEmail(to, subject, text, html) {
-  const host = process.env.SMTP_HOST;
-  const port = Number(process.env.SMTP_PORT || 587);
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS || process.env.SMTP_PASSWORD;
-  const from = process.env.SMTP_FROM || user || "no-reply@kesarkosmetics.com";
+function getSmtpConfig() {
+  const host =
+    process.env.SMTP_HOST ||
+    process.env.SMTP_SERVER ||
+    process.env.MAIL_HOST ||
+    process.env.EMAIL_HOST ||
+    "";
+  const port = Number(process.env.SMTP_PORT || process.env.MAIL_PORT || process.env.EMAIL_PORT || 587);
+  const user =
+    process.env.SMTP_USER ||
+    process.env.SMTP_USERNAME ||
+    process.env.MAIL_USER ||
+    process.env.MAIL_USERNAME ||
+    process.env.EMAIL_USER ||
+    "";
+  const pass =
+    process.env.SMTP_PASS ||
+    process.env.SMTP_PASSWORD ||
+    process.env.MAIL_PASS ||
+    process.env.MAIL_PASSWORD ||
+    process.env.EMAIL_PASS ||
+    process.env.EMAIL_PASSWORD ||
+    "";
+  const from = process.env.SMTP_FROM || process.env.MAIL_FROM || process.env.EMAIL_FROM || user || "no-reply@kesarkosmetics.com";
 
-  if (!host || !user || !pass) {
+  return {
+    host,
+    port,
+    user,
+    pass,
+    from,
+    secure: port === 465,
+    connectionTimeout: Number(process.env.SMTP_CONNECTION_TIMEOUT_MS || 10000),
+    greetingTimeout: Number(process.env.SMTP_GREETING_TIMEOUT_MS || 10000),
+    socketTimeout: Number(process.env.SMTP_SOCKET_TIMEOUT_MS || 15000),
+  };
+}
+
+function createSmtpTransporter(smtp) {
+  return nodemailer.createTransport({
+    host: smtp.host,
+    port: smtp.port,
+    secure: smtp.secure,
+    auth: { user: smtp.user, pass: smtp.pass },
+    connectionTimeout: smtp.connectionTimeout,
+    greetingTimeout: smtp.greetingTimeout,
+    socketTimeout: smtp.socketTimeout,
+  });
+}
+
+async function sendEmail(to, subject, text, html) {
+  const smtp = getSmtpConfig();
+
+  if (!smtp.host || !smtp.user || !smtp.pass) {
     console.log(`[email:fallback] to=${to} subject=${subject}`);
-    console.warn(`[SMTP Config Missing] Host: ${!host}, User: ${!user}, Pass: ${!pass}`);
+    console.warn(`[SMTP Config Missing] Host: ${!smtp.host}, User: ${!smtp.user}, Pass: ${!smtp.pass}`);
     return { delivered: false };
   }
 
   try {
-    const transporter = nodemailer.createTransport({
-      host,
-      port,
-      secure: port === 465,
-      auth: { user, pass },
-    });
+    const transporter = createSmtpTransporter(smtp);
 
-    await transporter.sendMail({ from, to, subject, text, html });
+    await transporter.sendMail({ from: smtp.from, to, subject, text, html });
     console.log(`[email:success] Email sent to ${to} - ${subject}`);
     return { delivered: true };
   } catch (err) {
@@ -474,28 +515,19 @@ function clearUserSessions(userId) {
 }
 
 async function sendResetCodeEmail(email, code) {
-  const host = process.env.SMTP_HOST;
-  const port = Number(process.env.SMTP_PORT || 587);
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS || process.env.SMTP_PASSWORD;
-  const from = process.env.SMTP_FROM || user || "no-reply@kesarkosmetics.com";
+  const smtp = getSmtpConfig();
 
-  if (!host || !user || !pass) {
+  if (!smtp.host || !smtp.user || !smtp.pass) {
     console.log(`[reset-code:fallback] ${email} -> ${code}`);
-    console.warn(`[SMTP Config Missing] Host: ${!host}, User: ${!user}, Pass: ${!pass}`);
+    console.warn(`[SMTP Config Missing] Host: ${!smtp.host}, User: ${!smtp.user}, Pass: ${!smtp.pass}`);
     return { delivered: false };
   }
 
   try {
-    const transporter = nodemailer.createTransport({
-      host,
-      port,
-      secure: port === 465,
-      auth: { user, pass },
-    });
+    const transporter = createSmtpTransporter(smtp);
 
     await transporter.sendMail({
-      from,
+      from: smtp.from,
       to: email,
       subject: "Your Kesar Kosmetics password reset code",
       text: `Use this verification code to reset your password: ${code}. This code expires in 10 minutes.`,
@@ -511,28 +543,19 @@ async function sendResetCodeEmail(email, code) {
 }
 
 async function sendVerificationEmail(email, code) {
-  const host = process.env.SMTP_HOST;
-  const port = Number(process.env.SMTP_PORT || 587);
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS || process.env.SMTP_PASSWORD;
-  const from = process.env.SMTP_FROM || user || "no-reply@kesarkosmetics.com";
+  const smtp = getSmtpConfig();
 
-  if (!host || !user || !pass) {
+  if (!smtp.host || !smtp.user || !smtp.pass) {
     console.log(`[email-verify:fallback] ${email} -> ${code}`);
-    console.warn(`[SMTP Config Missing] Host: ${!host}, User: ${!user}, Pass: ${!pass}`);
+    console.warn(`[SMTP Config Missing] Host: ${!smtp.host}, User: ${!smtp.user}, Pass: ${!smtp.pass}`);
     return { delivered: false };
   }
 
   try {
-    const transporter = nodemailer.createTransport({
-      host,
-      port,
-      secure: port === 465,
-      auth: { user, pass },
-    });
+    const transporter = createSmtpTransporter(smtp);
 
     await transporter.sendMail({
-      from,
+      from: smtp.from,
       to: email,
       subject: "Verify your Kesar Kosmetics email",
       text: `Use this verification code to activate your account: ${code}. This code expires in 10 minutes.`,
