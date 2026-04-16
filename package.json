@@ -6,9 +6,14 @@
     "start": "concurrently \"npm --prefix backend run start\" \"npm --prefix frontend run start\"",
     "start:backend": "npm --prefix backend run start",
     "start:frontend": "npm --prefix frontend run start",
-    "build:frontend": "npm --prefix frontend run build"
+    "build": "npm --prefix frontend run build",
+    "build:frontend": "npm --prefix frontend run build",
+    "start:web": "serve -s frontend/build -l $PORT"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"
+  },
+  "dependencies": {
+    "serve": "^14.2.6"
   }
 }
