@@ -346,107 +346,104 @@ className={`rounded-2xl border-2 px-4 py-3 text-left transition ${selectedVarian
 </div>
 
 <div className="mt-6 space-y-6 lg:mt-6 lg:space-y-5">
-<div className="rounded-[2rem] border-2 border-[#E6DCCB] bg-white p-5 sm:p-7 shadow-sm">
-<div className="flex items-center justify-between gap-4">
-<div>
-<p className="text-xs font-bold uppercase tracking-[0.24em] text-[#D97736]">Product Story</p>
-<h2 className="mt-1 font-heading text-2xl text-[#3E2723]">Why people keep coming back</h2>
-</div>
-<ChevronDown className="h-5 w-5 text-[#D97736]" />
-</div>
-<p className="mt-4 leading-7 text-[#6B5B52]">
-{product.description || `Nei Native's ${product.name} is designed to bring a warm, reliable experience into your everyday routine.`}
-</p>
-<div className="mt-5 grid gap-3 sm:grid-cols-3">
-{[
-{ label: "Aromatic", icon: Coffee },
-{ label: "Smooth", icon: Bean },
-{ label: "Trusted", icon: Heart },
-].map(({ label, icon: Icon }) => (
-<div key={label} className="flex items-center gap-3 rounded-2xl bg-[#FAF7F2] px-4 py-3 text-[#5D4037]">
-<Icon className="h-5 w-5 text-[#D97736]" />
-{label}
-</div>
-))}
-</div>
-</div>
-
-
-
-
-<div className="rounded-[2rem] border-2 border-[#E6DCCB] bg-white p-5 sm:p-7 shadow-sm mb-8">
-	<p className="text-xs font-bold uppercase tracking-[0.24em] text-[#D97736]">Customer Reviews</p>
-	<div className="mt-4 flex flex-col gap-6 lg:flex-row lg:items-center">
-		<div className="flex items-center gap-4">
-			<div className="text-5xl font-bold text-[#3E2723]">{averageRating.toFixed(1)}</div>
+	<div className="rounded-[2rem] border-2 border-[#E6DCCB] bg-white p-5 sm:p-7 shadow-sm">
+		<div className="flex items-center justify-between gap-4">
 			<div>
-				<div className="flex items-center gap-1 text-[#D97736]">
-					{Array.from({ length: 5 }).map((_, index) => (
-						<Star key={index} className="h-4 w-4 fill-current" />
-					))}
-				</div>
-				<p className="mt-2 text-sm text-[#6B5B52]">11 verified reviews</p>
+				<p className="text-xs font-bold uppercase tracking-[0.24em] text-[#D97736]">Product Story</p>
+				<h2 className="mt-1 font-heading text-2xl text-[#3E2723]">Why people keep coming back</h2>
 			</div>
+			<ChevronDown className="h-5 w-5 text-[#D97736]" />
 		</div>
-		<div className="flex-1 space-y-2">
-			{reviewBars.map((row) => (
-				<div key={row.rating} className="flex items-center gap-3 text-sm text-[#6B5B52]">
-					<span className="w-6">{row.rating}</span>
-					<div className="h-2 flex-1 overflow-hidden rounded-full bg-[#EEE5D7]">
-						<div className="h-full rounded-full bg-[#D97736]" style={{ width: `${row.count === 0 ? 0 : 100}%` }} />
-					</div>
-					<span className="w-8 text-right">{row.count}</span>
+		<p className="mt-4 leading-7 text-[#6B5B52]">
+			{product.description || `Nei Native's ${product.name} is designed to bring a warm, reliable experience into your everyday routine.`}
+		</p>
+		<div className="mt-5 grid gap-3 sm:grid-cols-3">
+			{[
+				{ label: "Aromatic", icon: Coffee },
+				{ label: "Smooth", icon: Bean },
+				{ label: "Trusted", icon: Heart },
+			].map(({ label, icon: Icon }) => (
+				<div key={label} className="flex items-center gap-3 rounded-2xl bg-[#FAF7F2] px-4 py-3 text-[#5D4037]">
+					<Icon className="h-5 w-5 text-[#D97736]" />
+					{label}
 				</div>
 			))}
 		</div>
 	</div>
-	<div className="mt-6 rounded-2xl bg-[#FAF7F2] p-4 text-sm text-[#6B5B52]">
-		<button onClick={() => setIsReviewModalOpen(true)} className="font-semibold text-[#D97736] hover:underline">
-			Write a review
-		</button>
-		<span> and help other shoppers choose confidently.</span>
-	</div>
-	{/* User Reviews List */}
-	{Array.isArray(product?.reviews) && product.reviews.length > 0 && (
-		<div className="mt-8">
-			<h3 className="font-heading text-xl font-bold mb-4 text-[#3E2723]">What users are saying</h3>
-			<div className="space-y-4">
-				{product.reviews.map((review, idx) => (
-					<div key={idx} className="rounded-xl border border-[#E9E0D2] bg-[#FCFAF7] p-4">
-						<div className="flex items-center gap-2 mb-1">
-							<span className="font-semibold text-[#D97736]">{review.user_name || 'Anonymous'}</span>
-							<span className="text-xs text-[#6B5B52]">{review.rating}★</span>
+
+	<section className="rounded-[2rem] border-2 border-[#E6DCCB] bg-white p-5 sm:p-7 shadow-sm">
+		<div className="flex items-center justify-between gap-4">
+			<div>
+				<p className="text-xs font-bold uppercase tracking-[0.24em] text-[#D97736]">You May Also Like</p>
+				<h2 className="mt-1 font-heading text-2xl text-[#3E2723]">More from the collection</h2>
+			</div>
+			<Sparkles className="h-5 w-5 text-[#D97736]" />
+		</div>
+		<div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+			{relatedProducts.length > 0 ? (
+				relatedProducts.map((item) => (
+					<Link key={item.id} to={`/product/${item.id}`} className="group rounded-2xl border border-[#E9E0D2] bg-[#FCFAF7] p-3 transition hover:border-[#D97736]">
+						<img src={item.images?.[0]} alt={item.name} className="h-40 w-full rounded-xl object-cover" />
+						<h3 className="mt-3 line-clamp-2 font-heading text-xl sm:text-2xl font-bold leading-[1.08] text-[#3E2723] group-hover:text-[#D97736]">{item.name}</h3>
+						<p className="mt-1 text-sm text-[#6B5B52]">{formatPrice(item.price)}</p>
+					</Link>
+				))
+			) : (
+				<div className="rounded-2xl border border-dashed border-[#E0D8C8] bg-[#FAF7F2] p-6 text-sm text-[#6B5B52]">No additional products found.</div>
+			)}
+		</div>
+	</section>
+
+	<div className="rounded-[2rem] border-2 border-[#E6DCCB] bg-white p-5 sm:p-7 shadow-sm mb-8">
+		<p className="text-xs font-bold uppercase tracking-[0.24em] text-[#D97736]">Customer Reviews</p>
+		<div className="mt-4 flex flex-col gap-6 lg:flex-row lg:items-center">
+			<div className="flex items-center gap-4">
+				<div className="text-5xl font-bold text-[#3E2723]">{averageRating.toFixed(1)}</div>
+				<div>
+					<div className="flex items-center gap-1 text-[#D97736]">
+						{Array.from({ length: 5 }).map((_, index) => (
+							<Star key={index} className="h-4 w-4 fill-current" />
+						))}
+					</div>
+					<p className="mt-2 text-sm text-[#6B5B52]">11 verified reviews</p>
+				</div>
+			</div>
+			<div className="flex-1 space-y-2">
+				{reviewBars.map((row) => (
+					<div key={row.rating} className="flex items-center gap-3 text-sm text-[#6B5B52]">
+						<span className="w-6">{row.rating}</span>
+						<div className="h-2 flex-1 overflow-hidden rounded-full bg-[#EEE5D7]">
+							<div className="h-full rounded-full bg-[#D97736]" style={{ width: `${row.count === 0 ? 0 : 100}%` }} />
 						</div>
-						<div className="text-[#3E2723]">{review.comment}</div>
+						<span className="w-8 text-right">{row.count}</span>
 					</div>
 				))}
 			</div>
 		</div>
-	)}
-</div>
-
-<section className="rounded-[2rem] border-2 border-[#E6DCCB] bg-white p-5 sm:p-7 shadow-sm">
-<div className="flex items-center justify-between gap-4">
-<div>
-<p className="text-xs font-bold uppercase tracking-[0.24em] text-[#D97736]">You May Also Like</p>
-<h2 className="mt-1 font-heading text-2xl text-[#3E2723]">More from the collection</h2>
-</div>
-<Sparkles className="h-5 w-5 text-[#D97736]" />
-</div>
-<div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-{relatedProducts.length > 0 ? (
-relatedProducts.map((item) => (
-<Link key={item.id} to={`/product/${item.id}`} className="group rounded-2xl border border-[#E9E0D2] bg-[#FCFAF7] p-3 transition hover:border-[#D97736]">
-<img src={item.images?.[0]} alt={item.name} className="h-40 w-full rounded-xl object-cover" />
-<h3 className="mt-3 line-clamp-2 font-heading text-xl sm:text-2xl font-bold leading-[1.08] text-[#3E2723] group-hover:text-[#D97736]">{item.name}</h3>
-<p className="mt-1 text-sm text-[#6B5B52]">{formatPrice(item.price)}</p>
-</Link>
-))
-) : (
-<div className="rounded-2xl border border-dashed border-[#E0D8C8] bg-[#FAF7F2] p-6 text-sm text-[#6B5B52]">No additional products found.</div>
-)}
-</div>
-</section>
+		<div className="mt-6 rounded-2xl bg-[#FAF7F2] p-4 text-sm text-[#6B5B52]">
+			<button onClick={() => setIsReviewModalOpen(true)} className="font-semibold text-[#D97736] hover:underline">
+				Write a review
+			</button>
+			<span> and help other shoppers choose confidently.</span>
+		</div>
+		{/* User Reviews List */}
+		{Array.isArray(product?.reviews) && product.reviews.length > 0 && (
+			<div className="mt-8">
+				<h3 className="font-heading text-xl font-bold mb-4 text-[#3E2723]">What users are saying</h3>
+				<div className="space-y-4">
+					{product.reviews.map((review, idx) => (
+						<div key={idx} className="rounded-xl border border-[#E9E0D2] bg-[#FCFAF7] p-4">
+							<div className="flex items-center gap-2 mb-1">
+								<span className="font-semibold text-[#D97736]">{review.user_name || 'Anonymous'}</span>
+								<span className="text-xs text-[#6B5B52]">{review.rating}★</span>
+							</div>
+							<div className="text-[#3E2723]">{review.comment}</div>
+						</div>
+					))}
+				</div>
+			</div>
+		)}
+	</div>
 </div>
 </div>
 

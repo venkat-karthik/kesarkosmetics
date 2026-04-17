@@ -16,6 +16,7 @@
     "concurrently": "^9.1.2"
   },
   "dependencies": {
+    "nodemailer": "^8.0.5",
     "serve": "^14.2.6"
   }
 }
