@@ -149,9 +149,9 @@ const products = [
     category: "Moisturizers",
     rating: 4.7,
     reviews: [
-      { user_name: "Priya", rating: 5, comment: "Super soft skin!" },
-      { user_name: "Rahul", rating: 4, comment: "Good for daily use.", image: "https://images.unsplash.com/photo-1465101046530-73398c7f28ca?w=200" },
-      { user_name: "Ayesha", rating: 5, comment: "Loved the sandalwood aroma." }
+      { user_name: "Meera", rating: 5, comment: "Skin feels hydrated all day!" },
+      { user_name: "Vikram", rating: 4, comment: "Gentle and effective.", image: "https://images.unsplash.com/photo-1465101046530-73398c7f28ca?w=200" },
+      { user_name: "Sonal", rating: 5, comment: "No irritation, just smoothness." }
     ],
     variants: [{ name: "50g" }, { name: "100g" }],
     badge: "NEW",
