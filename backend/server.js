@@ -1,61 +1,77 @@
 const express = require("express");
-const nodemailer = require("nodemailer");
-// --- EMAIL CONFIG ---
-// Brevo (Sendinblue) SMTP config
-const EMAIL_FROM = process.env.BREVO_EMAIL_FROM || process.env.EMAIL_FROM || "your@domain.com";
-const EMAIL_USER = process.env.BREVO_EMAIL_USER || process.env.BREVO_SMTP_USER || process.env.EMAIL_USER || "your@domain.com";
-const EMAIL_PASS = process.env.BREVO_EMAIL_PASS || process.env.BREVO_SMTP_PASS || process.env.EMAIL_PASS || "your-brevo-smtp-password";
-const EMAIL_HOST = process.env.BREVO_SMTP_HOST || "smtp-relay.brevo.com";
-const EMAIL_PORT = parseInt(process.env.BREVO_SMTP_PORT, 10) || 587;
-
-const transporter = nodemailer.createTransport({
-  host: EMAIL_HOST,
-  port: EMAIL_PORT,
-  secure: EMAIL_PORT === 465, // true for 465, false for other ports
-  auth: {
-    user: EMAIL_USER,
-    pass: EMAIL_PASS,
-  },
-});
-
-const emailVerifications = new Map(); // email -> { token, expires }
-const passwordResets = new Map(); // email -> { token, expires }
-
-function sendVerificationEmail(email, token) {
-  const url = `http://localhost:8001/api/auth/verify-email?token=${token}&email=${encodeURIComponent(email)}`;
-  return transporter.sendMail({
-    from: EMAIL_FROM,
-    to: email,
-    subject: "Verify your email",
-    html: `<p>Click <a href='${url}'>here</a> to verify your email.</p>`
-  });
-}
-
-function sendPasswordResetEmail(email, token) {
-  const url = `http://localhost:8001/api/auth/reset-password?token=${token}&email=${encodeURIComponent(email)}`;
-  return transporter.sendMail({
-    from: EMAIL_FROM,
-    to: email,
-    subject: "Reset your password",
-    html: `<p>Click <a href='${url}'>here</a> to reset your password.</p>`
-  });
-}
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const crypto = require("crypto");
+const fs = require("fs");
+const path = require("path");
 const bcrypt = require("bcryptjs");
+const nodemailer = require("nodemailer");
+const Razorpay = require("razorpay");
+const { createClient } = require("@supabase/supabase-js");
+require("dotenv").config();
 
 const app = express();
-const PORT = 8001;
+const PORT = Number(process.env.PORT || process.env.BACKEND_PORT || 8001);
+const isProduction = process.env.NODE_ENV === "production";
+const shouldServeFrontendBuild =
+  isProduction || String(process.env.SERVE_FRONTEND_BUILD || "").toLowerCase() === "true";
+const razKeyId = process.env.RAZORPAY_KEY_ID || "";
+const razKeySecret = process.env.RAZORPAY_KEY_SECRET || "";
+const razWebhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET || "";
+const supabaseUrl = process.env.SUPABASE_URL || process.env.REACT_APP_SUPABASE_URL || "";
+const supabaseServiceKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY || "";
+const supabase = supabaseUrl && supabaseServiceKey ? createClient(supabaseUrl, supabaseServiceKey) : null;
+const razorpay = razKeyId && razKeySecret ? new Razorpay({ key_id: razKeyId, key_secret: razKeySecret }) : null;
+const normalizeOrigin = (value) => {
+  const raw = String(value || "").trim();
+  if (!raw) return null;
+  if (/^https?:\/\//i.test(raw)) return raw;
+  return `https://${raw}`;
+};
+const corsOriginsFromEnv = String(process.env.CORS_ORIGINS || "")
+  .split(",")
+  .map((value) => normalizeOrigin(value))
+  .filter(Boolean);
+const allowedFrontendOrigins = new Set(
+  [
+    normalizeOrigin(process.env.FRONTEND_URL),
+    normalizeOrigin(process.env.VERCEL_URL),
+    normalizeOrigin(process.env.VERCEL_PROJECT_PRODUCTION_URL),
+    ...corsOriginsFromEnv,
+  ].filter(Boolean)
+);
+const cookieSameSite = (process.env.COOKIE_SAMESITE || (isProduction ? "none" : "lax")).toLowerCase();
+const cookieSecure =
+  typeof process.env.COOKIE_SECURE === "string"
+    ? process.env.COOKIE_SECURE.toLowerCase() === "true"
+    : cookieSameSite === "none";
+const allowAuthFallbackWhenEmailFails = String(process.env.ALLOW_AUTH_FALLBACK_WHEN_EMAIL_FAILS || "false").toLowerCase() === "true";
+const exposeOtpOnEmailFailure = String(process.env.EXPOSE_OTP_ON_EMAIL_FAILURE || "true").toLowerCase() === "true";
+const authCookieOptions = {
+  httpOnly: true,
+  sameSite: cookieSameSite,
+  secure: cookieSecure,
+  path: "/",
+};
+const frontendBuildPath = path.resolve(__dirname, "../frontend/build");
+const hasFrontendBuild = shouldServeFrontendBuild && fs.existsSync(path.join(frontendBuildPath, "index.html"));
 const isAllowedOrigin = (origin) => {
   if (!origin) return true;
+  if (allowedFrontendOrigins.has(origin)) return true;
   return (
+    /^https:\/\/.*\.vercel\.app$/.test(origin) ||
     /^http:\/\/localhost:\d+$/.test(origin) ||
     /^http:\/\/127\.0\.0\.1:\d+$/.test(origin)
   );
 };
 
-app.use(express.json({ limit: "200mb" }));
+app.use(express.json({
+  limit: "200mb",
+  verify: (req, res, buf) => {
+    req.rawBody = Buffer.from(buf || []);
+  },
+}));
 app.use(express.urlencoded({ extended: true, limit: "200mb" }));
 app.use(cookieParser());
 app.use(
@@ -68,11 +84,35 @@ app.use(
   })
 );
 
+app.get("/", (req, res) => {
+  if (hasFrontendBuild) {
+    return res.sendFile(path.join(frontendBuildPath, "index.html"));
+  }
+  return res.status(200).json({ status: "ok", service: "app-backend" });
+});
+
+if (hasFrontendBuild) {
+  app.use(express.static(frontendBuildPath));
+
+  app.get(/^\/(?!api\/).*/, (req, res, next) => {
+    if (req.path.startsWith("/api/")) {
+      return next();
+    }
+    return res.sendFile(path.join(frontendBuildPath, "index.html"));
+  });
+}
+
+app.get("/health", (req, res) => {
+  return res.status(200).json({ status: "ok" });
+});
+
 const users = new Map();
 const usersByEmail = new Map();
 const sessions = new Map();
 const carts = new Map();
 const orders = new Map();
+const passwordResetCodes = new Map();
+const emailVerificationCodes = new Map();
 
 const products = [
   {
@@ -123,9 +163,9 @@ async function seedAdmin() {
     phone: "+91 9999999999",
     password: hashedPassword,
     role: "admin",
+    email_verified: true,
   };
-  users.set(id, admin);
-  usersByEmail.set(email, id);
+  await saveUserToStore(admin);
 }
 
 function isTokenExpired(token) {
@@ -135,20 +175,325 @@ function isTokenExpired(token) {
   return Date.now() > expiryTime;
 }
 
-async function authUser(req) {
+function authUser(req) {
   const token = req.cookies.access_token;
   if (!token || !sessions.has(token)) return null;
   if (isTokenExpired(token)) {
     sessions.delete(token);
     return null;
   }
-  const userId = sessions.get(token).userId;
-  return users.get(userId) || null;
+  return sessions.get(token).user || null;
 }
 
 function publicUser(u) {
   const { password, ...rest } = u;
   return rest;
+}
+
+function normalizeUserRow(row) {
+  if (!row) return null;
+  return {
+    _id: row.id,
+    name: row.name,
+    email: String(row.email || "").toLowerCase(),
+    phone: row.phone || "",
+    password: row.password || "",
+    role: row.role || "customer",
+    email_verified: Boolean(row.email_verified),
+    email_verification_code_hash: row.email_verification_code_hash || null,
+    email_verification_expires_at: row.email_verification_expires_at || null,
+  };
+}
+
+function normalizeOrderRow(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    user_id: row.user_id,
+    items: Array.isArray(row.items) ? row.items : [],
+    shipping_address: row.shipping_address || {},
+    payment_method: row.payment_method || "cod",
+    total: Number(row.total || 0),
+    status: row.status || "pending",
+    contact_email: row.contact_email || "",
+    contact_registered_email: row.contact_registered_email || "",
+    contact_phone: row.contact_phone || "",
+    contact_registered_phone: row.contact_registered_phone || "",
+    payment_status: row.payment_status || "created",
+    razorpay_order_id: row.razorpay_order_id || null,
+    razorpay_payment_id: row.razorpay_payment_id || null,
+    razorpay_signature: row.razorpay_signature || null,
+    payment_gateway: row.payment_gateway || null,
+    currency: row.currency || "INR",
+    amount_paise: Number(row.amount_paise || 0),
+    created_at: row.created_at || new Date().toISOString(),
+  };
+}
+
+async function loadSupabaseState() {
+  if (!supabase) return;
+
+  const [usersResult, ordersResult] = await Promise.all([
+    supabase.from("users").select("*").order("created_at", { ascending: true }),
+    supabase.from("orders").select("*").order("created_at", { ascending: true }),
+  ]);
+
+  if (!usersResult.error && Array.isArray(usersResult.data)) {
+    users.clear();
+    usersByEmail.clear();
+    for (const row of usersResult.data) {
+      const user = normalizeUserRow(row);
+      if (!user) continue;
+      users.set(user._id, user);
+      usersByEmail.set(user.email, user._id);
+    }
+  }
+
+  if (!ordersResult.error && Array.isArray(ordersResult.data)) {
+    orders.clear();
+    for (const row of ordersResult.data) {
+      const order = normalizeOrderRow(row);
+      if (!order) continue;
+      orders.set(order.id, order);
+    }
+  }
+}
+
+async function saveUserToStore(user) {
+  users.set(user._id, user);
+  usersByEmail.set(String(user.email || "").toLowerCase(), user._id);
+
+  if (!supabase) return user;
+
+  const { error } = await supabase.from("users").upsert(
+    {
+      id: user._id,
+      name: user.name,
+      email: String(user.email || "").toLowerCase(),
+      phone: user.phone || "",
+      password: user.password,
+      role: user.role || "customer",
+      email_verified: Boolean(user.email_verified),
+      email_verification_code_hash: user.email_verification_code_hash || null,
+      email_verification_expires_at: user.email_verification_expires_at || null,
+      created_at: user.created_at || new Date().toISOString(),
+    },
+    { onConflict: "id" }
+  );
+
+  if (error) {
+    throw error;
+  }
+
+  return user;
+}
+
+async function saveOrderToStore(order) {
+  orders.set(order.id, order);
+
+  if (!supabase) return order;
+
+  const { error } = await supabase.from("orders").upsert(
+    {
+      id: order.id,
+      user_id: order.user_id,
+      items: order.items,
+      shipping_address: order.shipping_address,
+      payment_method: order.payment_method,
+      total: order.total,
+      status: order.status,
+      contact_email: order.contact_email,
+      contact_registered_email: order.contact_registered_email,
+      contact_phone: order.contact_phone,
+      contact_registered_phone: order.contact_registered_phone,
+      payment_status: order.payment_status || "created",
+      razorpay_order_id: order.razorpay_order_id || null,
+      razorpay_payment_id: order.razorpay_payment_id || null,
+      razorpay_signature: order.razorpay_signature || null,
+      payment_gateway: order.payment_gateway || null,
+      currency: order.currency || "INR",
+      amount_paise: Number(order.amount_paise || 0),
+      created_at: order.created_at,
+    },
+    { onConflict: "id" }
+  );
+
+  if (error) {
+    throw error;
+  }
+
+  return order;
+}
+
+async function updateOrderInStore(orderId, patch) {
+  const existing = orders.get(orderId);
+  if (!existing) return null;
+  const nextOrder = { ...existing, ...patch };
+  orders.set(orderId, nextOrder);
+
+  if (!supabase) return nextOrder;
+
+  const { error } = await supabase.from("orders").update(patch).eq("id", orderId);
+  if (error) {
+    throw error;
+  }
+
+  return nextOrder;
+}
+
+function getOrderByRazorpayOrderId(razorpayOrderId) {
+  for (const order of orders.values()) {
+    if (order.razorpay_order_id === razorpayOrderId) return order;
+  }
+  return null;
+}
+
+function verifyRazorpaySignature(rawBodyBuffer, signature) {
+  if (!razWebhookSecret || !rawBodyBuffer || !signature) return false;
+  const digest = crypto.createHmac("sha256", razWebhookSecret).update(rawBodyBuffer).digest("hex");
+  return digest === signature;
+}
+
+async function sendOrderNotificationEmail(order, subject, html, text) {
+  const email = order.contact_email || order.contact_registered_email;
+  if (!email) return;
+  try {
+    await sendEmail(email, subject, text, html);
+    console.log(`[order-email:success] Sent to ${email}: ${subject}`);
+  } catch (error) {
+    console.error(`[order-email:error] Failed to send to ${email}:`, error.message);
+  }
+}
+
+function getSmtpConfig() {
+  const host =
+    process.env.SMTP_HOST ||
+    process.env.SMTP_SERVER ||
+    process.env.MAIL_HOST ||
+    process.env.EMAIL_HOST ||
+    "";
+  const port = Number(process.env.SMTP_PORT || process.env.MAIL_PORT || process.env.EMAIL_PORT || 587);
+  const user =
+    process.env.SMTP_USER ||
+    process.env.SMTP_USERNAME ||
+    process.env.MAIL_USER ||
+    process.env.MAIL_USERNAME ||
+    process.env.EMAIL_USER ||
+    "";
+  const pass =
+    process.env.SMTP_PASS ||
+    process.env.SMTP_PASSWORD ||
+    process.env.MAIL_PASS ||
+    process.env.MAIL_PASSWORD ||
+    process.env.EMAIL_PASS ||
+    process.env.EMAIL_PASSWORD ||
+    "";
+  const from = process.env.SMTP_FROM || process.env.MAIL_FROM || process.env.EMAIL_FROM || user || "no-reply@kesarkosmetics.com";
+  const secureOverride = String(process.env.SMTP_SECURE || "").trim().toLowerCase();
+  const secure =
+    secureOverride === "true"
+      ? true
+      : secureOverride === "false"
+        ? false
+        : port === 465;
+
+  return {
+    host,
+    port,
+    user,
+    pass,
+    from,
+    secure,
+    connectionTimeout: Number(process.env.SMTP_CONNECTION_TIMEOUT_MS || 10000),
+    greetingTimeout: Number(process.env.SMTP_GREETING_TIMEOUT_MS || 10000),
+    socketTimeout: Number(process.env.SMTP_SOCKET_TIMEOUT_MS || 15000),
+  };
+}
+
+function getSmtpErrorDetail(err) {
+  const code = String(err?.code || "").toUpperCase();
+  const message = String(err?.message || "SMTP error");
+
+  if (code === "EAUTH") {
+    return "SMTP authentication failed. Use your real email in SMTP_USER and an App Password in SMTP_PASS.";
+  }
+  if (code === "ETIMEDOUT" || code === "ESOCKET") {
+    return "SMTP connection timed out. Verify SMTP_HOST/SMTP_PORT and firewall/network rules.";
+  }
+  if (message.toLowerCase().includes("certificate") || message.toLowerCase().includes("ssl")) {
+    return "SMTP TLS/SSL mismatch. Use SMTP_PORT=587 with SMTP_SECURE=false (or 465 with SMTP_SECURE=true).";
+  }
+
+  return `SMTP delivery failed: ${message}`;
+}
+
+function createSmtpTransporter(smtp) {
+  return nodemailer.createTransport({
+    host: smtp.host,
+    port: smtp.port,
+    secure: smtp.secure,
+    auth: { user: smtp.user, pass: smtp.pass },
+    connectionTimeout: smtp.connectionTimeout,
+    greetingTimeout: smtp.greetingTimeout,
+    socketTimeout: smtp.socketTimeout,
+  });
+}
+
+async function sendEmail(to, subject, text, html) {
+  const smtp = getSmtpConfig();
+
+  if (!smtp.host || !smtp.user || !smtp.pass) {
+    console.log(`[email:fallback] to=${to} subject=${subject}`);
+    console.warn(`[SMTP Config Missing] Host: ${!smtp.host}, User: ${!smtp.user}, Pass: ${!smtp.pass}`);
+    return { delivered: false };
+  }
+
+  try {
+    const transporter = createSmtpTransporter(smtp);
+
+    await transporter.sendMail({ from: smtp.from, to, subject, text, html });
+    console.log(`[email:success] Email sent to ${to} - ${subject}`);
+    return { delivered: true };
+  } catch (err) {
+    console.error(`[email:error] Failed to send email to ${to}:`, err.message);
+    throw err;
+  }
+}
+
+function buildOrderSummary(order) {
+  const itemLines = Array.isArray(order.items)
+    ? order.items
+        .map((item) => `${item.product_name || "Product"} x ${item.quantity || 1}`)
+        .join(", ")
+    : "";
+  return `Order ${order.id} - ${itemLines || "No items"} - Total ${formatMoney(Number(order.total || 0))}`;
+}
+
+async function sendOrderCreatedEmail(order) {
+  await sendOrderNotificationEmail(
+    order,
+    "Your order has been received",
+    `<div style="font-family: Arial, sans-serif; line-height: 1.6; color: #3E2723;"><h2>Order received</h2><p>We received your order and are preparing it now.</p><p><strong>Order ID:</strong> ${order.id}</p><p><strong>Total:</strong> ${formatMoney(Number(order.total || 0))}</p><p><strong>Status:</strong> ${order.status}</p></div>`,
+    `We received your order ${order.id}. Total: ${formatMoney(Number(order.total || 0))}. Status: ${order.status}.`
+  );
+}
+
+async function sendOrderPaidEmail(order) {
+  await sendOrderNotificationEmail(
+    order,
+    "Payment verified successfully",
+    `<div style="font-family: Arial, sans-serif; line-height: 1.6; color: #3E2723;"><h2>Payment confirmed</h2><p>Your Razorpay payment was verified successfully.</p><p><strong>Order ID:</strong> ${order.id}</p><p><strong>Payment ID:</strong> ${order.razorpay_payment_id || "N/A"}</p><p><strong>Status:</strong> ${order.status}</p></div>`,
+    `Your Razorpay payment for order ${order.id} was verified successfully.`
+  );
+}
+
+async function sendOrderStatusEmail(order) {
+  await sendOrderNotificationEmail(
+    order,
+    `Your order status changed to ${order.status}`,
+    `<div style="font-family: Arial, sans-serif; line-height: 1.6; color: #3E2723;"><h2>Order status updated</h2><p>Your order status changed to <strong>${order.status}</strong>.</p><p><strong>Order ID:</strong> ${order.id}</p></div>`,
+    `Your order ${order.id} status changed to ${order.status}.`
+  );
 }
 
 function getProduct(productId) {
@@ -168,10 +513,105 @@ function normalizeMediaValue(value) {
   return text || null;
 }
 
+function formatMoney(value) {
+  return `₹${Number(value || 0).toFixed(2)}`;
+}
+
+function hashResetCode(email, code) {
+  return crypto
+    .createHash("sha256")
+    .update(`${String(email || "").toLowerCase()}:${String(code || "")}`)
+    .digest("hex");
+}
+
+function generateResetCode() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+function generateVerificationCode() {
+  return generateResetCode();
+}
+
+function clearUserSessions(userId) {
+  for (const [token, session] of sessions.entries()) {
+    if (session?.userId === userId || session?.user?._id === userId || session?.user?.id === userId) {
+      sessions.delete(token);
+    }
+  }
+}
+
+async function sendResetCodeEmail(email, code) {
+  const smtp = getSmtpConfig();
+
+  if (!smtp.host || !smtp.user || !smtp.pass) {
+    console.log(`[reset-code:fallback] ${email} -> ${code}`);
+    console.warn(`[SMTP Config Missing] Host: ${!smtp.host}, User: ${!smtp.user}, Pass: ${!smtp.pass}`);
+    return { delivered: false };
+  }
+
+  try {
+    const transporter = createSmtpTransporter(smtp);
+
+    await transporter.sendMail({
+      from: smtp.from,
+      to: email,
+      subject: "Your Kesar Kosmetics password reset code",
+      text: `Use this verification code to reset your password: ${code}. This code expires in 10 minutes.`,
+      html: `<div style="font-family: Arial, sans-serif; line-height: 1.6; color: #3E2723;"><h2>Password Reset Code</h2><p>Use this verification code to reset your password:</p><p style="font-size: 28px; font-weight: bold; letter-spacing: 3px; color: #D97736;">${code}</p><p>This code expires in 10 minutes.</p><p>If you did not request this, you can ignore this email.</p></div>`,
+    });
+
+    console.log(`[reset-code:success] Email sent to ${email}`);
+    return { delivered: true };
+  } catch (err) {
+    console.error(`[reset-code:error] Failed to send email to ${email}:`, err.message);
+    throw err;
+  }
+}
+
+async function sendVerificationEmail(email, code) {
+  const smtp = getSmtpConfig();
+
+  if (!smtp.host || !smtp.user || !smtp.pass) {
+    console.log(`[email-verify:fallback] ${email} -> ${code}`);
+    console.warn(`[SMTP Config Missing] Host: ${!smtp.host}, User: ${!smtp.user}, Pass: ${!smtp.pass}`);
+    return { delivered: false };
+  }
+
+  try {
+    const transporter = createSmtpTransporter(smtp);
+
+    await transporter.sendMail({
+      from: smtp.from,
+      to: email,
+      subject: "Verify your Kesar Kosmetics email",
+      text: `Use this verification code to activate your account: ${code}. This code expires in 10 minutes.`,
+      html: `<div style="font-family: Arial, sans-serif; line-height: 1.6; color: #3E2723;"><h2>Email Verification Code</h2><p>Use this verification code to activate your account:</p><p style="font-size: 28px; font-weight: bold; letter-spacing: 3px; color: #D97736;">${code}</p><p>This code expires in 10 minutes.</p></div>`,
+    });
+
+    console.log(`[email-verify:success] Verification email sent to ${email}`);
+    return { delivered: true };
+  } catch (err) {
+    console.error(`[email-verify:error] Failed to send verification email to ${email}:`, err.message);
+    throw err;
+  }
+}
+
 function buildTrackingSteps(status) {
   const activeStatus = String(status || "pending").toLowerCase();
   const stepKeys = ["pending", "shipped", "in_transit", "delivered"];
-  const activeIndex = Math.max(stepKeys.indexOf(activeStatus), 0);
+
+  let normalizedTrackingStatus = activeStatus;
+  if (activeStatus === "confirmed" || activeStatus === "processing") {
+    normalizedTrackingStatus = "pending";
+  }
+  if (activeStatus === "out_for_delivery") {
+    normalizedTrackingStatus = "in_transit";
+  }
+  if (activeStatus === "cancelled") {
+    normalizedTrackingStatus = "pending";
+  }
+
+  const activeIndex = Math.max(stepKeys.indexOf(normalizedTrackingStatus), 0);
   return [
     { key: "pending", label: "Order Placed", completed: activeIndex >= 0, active: activeIndex === 0 },
     { key: "shipped", label: "Shipped", completed: activeIndex >= 1, active: activeIndex === 1 },
@@ -201,8 +641,62 @@ function enrichOrderForTracking(order) {
 
 function normalizeStatus(status) {
   const value = String(status || "").trim().toLowerCase();
-  const allowed = new Set(["pending", "shipped", "in_transit", "delivered"]);
+  const allowed = new Set([
+    "pending",
+    "confirmed",
+    "processing",
+    "shipped",
+    "out_for_delivery",
+    "in_transit",
+    "delivered",
+    "cancelled",
+  ]);
   return allowed.has(value) ? value : "pending";
+}
+
+function getOrderContactCandidates(order) {
+  const owner = users.get(order.user_id);
+  const orderEmail = String(order.contact_email || "").toLowerCase();
+  const orderPhone = normalizePhone(order.contact_phone || order.shipping_address?.phone || "");
+  const registeredEmail = String(order.contact_registered_email || owner?.email || "").toLowerCase();
+  const registeredPhone = normalizePhone(order.contact_registered_phone || owner?.phone || "");
+
+  return {
+    emails: [...new Set([orderEmail, registeredEmail].filter(Boolean))],
+    phones: [...new Set([orderPhone, registeredPhone].filter(Boolean))],
+  };
+}
+
+function matchesPhoneQuery(phone, queryDigits) {
+  if (!phone || !queryDigits || queryDigits.length < 6) return false;
+  return (
+    phone === queryDigits ||
+    phone.endsWith(queryDigits) ||
+    queryDigits.endsWith(phone) ||
+    phone.includes(queryDigits)
+  );
+}
+
+function getMatchingUserIdsByQuery(rawQuery) {
+  const normalizedQuery = String(rawQuery || "").trim().toLowerCase();
+  const normalizedPhoneQuery = normalizePhone(rawQuery);
+  const matched = new Set();
+
+  for (const user of users.values()) {
+    const userEmail = String(user.email || "").toLowerCase();
+    const userPhone = normalizePhone(user.phone || "");
+
+    if (normalizedQuery && userEmail === normalizedQuery) {
+      matched.add(user._id);
+      continue;
+    }
+
+    if (matchesPhoneQuery(userPhone, normalizedPhoneQuery)) {
+      matched.add(user._id);
+    }
+  }
+
+  return matched;
 }
 
 app.get("/api", (req, res) => {
@@ -219,67 +713,121 @@ app.post("/api/auth/register", async (req, res) => {
   if (!name || !safeEmail || !phone || !password) {
     return res.status(400).json({ detail: "Missing required fields" });
   }
-  if (usersByEmail.has(safeEmail)) {
-    return res.status(400).json({ detail: "Email already registered" });
+
+  const existingUserId = usersByEmail.get(safeEmail);
+  if (existingUserId) {
+    const existingUser = users.get(existingUserId);
+    
+    // If email is already verified, ask user to login
+    if (existingUser && existingUser.email_verified) {
+      return res.status(400).json({ 
+        detail: "Email already registered and verified. Please login instead.",
+        alreadyVerified: true 
+      });
+    }
+    
+    // If email exists but not verified, resend verification code
+    if (existingUser && !existingUser.email_verified) {
+      const code = generateVerificationCode();
+      existingUser.email_verification_code_hash = hashResetCode(safeEmail, code);
+      existingUser.email_verification_expires_at = Date.now() + 10 * 60 * 1000;
+      await saveUserToStore(existingUser);
+      
+      try {
+        await sendVerificationEmail(safeEmail, code);
+      } catch (err) {
+        console.error("Failed to resend verification email:", err);
+        if (allowAuthFallbackWhenEmailFails) {
+          existingUser.email_verified = true;
+          existingUser.email_verification_code_hash = null;
+          existingUser.email_verification_expires_at = null;
+          await saveUserToStore(existingUser);
+          const token = crypto.randomBytes(32).toString("hex");
+          sessions.set(token, { user: publicUser(existingUser), createdAt: Date.now() });
+          res.cookie("access_token", token, authCookieOptions);
+          return res.status(200).json({
+            ...publicUser(existingUser),
+            requires_verification: false,
+            message: "Email service unavailable. Account verified automatically.",
+          });
+        }
+        if (exposeOtpOnEmailFailure) {
+          return res.status(200).json({
+            message: "Email delivery failed. Use the fallback verification code.",
+            email: safeEmail,
+            requires_verification: true,
+            isResend: true,
+            delivery_failed: true,
+            verification_code: code,
+            detail: getSmtpErrorDetail(err),
+          });
+        }
+        return res.status(500).json({ detail: getSmtpErrorDetail(err) });
+      }
+      
+      return res.status(200).json({
+        message: "New verification code sent to your email",
+        email: safeEmail,
+        requires_verification: true,
+        isResend: true,
+      });
+    }
   }
 
   const id = crypto.randomUUID();
   const hashedPassword = await bcrypt.hash(password, 10);
-  const user = { _id: id, name, email: safeEmail, phone, password: hashedPassword, role: "customer", emailVerified: false };
-  users.set(id, user);
-  usersByEmail.set(safeEmail, id);
+  const code = generateVerificationCode();
+  const user = {
+    _id: id,
+    name,
+    email: safeEmail,
+    phone,
+    password: hashedPassword,
+    role: "customer",
+    email_verified: false,
+    email_verification_code_hash: hashResetCode(safeEmail, code),
+    email_verification_expires_at: Date.now() + 10 * 60 * 1000,
+  };
+  await saveUserToStore(user);
 
-  // Generate verification token
-  const verifyToken = crypto.randomBytes(32).toString("hex");
-  emailVerifications.set(safeEmail, { token: verifyToken, expires: Date.now() + 60 * 60 * 1000 });
-  await sendVerificationEmail(safeEmail, verifyToken);
+  try {
+    await sendVerificationEmail(safeEmail, code);
+  } catch (err) {
+    console.error("Failed to send verification email:", err);
+    if (allowAuthFallbackWhenEmailFails) {
+      user.email_verified = true;
+      user.email_verification_code_hash = null;
+      user.email_verification_expires_at = null;
+      await saveUserToStore(user);
 
-  return res.json({ message: "Registration successful. Please check your email to verify your account." });
-});
+      const token = crypto.randomBytes(32).toString("hex");
+      sessions.set(token, { user: publicUser(user), createdAt: Date.now() });
+      res.cookie("access_token", token, authCookieOptions);
 
-app.get("/api/auth/verify-email", (req, res) => {
-  const { email, token } = req.query;
-  const safeEmail = String(email || "").toLowerCase();
-  const entry = emailVerifications.get(safeEmail);
-  if (!entry || entry.token !== token || entry.expires < Date.now()) {
-    return res.status(400).send("Invalid or expired verification link.");
+      return res.status(201).json({
+        ...publicUser(user),
+        requires_verification: false,
+        message: "Email service unavailable. Account verified automatically.",
+      });
+    }
+    if (exposeOtpOnEmailFailure) {
+      return res.status(201).json({
+        message: "Email delivery failed. Use the fallback verification code.",
+        email: safeEmail,
+        requires_verification: true,
+        delivery_failed: true,
+        verification_code: code,
+        detail: getSmtpErrorDetail(err),
+      });
+    }
+    return res.status(500).json({ detail: getSmtpErrorDetail(err) });
   }
-  const userId = usersByEmail.get(safeEmail);
-  if (!userId) return res.status(400).send("User not found.");
-  const user = users.get(userId);
-  if (!user) return res.status(400).send("User not found.");
-  user.emailVerified = true;
-  users.set(userId, user);
-  emailVerifications.delete(safeEmail);
-  return res.send("Email verified! You can now log in.");
-});
 
-app.post("/api/auth/request-password-reset", (req, res) => {
-  const safeEmail = String(req.body?.email || "").toLowerCase();
-  const userId = usersByEmail.get(safeEmail);
-  if (!userId) return res.status(400).json({ detail: "Email not found" });
-  const resetToken = crypto.randomBytes(32).toString("hex");
-  passwordResets.set(safeEmail, { token: resetToken, expires: Date.now() + 60 * 60 * 1000 });
-  sendPasswordResetEmail(safeEmail, resetToken)
-    .then(() => res.json({ message: "Password reset email sent." }))
-    .catch(() => res.status(500).json({ detail: "Failed to send email" }));
-});
-
-app.post("/api/auth/reset-password", async (req, res) => {
-  const { email, token, newPassword } = req.body || {};
-  const safeEmail = String(email || "").toLowerCase();
-  const entry = passwordResets.get(safeEmail);
-  if (!entry || entry.token !== token || entry.expires < Date.now()) {
-    return res.status(400).json({ detail: "Invalid or expired reset link" });
-  }
-  const userId = usersByEmail.get(safeEmail);
-  if (!userId) return res.status(400).json({ detail: "User not found" });
-  const user = users.get(userId);
-  if (!user) return res.status(400).json({ detail: "User not found" });
-  user.password = await bcrypt.hash(newPassword, 10);
-  users.set(userId, user);
-  passwordResets.delete(safeEmail);
-  return res.json({ message: "Password reset successful. You can now log in." });
+  return res.status(201).json({
+    message: "Verification code sent to your email",
+    email: safeEmail,
+    requires_verification: true,
+  });
 });
 
 app.post("/api/auth/login", async (req, res) => {
@@ -291,18 +839,181 @@ app.post("/api/auth/login", async (req, res) => {
   if (!user) {
     return res.status(401).json({ detail: "Invalid credentials" });
   }
-  if (!user.emailVerified) {
-    return res.status(403).json({ detail: "Please verify your email before logging in." });
-  }
   const passwordMatch = await bcrypt.compare(password, user.password);
   if (!passwordMatch) {
     return res.status(401).json({ detail: "Invalid credentials" });
   }
 
+  if (!user.email_verified) {
+    return res.status(403).json({ detail: "Email not verified. Please verify your email first." });
+  }
+
   const token = crypto.randomBytes(32).toString("hex");
-  sessions.set(token, { userId, createdAt: Date.now() });
-  res.cookie("access_token", token, { httpOnly: true, sameSite: "lax", path: "/" });
+  sessions.set(token, { user: publicUser(user), createdAt: Date.now() });
+  res.cookie("access_token", token, authCookieOptions);
   return res.json(publicUser(user));
+});
+
+app.post("/api/auth/register/resend-code", async (req, res) => {
+  const safeEmail = String(req.body?.email || "").trim().toLowerCase();
+  if (!safeEmail) {
+    return res.status(400).json({ detail: "Email is required" });
+  }
+
+  const userId = usersByEmail.get(safeEmail);
+  const user = userId ? users.get(userId) : null;
+  if (!user) {
+    return res.status(404).json({ detail: "Account not found" });
+  }
+
+  if (user.email_verified) {
+    return res.status(400).json({ detail: "Email is already verified" });
+  }
+
+  const code = generateVerificationCode();
+  user.email_verification_code_hash = hashResetCode(safeEmail, code);
+  user.email_verification_expires_at = Date.now() + 10 * 60 * 1000;
+  await saveUserToStore(user);
+
+  try {
+    await sendVerificationEmail(safeEmail, code);
+  } catch (err) {
+    console.error("Failed to resend verification email:", err);
+    if (exposeOtpOnEmailFailure) {
+      return res.status(200).json({
+        message: "Email delivery failed. Use the fallback verification code.",
+        requires_verification: true,
+        delivery_failed: true,
+        verification_code: code,
+        detail: getSmtpErrorDetail(err),
+      });
+    }
+    return res.status(500).json({ detail: getSmtpErrorDetail(err) });
+  }
+
+  return res.json({ message: "Verification code sent to your email" });
+});
+
+app.post("/api/auth/register/verify-code", async (req, res) => {
+  const safeEmail = String(req.body?.email || "").trim().toLowerCase();
+  const code = String(req.body?.code || "").trim();
+
+  if (!safeEmail || !code) {
+    return res.status(400).json({ detail: "Email and verification code are required" });
+  }
+
+  const userId = usersByEmail.get(safeEmail);
+  const user = userId ? users.get(userId) : null;
+  if (!user) {
+    return res.status(404).json({ detail: "Account not found" });
+  }
+
+  if (user.email_verified) {
+    const token = crypto.randomBytes(32).toString("hex");
+    sessions.set(token, { user: publicUser(user), createdAt: Date.now() });
+    res.cookie("access_token", token, authCookieOptions);
+    return res.json(publicUser(user));
+  }
+
+  if (!user.email_verification_code_hash || Date.now() > Number(user.email_verification_expires_at || 0)) {
+    return res.status(400).json({ detail: "Verification code has expired. Please resend the code." });
+  }
+
+  const expectedHash = hashResetCode(safeEmail, code);
+  if (expectedHash !== user.email_verification_code_hash) {
+    return res.status(400).json({ detail: "Invalid verification code" });
+  }
+
+  user.email_verified = true;
+  user.email_verification_code_hash = null;
+  user.email_verification_expires_at = null;
+  await saveUserToStore(user);
+
+  const token = crypto.randomBytes(32).toString("hex");
+  sessions.set(token, { user: publicUser(user), createdAt: Date.now() });
+  res.cookie("access_token", token, authCookieOptions);
+  return res.json(publicUser(user));
+});
+
+app.post("/api/auth/forgot-password/send-code", async (req, res) => {
+  const safeEmail = String(req.body?.email || "").trim().toLowerCase();
+  if (!safeEmail) {
+    return res.status(400).json({ detail: "Email is required" });
+  }
+
+  const userId = usersByEmail.get(safeEmail);
+  if (!userId) {
+    return res.json({ message: "If this email is registered, a verification code has been sent." });
+  }
+
+  const code = generateResetCode();
+  passwordResetCodes.set(safeEmail, {
+    codeHash: hashResetCode(safeEmail, code),
+    expiresAt: Date.now() + 10 * 60 * 1000,
+    attempts: 0,
+  });
+
+  try {
+    const emailResult = await sendResetCodeEmail(safeEmail, code);
+    if (!emailResult.delivered) {
+      console.warn(`[forgot-password] Email not delivered for ${safeEmail}, but code stored`);
+    }
+  } catch (err) {
+    console.error("Failed to send reset code email:", err.message);
+    return res.status(500).json({ detail: "Failed to send verification code. Please check your email configuration or try again later." });
+  }
+
+  return res.json({ message: "If this email is registered, a verification code has been sent." });
+});
+
+app.post("/api/auth/forgot-password/reset", async (req, res) => {
+  const safeEmail = String(req.body?.email || "").trim().toLowerCase();
+  const code = String(req.body?.code || "").trim();
+  const newPassword = String(req.body?.new_password || "");
+  const confirmPassword = String(req.body?.confirm_password || "");
+
+  if (!safeEmail || !code || !newPassword || !confirmPassword) {
+    return res.status(400).json({ detail: "Email, code, new password and confirm password are required" });
+  }
+
+  if (newPassword !== confirmPassword) {
+    return res.status(400).json({ detail: "New password and confirm password do not match" });
+  }
+
+  if (newPassword.length < 6) {
+    return res.status(400).json({ detail: "Password must be at least 6 characters" });
+  }
+
+  const userId = usersByEmail.get(safeEmail);
+  const user = userId ? users.get(userId) : null;
+  const resetEntry = passwordResetCodes.get(safeEmail);
+  if (!user || !resetEntry) {
+    return res.status(400).json({ detail: "Invalid or expired verification code" });
+  }
+
+  if (Date.now() > resetEntry.expiresAt) {
+    passwordResetCodes.delete(safeEmail);
+    return res.status(400).json({ detail: "Verification code has expired" });
+  }
+
+  if (resetEntry.attempts >= 5) {
+    passwordResetCodes.delete(safeEmail);
+    return res.status(400).json({ detail: "Too many invalid attempts. Request a new code." });
+  }
+
+  const expectedHash = hashResetCode(safeEmail, code);
+  if (expectedHash !== resetEntry.codeHash) {
+    resetEntry.attempts += 1;
+    passwordResetCodes.set(safeEmail, resetEntry);
+    return res.status(400).json({ detail: "Invalid verification code" });
+  }
+
+  user.password = await bcrypt.hash(newPassword, 10);
+  await saveUserToStore(user);
+  passwordResetCodes.delete(safeEmail);
+  clearUserSessions(user._id);
+
+  return res.json({ message: "Password reset successful" });
 });
 
 app.get("/api/auth/me", (req, res) => {
@@ -314,7 +1025,7 @@ app.get("/api/auth/me", (req, res) => {
 app.post("/api/auth/logout", (req, res) => {
   const token = req.cookies.access_token;
   if (token) sessions.delete(token);
-  res.clearCookie("access_token", { path: "/" });
+  res.clearCookie("access_token", authCookieOptions);
   return res.json({ message: "Logged out" });
 });
 
@@ -532,7 +1243,7 @@ app.delete("/api/cart/clear", (req, res) => {
   return res.json({ message: "Cart cleared" });
 });
 
-app.post("/api/orders", (req, res) => {
+app.post("/api/orders", async (req, res) => {
   const user = authUser(req);
   if (!user) return res.status(401).json({ detail: "Not authenticated" });
   const body = req.body || {};
@@ -546,12 +1257,181 @@ app.post("/api/orders", (req, res) => {
     total: Number(body.total || 0),
     status: "pending",
     contact_email: user.email,
+    contact_registered_email: user.email,
     contact_phone: body.shipping_address?.phone || user.phone || "",
+    contact_registered_phone: user.phone || "",
     created_at: new Date().toISOString(),
   };
-  orders.set(id, order);
+  await saveOrderToStore(order);
   carts.set(user._id, []);
+  await sendOrderCreatedEmail(order);
   return res.json(order);
+});
+
+app.post("/api/payments/razorpay/create-order", async (req, res) => {
+  const user = authUser(req);
+  if (!user) return res.status(401).json({ detail: "Not authenticated" });
+  if (!razorpay) {
+    return res.status(500).json({ detail: "Razorpay is not configured on the server" });
+  }
+
+  const body = req.body || {};
+  const total = Number(body.total || 0);
+  if (!Number.isFinite(total) || total <= 0) {
+    return res.status(400).json({ detail: "Invalid order total" });
+  }
+
+  const id = crypto.randomUUID();
+  const amountPaise = Math.round(total * 100);
+  const currency = String(body.currency || "INR").toUpperCase();
+  const razorpayOrder = await razorpay.orders.create({
+    amount: amountPaise,
+    currency,
+    receipt: id,
+    payment_capture: 1,
+    notes: {
+      app_order_id: id,
+      user_id: user._id,
+      email: user.email,
+    },
+  });
+
+  const order = {
+    id,
+    user_id: user._id,
+    items: body.items || [],
+    shipping_address: body.shipping_address || {},
+    payment_method: "razorpay",
+    total,
+    status: "pending",
+    payment_status: "created",
+    payment_gateway: "razorpay",
+    razorpay_order_id: razorpayOrder.id,
+    razorpay_payment_id: null,
+    razorpay_signature: null,
+    currency,
+    amount_paise: amountPaise,
+    contact_email: user.email,
+    contact_registered_email: user.email,
+    contact_phone: body.shipping_address?.phone || user.phone || "",
+    contact_registered_phone: user.phone || "",
+    created_at: new Date().toISOString(),
+  };
+
+  await saveOrderToStore(order);
+  await sendOrderCreatedEmail(order);
+
+  return res.status(201).json({
+    order,
+    razorpay: {
+      key_id: razKeyId,
+      order_id: razorpayOrder.id,
+      amount: amountPaise,
+      currency,
+    },
+  });
+});
+
+async function finalizeRazorpayPayment({ razorpayOrderId, razorpayPaymentId, razorpaySignature, paymentStatus }) {
+  const order = getOrderByRazorpayOrderId(razorpayOrderId);
+  if (!order) {
+    return null;
+  }
+
+  const nextOrder = await updateOrderInStore(order.id, {
+    payment_status: paymentStatus,
+    status: paymentStatus === "captured" ? "confirmed" : order.status,
+    razorpay_payment_id: razorpayPaymentId || order.razorpay_payment_id || null,
+    razorpay_signature: razorpaySignature || order.razorpay_signature || null,
+  });
+
+  if (paymentStatus === "captured") {
+    carts.set(order.user_id, []);
+    await sendOrderPaidEmail(nextOrder);
+  }
+
+  return nextOrder;
+}
+
+app.post("/api/payments/razorpay/verify", async (req, res) => {
+  const user = authUser(req);
+  if (!user) return res.status(401).json({ detail: "Not authenticated" });
+
+  const razorpayOrderId = String(req.body?.razorpay_order_id || "").trim();
+  const razorpayPaymentId = String(req.body?.razorpay_payment_id || "").trim();
+  const razorpaySignature = String(req.body?.razorpay_signature || "").trim();
+
+  if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
+    return res.status(400).json({ detail: "Missing Razorpay verification fields" });
+  }
+
+  const expectedSignature = crypto
+    .createHmac("sha256", razKeySecret)
+    .update(`${razorpayOrderId}|${razorpayPaymentId}`)
+    .digest("hex");
+
+  if (expectedSignature !== razorpaySignature) {
+    return res.status(400).json({ detail: "Invalid Razorpay signature" });
+  }
+
+  const order = getOrderByRazorpayOrderId(razorpayOrderId);
+  if (!order || order.user_id !== user._id) {
+    return res.status(404).json({ detail: "Order not found" });
+  }
+
+  const updatedOrder = await finalizeRazorpayPayment({
+    razorpayOrderId,
+    razorpayPaymentId,
+    razorpaySignature,
+    paymentStatus: "captured",
+  });
+
+  return res.json(enrichOrderForTracking(updatedOrder));
+});
+
+app.post("/api/payments/razorpay/webhook", async (req, res) => {
+  const signature = String(req.headers["x-razorpay-signature"] || "").trim();
+  const rawBody = req.rawBody || Buffer.from(JSON.stringify(req.body || {}));
+
+  if (!verifyRazorpaySignature(rawBody, signature)) {
+    return res.status(400).json({ detail: "Invalid webhook signature" });
+  }
+
+  const payload = typeof req.body === "object" && req.body ? req.body : JSON.parse(rawBody.toString("utf8") || "{}");
+  const eventType = String(payload.event || "");
+  const paymentEntity = payload?.payload?.payment?.entity || {};
+  const razorpayOrderId = String(paymentEntity.order_id || payload?.payload?.order?.entity?.id || "").trim();
+
+  if (!razorpayOrderId) {
+    return res.json({ received: true });
+  }
+
+  if (eventType === "payment.captured") {
+    const updatedOrder = await finalizeRazorpayPayment({
+      razorpayOrderId,
+      razorpayPaymentId: paymentEntity.id,
+      razorpaySignature: signature,
+      paymentStatus: "captured",
+    });
+    if (updatedOrder) {
+      return res.json({ received: true });
+    }
+  }
+
+  if (eventType === "payment.failed") {
+    const existingOrder = getOrderByRazorpayOrderId(razorpayOrderId);
+    if (existingOrder) {
+      await updateOrderInStore(existingOrder.id, {
+        payment_status: "failed",
+        status: "payment_failed",
+        razorpay_payment_id: paymentEntity.id || existingOrder.razorpay_payment_id || null,
+        razorpay_signature: signature,
+      });
+      await sendOrderStatusEmail({ ...existingOrder, payment_status: "failed", status: "payment_failed" });
+    }
+  }
+
+  return res.json({ received: true });
 });
 
 app.get("/api/orders", (req, res) => {
@@ -568,17 +1448,19 @@ app.get("/api/admin/orders", (req, res) => {
   return res.json(allOrders);
 });
 
-app.put("/api/admin/orders/:orderId/status", (req, res) => {
+app.put("/api/admin/orders/:orderId/status", async (req, res) => {
   const order = orders.get(req.params.orderId);
   if (!order) {
     return res.status(404).json({ detail: "Order not found" });
   }
 
   const nextStatus = normalizeStatus(req.body?.status);
-  order.status = nextStatus;
-  orders.set(req.params.orderId, order);
+  const updatedOrder = await updateOrderInStore(req.params.orderId, { status: nextStatus });
+  if (updatedOrder) {
+    await sendOrderStatusEmail(updatedOrder);
+  }
 
-  return res.json(enrichOrderForTracking(order));
+  return res.json(enrichOrderForTracking({ ...order, status: nextStatus }));
 });
 
 app.get("/api/orders/:orderId([0-9a-fA-F-]{8,})", (req, res) => {
@@ -599,18 +1481,17 @@ app.get("/api/orders/track/search", (req, res) => {
 
   const normalizedQuery = query.toLowerCase();
   const normalizedPhoneQuery = normalizePhone(query);
+  const matchedUserIds = getMatchingUserIdsByQuery(query);
 
   const matchedOrders = [...orders.values()]
     .filter((order) => {
       const orderId = String(order.id || "").toLowerCase();
-      const email = String(order.contact_email || "").toLowerCase();
-      const phone = normalizePhone(order.contact_phone || order.shipping_address?.phone || "");
+      const { emails, phones } = getOrderContactCandidates(order);
+      const emailMatch = emails.some((email) => email === normalizedQuery);
+      const phoneMatch = phones.some((phone) => matchesPhoneQuery(phone, normalizedPhoneQuery));
+      const userMatch = matchedUserIds.has(order.user_id);
 
-      return (
-        orderId === normalizedQuery ||
-        email === normalizedQuery ||
-        (normalizedPhoneQuery.length >= 6 && phone.endsWith(normalizedPhoneQuery))
-      );
+      return orderId === normalizedQuery || emailMatch || phoneMatch || userMatch;
     })
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     .map((order) => enrichOrderForTracking(order));
@@ -632,11 +1513,10 @@ app.get("/api/orders/track/:orderId", (req, res) => {
 
   const normalizedContact = contact.toLowerCase();
   const normalizedContactPhone = normalizePhone(contact);
-  const email = String(order.contact_email || "").toLowerCase();
-  const phone = normalizePhone(order.contact_phone || order.shipping_address?.phone || "");
+  const { emails, phones } = getOrderContactCandidates(order);
   const matches =
-    email === normalizedContact ||
-    (normalizedContactPhone.length >= 6 && phone.endsWith(normalizedContactPhone));
+    emails.some((email) => email === normalizedContact) ||
+    phones.some((phone) => matchesPhoneQuery(phone, normalizedContactPhone));
 
   if (!matches) {
     return res.status(403).json({ detail: "Contact does not match this order" });
@@ -655,7 +1535,17 @@ app.use((err, req, res, next) => {
   next();
 });
 
-seedAdmin().catch(err => console.error("Failed to seed admin:", err));
-app.listen(PORT, () => {
-  console.log(`Backend running on http://localhost:${PORT}`);
-});
+async function startServer() {
+  try {
+    await loadSupabaseState();
+    await seedAdmin();
+  } catch (err) {
+    console.error("Failed to initialize backend state:", err);
+  }
+
+  app.listen(PORT, () => {
+    console.log(`Backend running on port ${PORT}`);
+  });
+}
+
+startServer();
