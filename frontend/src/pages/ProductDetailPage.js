@@ -18,7 +18,7 @@ Heart,
 } from "lucide-react";
 import axios from "axios";
 import { formatPrice } from "../utils/helpers";
-import { useAuth } from "../contexts/AuthContext";
+import useSupabaseUser from "../hooks/useSupabaseUser";
 import { Button } from "../components/ui/button";
 import ReviewModal from "../components/ReviewModal";
 import CartSuccessModal from "../components/CartSuccessModal";
@@ -31,7 +31,7 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "http://localhost:8001"
 const ProductDetailPage = () => {
 const { id } = useParams();
 const navigate = useNavigate();
-const { user } = useAuth();
+const { user, loading: userLoading } = useSupabaseUser();
 
 const [product, setProduct] = useState(null);
 const [allProducts, setAllProducts] = useState([]);
@@ -401,12 +401,15 @@ className={`rounded-2xl border-2 px-4 py-3 text-left transition ${selectedVarian
 			))}
 		</div>
 	</div>
-	<div className="mt-6 rounded-2xl bg-[#FAF7F2] p-4 text-sm text-[#6B5B52]">
-		<button onClick={() => setIsReviewModalOpen(true)} className="font-semibold text-[#D97736] hover:underline">
-			Write a review
-		</button>
-		<span> and help other shoppers choose confidently.</span>
-	</div>
+		{/* Only show Write a review button if user is logged in */}
+		{user && (
+			<div className="mt-6 rounded-2xl bg-[#FAF7F2] p-4 text-sm text-[#6B5B52]">
+				<button onClick={() => setIsReviewModalOpen(true)} className="font-semibold text-[#D97736] hover:underline">
+					Write a review
+				</button>
+				<span> and help other shoppers choose confidently.</span>
+			</div>
+		)}
 	{/* User Reviews List */}
 	{Array.isArray(product?.reviews) && product.reviews.length > 0 && (
 		<div className="mt-8">
