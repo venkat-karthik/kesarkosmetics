@@ -127,7 +127,11 @@ const products = [
     ],
     category: "Serums",
     rating: 4.8,
-    reviews: [{ user_name: "Priya", rating: 5, comment: "Amazing glow" }],
+    reviews: [
+      { user_name: "Priya", rating: 5, comment: "Amazing glow" },
+      { user_name: "Rahul", rating: 5, comment: "Visible glow in 2 weeks!", image: "https://images.unsplash.com/photo-1519125323398-675f0ddb6308?w=200" },
+      { user_name: "Ayesha", rating: 4, comment: "Nice fragrance and texture." }
+    ],
     variants: [{ name: "30ml" }, { name: "50ml" }],
     badge: "BESTSELLER",
     video: null,
@@ -144,7 +148,11 @@ const products = [
     ],
     category: "Moisturizers",
     rating: 4.7,
-    reviews: [],
+    reviews: [
+      { user_name: "Priya", rating: 5, comment: "Super soft skin!" },
+      { user_name: "Rahul", rating: 4, comment: "Good for daily use.", image: "https://images.unsplash.com/photo-1465101046530-73398c7f28ca?w=200" },
+      { user_name: "Ayesha", rating: 5, comment: "Loved the sandalwood aroma." }
+    ],
     variants: [{ name: "50g" }, { name: "100g" }],
     badge: "NEW",
     video: null,
