@@ -110,11 +110,12 @@ return [{ name: product.size || "Select", price: product.price }];
 
 const relatedProducts = useMemo(() => {
 	if (!product) return [];
-	// Only two products in the collection: always show the other one
 	const sameCategory = allProducts.filter((item) => item.category === product.category);
+	// If there are exactly two products in the category, show only the other one
 	if (sameCategory.length === 2) {
 		return sameCategory.filter((item) => item.id !== product.id);
 	}
+	// Otherwise, show up to 4 other products (excluding the current one)
 	return sameCategory.filter((item) => item.id !== product.id).slice(0, 4);
 }, [allProducts, product]);
 
