@@ -412,15 +412,20 @@ className={`rounded-2xl border-2 px-4 py-3 text-left transition ${selectedVarian
 		<div className="mt-8">
 			<h3 className="font-heading text-xl font-bold mb-4 text-[#3E2723]">What users are saying</h3>
 			<div className="space-y-4">
-				{product.reviews.map((review, idx) => (
-					<div key={idx} className="rounded-xl border border-[#E9E0D2] bg-[#FCFAF7] p-4">
-						<div className="flex items-center gap-2 mb-1">
-							<span className="font-semibold text-[#D97736]">{review.user_name || 'Anonymous'}</span>
-							<span className="text-xs text-[#6B5B52]">{review.rating}★</span>
-						</div>
-						<div className="text-[#3E2723]">{review.comment}</div>
-					</div>
-				))}
+				 {product.reviews.map((review, idx) => (
+					 <div key={idx} className="rounded-xl border border-[#E9E0D2] bg-[#FCFAF7] p-4">
+						 <div className="flex items-center gap-2 mb-1">
+							 <span className="font-semibold text-[#D97736]">{review.user_name || 'Anonymous'}</span>
+							 <span className="text-xs text-[#6B5B52]">{review.rating}★</span>
+						 </div>
+						 <div className="text-[#3E2723]">{review.comment}</div>
+						 {review.image && (
+							 <div className="mt-3">
+								 <img src={review.image} alt="Review" className="max-h-40 rounded-lg border border-[#E9E0D2]" />
+							 </div>
+						 )}
+					 </div>
+				 ))}
 			</div>
 		</div>
 	)}

@@ -410,7 +410,7 @@ const HomePage = ({ setShakeCart, setTriggerCartRefresh }) => {
 					userName: review.user_name || "Anonymous",
 				}));
 			})
-			.filter((review) => (review.rating === 4 || review.rating === 5) && review.comment)
+			.filter((review) => (review.rating >= 3 && review.rating <= 5) && review.comment)
 			.slice(0, 12);
 	}, [products]);
 
