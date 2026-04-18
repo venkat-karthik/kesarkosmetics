@@ -204,7 +204,6 @@ const CheckoutPage = () => {
 					},
 					notes: { app_order_id: data.order.id },
 					theme: { color: "#D97736" },
-					...(methodMap[paymentMethod] ? { method: methodMap[paymentMethod] } : {}),
 					handler: async (response) => {
 						try {
 							const verify = await axios.post(

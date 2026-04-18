@@ -587,54 +587,37 @@ const HomePage = ({ setShakeCart, setTriggerCartRefresh }) => {
 				)}
 			</section>
 
-			<section className="bg-[#FFF8EC] py-8 sm:py-10 border-b border-[#F5A800]/10">
-				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-					<p className="text-center text-[10px] font-bold uppercase tracking-[0.35em] text-[#E8620A]/60 mb-6">Browse Collection</p>
-					<div className="mobile-circle-scroll flex items-center gap-4 sm:gap-6 lg:gap-8 overflow-x-auto pb-2 snap-x snap-mandatory sm:justify-center"
-						style={{ scrollbarWidth: "none" }}>
-						{heroCircleProducts.map((item, i) => {
-							const activeIdx = categoryHoverIndices[item.id] ?? 0;
-							const isSelected = selectedCircleProductId === item.id;
-							return (
-								<button
-									key={item.id}
-									type="button"
-									onClick={() => handleCircleProductClick(item.id)}
-									onMouseEnter={() => startCategoryHoverScroll(item.id, item.images.length)}
-									onMouseLeave={() => stopCategoryHoverScroll(item.id)}
-									onTouchStart={() => startCategoryHoverScroll(item.id, item.images.length)}
-									onTouchEnd={() => stopCategoryHoverScroll(item.id)}
-									className="flex flex-col items-center gap-3 flex-shrink-0 snap-start group"
-									style={{ animationDelay: `${i * 80}ms` }}
-								>
-									{/* Image container */}
-									<div className={`relative w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 rounded-2xl overflow-hidden transition-all duration-300 ${
-										isSelected
-											? "shadow-[0_0_0_3px_#E8620A,0_8px_24px_rgba(232,98,10,0.25)] scale-105"
-											: "shadow-[0_2px_12px_rgba(0,0,0,0.08)] group-hover:shadow-[0_0_0_2px_#F5A800,0_8px_20px_rgba(245,168,0,0.2)] group-hover:scale-105"
-									}`}>
-										<img
-											src={item.images[activeIdx] || item.images[0] || "/logo.png"}
-											alt={item.label}
-											className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-										/>
-										{/* Overlay shimmer on hover */}
-										<div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-										{isSelected && (
-											<div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-[#E8620A]" />
-										)}
-									</div>
-									{/* Label */}
-									<span className={`text-[11px] sm:text-xs font-semibold text-center leading-tight max-w-[80px] sm:max-w-[96px] line-clamp-2 transition-colors duration-200 ${
-										isSelected ? "text-[#E8620A]" : "text-[#7A3B00] group-hover:text-[#E8620A]"
-									}`}>
-										{item.label}
-									</span>
-								</button>
-							);
-						})}
-					</div>
-				</div>
+			<section className="bg-gradient-to-r from-[#3E1A00] via-[#5D2A00] to-[#3E1A00] py-4 overflow-hidden border-y border-[#F5A800]/20">
+				{/* Marquee ticker — saffron facts & brand story */}
+				{(() => {
+					const tags = [
+						"🌸 Hand-harvested Kashmiri Saffron",
+						"✦ 100% Natural Ingredients",
+						"🌿 Cruelty-Free & Vegan",
+						"✦ Each strand picked at dawn",
+						"🏔️ Grown at 2,200m altitude in Pampore, Kashmir",
+						"✦ Rich in Crocin & Safranal antioxidants",
+						"🌙 Saffron takes 75,000 flowers for 1 pound",
+						"✦ GMP Certified Manufacturing",
+						"🌸 Brightens skin in 2–4 weeks",
+						"✦ Free shipping above ₹2,000",
+						"🌿 No Parabens · No Sulfates · No Synthetics",
+						"✦ Dermatologist Tested",
+						"🏆 Premium Kashmiri Kesar — Red Gold of India",
+						"✦ Small-batch crafted for freshness",
+					];
+					const doubled = [...tags, ...tags];
+					return (
+						<div className="flex whitespace-nowrap animate-marquee gap-0">
+							{doubled.map((tag, i) => (
+								<span key={i} className="inline-flex items-center gap-3 px-6 text-sm font-medium text-[#F5A800]/90 shrink-0">
+									{tag}
+									<span className="text-[#F5A800]/30 text-lg">|</span>
+								</span>
+							))}
+						</div>
+					);
+				})()}
 			</section>
 
 			<section

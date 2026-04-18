@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=Outfit:wght@300;400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=Outfit:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -27,6 +27,12 @@
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* All numeric/price/count values use DM Mono for clarity */
+  .font-numeric, [data-numeric], .tabular-nums {
+    font-family: 'DM Mono', monospace;
+    font-variant-numeric: tabular-nums;
   }
 
   button, input, select, textarea { font: inherit; color: inherit; }

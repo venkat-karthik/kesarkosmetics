@@ -23,6 +23,16 @@ module.exports = {
       fontFamily: {
         heading: ["Cormorant Garamond", "serif"],
         body: ["Outfit", "sans-serif"],
+        mono: ["DM Mono", "monospace"],
+      },
+      keyframes: {
+        marquee: { "0%": { transform: "translateX(0%)" }, "100%": { transform: "translateX(-50%)" } },
+        fadeInUp: { "0%": { opacity: 0, transform: "translateY(16px)" }, "100%": { opacity: 1, transform: "translateY(0)" } },
+      },
+      animation: {
+        marquee: "marquee 30s linear infinite",
+        "marquee-slow": "marquee 50s linear infinite",
+        "fade-in-up": "fadeInUp 0.4s ease-out",
       },
     },
   },

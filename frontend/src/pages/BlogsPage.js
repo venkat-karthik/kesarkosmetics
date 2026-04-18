@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Calendar, User, ArrowRight, X, Clock } from "lucide-react";
 import { toast } from "sonner";
 import Footer from "../components/Footer";
-import { collection, getDocs, query, orderBy } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, addDoc, where, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebaseClient";
 
 const blogPosts = [
@@ -195,6 +195,34 @@ const BlogModal = ({ post, onClose }) => {
 const BlogsPage = () => {
 	const [openPost, setOpenPost] = useState(null);
 	const [dynamicPosts, setDynamicPosts] = useState([]);
+	const [subEmail, setSubEmail] = useState("");
+	const [subLoading, setSubLoading] = useState(false);
+
+	const handleSubscribe = async (e) => {
+		e.preventDefault();
+		if (!subEmail.trim()) return;
+		setSubLoading(true);
+		try {
+			// Check if already subscribed
+			const existing = await getDocs(query(collection(db, "subscribers"), where("email", "==", subEmail.trim().toLowerCase())));
+			if (!existing.empty) {
+				toast.success("You're already subscribed!");
+				setSubEmail("");
+				return;
+			}
+			await addDoc(collection(db, "subscribers"), {
+				email: subEmail.trim().toLowerCase(),
+				subscribedAt: serverTimestamp(),
+				source: "blog",
+			});
+			toast.success("Subscribed! Welcome to the Kesar family 🌸");
+			setSubEmail("");
+		} catch (err) {
+			toast.error("Could not subscribe. Please try again.");
+		} finally {
+			setSubLoading(false);
+		}
+	};
 
 	useEffect(() => {
 		const fetchBlogs = async () => {
@@ -304,16 +332,19 @@ const BlogsPage = () => {
 				<div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
 					<h2 className="font-heading text-3xl sm:text-4xl font-bold text-[#3E2723] mb-4">Stay Updated</h2>
 					<p className="text-[#5D4037] mb-8 text-lg">Subscribe for wellness tips, product launches, and exclusive offers</p>
-					<div className="flex flex-col sm:flex-row gap-3">
+					<form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-3">
 						<input
 							type="email"
+							value={subEmail}
+							onChange={e => setSubEmail(e.target.value)}
 							placeholder="Enter your email"
+							required
 							className="flex-1 px-4 py-3 border border-[#E0D8C8] rounded-full focus:outline-none focus:ring-2 focus:ring-[#D97736]"
 						/>
-						<button className="bg-[#D97736] hover:bg-[#C96626] text-white font-bold px-8 py-3 rounded-full transition-colors">
-							Subscribe
+						<button type="submit" disabled={subLoading} className="bg-[#D97736] hover:bg-[#C96626] disabled:opacity-60 text-white font-bold px-8 py-3 rounded-full transition-colors">
+							{subLoading ? "Subscribing..." : "Subscribe"}
 						</button>
-					</div>
+					</form>
 				</div>
 			</section>
 

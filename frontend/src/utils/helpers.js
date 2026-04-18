@@ -22,5 +22,5 @@ export function formatPrice(price) {
 		maximumFractionDigits: 0,
 	}).format(normalizedPrice || 0);
 
-	return <span className="price-number leading-none text-inherit">{formattedPrice}</span>;
+	return <span className="font-mono tabular-nums leading-none text-inherit">{formattedPrice}</span>;
 }

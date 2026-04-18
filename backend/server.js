@@ -114,50 +114,7 @@ const orders = new Map();
 const passwordResetCodes = new Map();
 const emailVerificationCodes = new Map();
 
-const products = [
-  {
-    id: "prod-001",
-    name: "Kesar Saffron Cream",
-    description: "A luxurious saffron-infused face cream for natural radiance and glowing skin. Enriched with crocin and safranal antioxidants, it brightens, hydrates, and evens skin tone — suitable for day and night use.",
-    price: 1299,
-    oldPrice: 1599,
-    images: [
-      "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=600",
-      "https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?w=600",
-    ],
-    category: "Serums",
-    rating: 4.8,
-    reviews: [
-      { user_name: "Priya", rating: 5, comment: "Amazing glow" },
-      { user_name: "Rahul", rating: 5, comment: "Visible glow in 2 weeks!", image: "https://images.unsplash.com/photo-1519125323398-675f0ddb6308?w=200" },
-      { user_name: "Ayesha", rating: 4, comment: "Nice fragrance and texture." }
-    ],
-    variants: [{ name: "30ml" }, { name: "50ml" }],
-    badge: "BESTSELLER",
-    video: null,
-  },
-  {
-    id: "prod-002",
-    name: "Rose & Sandalwood Face Cream",
-    description: "Deeply moisturizing cream for soft, supple skin.",
-    price: 899,
-    oldPrice: 1099,
-    images: [
-      "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=600",
-      "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?w=600",
-    ],
-    category: "Moisturizers",
-    rating: 4.7,
-    reviews: [
-      { user_name: "Meera", rating: 5, comment: "Skin feels hydrated all day!" },
-      { user_name: "Vikram", rating: 4, comment: "Gentle and effective.", image: "https://images.unsplash.com/photo-1465101046530-73398c7f28ca?w=200" },
-      { user_name: "Sonal", rating: 5, comment: "No irritation, just smoothness." }
-    ],
-    variants: [{ name: "50g" }, { name: "100g" }],
-    badge: "NEW",
-    video: null,
-  },
-];
+const products = [];
 
 async function seedAdmin() {
   const email = "admin@kesarkosmetics.com";
@@ -1213,6 +1170,39 @@ app.delete("/api/products/:id", (req, res) => {
 app.get("/api/categories", (req, res) => {
   const categories = [...new Set(products.map((p) => p.category))];
   return res.json(categories);
+});
+
+// n8n automation endpoints — subscribers and ordered users
+app.get("/api/subscribers", (req, res) => {
+  // Returns all users from in-memory store (Firestore subscribers are managed client-side)
+  // This endpoint is for n8n to pull subscriber list from backend orders
+  const orderedUsers = [...orders.values()].map(o => ({
+    email: o.contact_email || o.contact_registered_email || "",
+    name: o.shipping_address?.name || "",
+    phone: o.contact_phone || o.contact_registered_phone || "",
+    total: o.total,
+    status: o.status,
+    paymentMethod: o.payment_method,
+    orderedAt: o.created_at,
+  })).filter(u => u.email);
+  return res.json(orderedUsers);
+});
+
+app.get("/api/ordered-users", (req, res) => {
+  const result = [...orders.values()]
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .map(o => ({
+      orderId: o.id,
+      email: o.contact_email || o.contact_registered_email || "",
+      name: o.shipping_address?.name || "",
+      phone: o.contact_phone || "",
+      total: o.total,
+      items: o.items?.length || 0,
+      status: o.status,
+      paymentMethod: o.payment_method,
+      orderedAt: o.created_at,
+    }));
+  return res.json(result);
 });
 
 app.post("/api/contact", async (req, res) => {

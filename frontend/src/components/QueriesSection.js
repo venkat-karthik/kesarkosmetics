@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 import { ChevronDown, Mail, MessageCircleQuestion } from "lucide-react";
 import { Button } from "./ui/button";
+import { collection, addDoc, getDocs, query, where, serverTimestamp } from "firebase/firestore";
+import { db } from "../firebaseClient";
+import { toast } from "sonner";
 
 const questions = [
 	{
@@ -29,9 +32,26 @@ const QueriesSection = () => {
 	const [openIndex, setOpenIndex] = useState(0);
 	const [email, setEmail] = useState("");
 
-	const handleSubscribe = (event) => {
+	const handleSubscribe = async (event) => {
 		event.preventDefault();
-		setEmail("");
+		if (!email.trim()) return;
+		try {
+			const existing = await getDocs(query(collection(db, "subscribers"), where("email", "==", email.trim().toLowerCase())));
+			if (!existing.empty) {
+				toast.success("You're already subscribed!");
+				setEmail("");
+				return;
+			}
+			await addDoc(collection(db, "subscribers"), {
+				email: email.trim().toLowerCase(),
+				subscribedAt: serverTimestamp(),
+				source: "homepage",
+			});
+			toast.success("Subscribed! Welcome to the Kesar family 🌸");
+			setEmail("");
+		} catch {
+			toast.error("Could not subscribe. Please try again.");
+		}
 	};
 
 	return (
