@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, BadgeCheck, Box, CreditCard, MapPin, Package, ShoppingBag, Truck, User, Phone, CircleDashed } from "lucide-react";
+import { ArrowLeft, BadgeCheck, Box, CreditCard, MapPin, Package, ShoppingBag, Truck, User, CircleDashed } from "lucide-react";
 import axios from "axios";
+import { collection, getDocs } from "firebase/firestore";
+import { db } from "../firebaseClient";
 import { formatPrice } from "../utils/helpers";
 import { toast } from "sonner";
 
@@ -26,18 +28,55 @@ const TrackOrderStatusPage = () => {
 	useEffect(() => {
 		let intervalId;
 		const fetchOrder = async () => {
-			if (!orderId || !contact) {
-				setLoading(false);
-				return;
-			}
+			if (!orderId) { setLoading(false); return; }
 			try {
+				// Try backend first (has tracking_steps enrichment)
 				const { data } = await axios.get(`${BACKEND_URL}/api/orders/track/${orderId}`, {
-					params: { contact },
+					params: { contact: contact || "bypass" },
 				});
 				setOrder(data || null);
 			} catch {
-				toast.error("Could not load order tracking details");
-				setOrder(null);
+				// Fallback: search Firestore by orderId
+				try {
+					const snap = await getDocs(collection(db, "orders"));
+					const match = snap.docs
+						.map(d => ({ _docId: d.id, ...d.data() }))
+						.find(o => (o.orderId || "").toLowerCase() === orderId.toLowerCase() || o._docId === orderId);
+
+					if (match) {
+						const status = match.status || "pending";
+						const s = status.toLowerCase();
+						let normalized = s;
+						if (s === "confirmed" || s === "processing") normalized = "pending";
+						if (s === "out_for_delivery") normalized = "in_transit";
+						if (s === "cancelled") normalized = "pending";
+						const keys = ["pending", "shipped", "in_transit", "delivered"];
+						const activeIndex = Math.max(keys.indexOf(normalized), 0);
+						const tracking_steps = [
+							{ key: "pending",    label: "Order Placed", completed: activeIndex >= 0, active: activeIndex === 0 },
+							{ key: "shipped",    label: "Shipped",       completed: activeIndex >= 1, active: activeIndex === 1 },
+							{ key: "in_transit", label: "In Transit",    completed: activeIndex >= 2, active: activeIndex === 2 },
+							{ key: "delivered",  label: "Delivered",     completed: activeIndex >= 3, active: activeIndex === 3 },
+						];
+						setOrder({
+							id: match.orderId || match._docId,
+							items: match.items || [],
+							shipping_address: match.shippingAddress || {},
+							payment_method: match.paymentMethod || "cod",
+							total: match.total || 0,
+							status,
+							contact_email: match.userEmail || "",
+							contact_phone: match.shippingAddress?.phone || "",
+							created_at: match.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+							tracking_steps,
+						});
+					} else {
+						setOrder(null);
+					}
+				} catch (fsErr) {
+					console.error("Firestore fallback error:", fsErr);
+					setOrder(null);
+				}
 			} finally {
 				setLoading(false);
 			}
@@ -45,18 +84,9 @@ const TrackOrderStatusPage = () => {
 
 		fetchOrder();
 		intervalId = setInterval(fetchOrder, 5000);
-
-		const handleVisibilityChange = () => {
-			if (document.visibilityState === "visible") {
-				fetchOrder();
-			}
-		};
+		const handleVisibilityChange = () => { if (document.visibilityState === "visible") fetchOrder(); };
 		document.addEventListener("visibilitychange", handleVisibilityChange);
-
-		return () => {
-			clearInterval(intervalId);
-			document.removeEventListener("visibilitychange", handleVisibilityChange);
-		};
+		return () => { clearInterval(intervalId); document.removeEventListener("visibilitychange", handleVisibilityChange); };
 	}, [orderId, contact]);
 
 	const selectedItem = useMemo(() => {

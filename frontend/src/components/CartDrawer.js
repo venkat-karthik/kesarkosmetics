@@ -2,101 +2,41 @@ import React, { useEffect, useState } from "react";
 import { X, Minus, Plus, ShoppingBag, Truck, Sparkles, LogIn } from "lucide-react";
 import { Button } from "./ui/button";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
 import { formatPrice } from "../utils/helpers";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
+import { useCart } from "../contexts/CartContext";
 
 const CartDrawer = ({ isOpen, onClose }) => {
-	const [cart, setCart] = useState({ items: [], total: 0 });
 	const [scrollIndex, setScrollIndex] = useState(0);
 	const navigate = useNavigate();
 	const { user } = useAuth();
+	const { cart, updateQuantity, removeFromCart } = useCart();
 	const isAuthenticated = Boolean(user && user._id);
 
-	const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
 	const FREE_SHIPPING_THRESHOLD = 2000;
-
-	useEffect(() => {
-		const fetchCart = async () => {
-			if (!isOpen) return;
-			if (!isAuthenticated) {
-				setCart({ items: [], total: 0 });
-				return;
-			}
-			try {
-				const { data } = await axios.get(`${BACKEND_URL}/api/cart`, { withCredentials: true });
-				setCart(data);
-			} catch {
-				setCart({ items: [], total: 0 });
-			}
-		};
-		fetchCart();
-	}, [isOpen, BACKEND_URL, isAuthenticated]);
-
-	useEffect(() => {
-		if (!isOpen) return;
-		const handleCartUpdated = () => {
-			if (!isAuthenticated) {
-				setCart({ items: [], total: 0 });
-			}
-		};
-
-		window.addEventListener("cart:updated", handleCartUpdated);
-		return () => window.removeEventListener("cart:updated", handleCartUpdated);
-	}, [isOpen, isAuthenticated]);
 
 	// Auto-scroll animation for cart items
 	useEffect(() => {
-		if (!isOpen || !isAuthenticated || cart.items.length === 0) return;
+		if (!isOpen || cart.items.length === 0) return;
 		const interval = setInterval(() => {
 			setScrollIndex((prev) => (prev + 1) % cart.items.length);
 		}, 4000);
 		return () => clearInterval(interval);
-	}, [isOpen, isAuthenticated, cart.items.length]);
+	}, [isOpen, cart.items.length]);
 
-	const updateQuantity = async (productId, newQuantity) => {
-		if (!isAuthenticated) {
-			toast.error("Please login to update your cart");
-			return;
-		}
-		if (newQuantity === 0) {
-			removeItem(productId);
-			return;
-		}
-		try {
-			await axios.post(
-				`${BACKEND_URL}/api/cart/update`,
-				{ product_id: productId, quantity: newQuantity },
-				{ withCredentials: true }
-			);
-			const { data } = await axios.get(`${BACKEND_URL}/api/cart`, { withCredentials: true });
-			setCart(data);
-			window.dispatchEvent(new Event("cart:updated"));
-		} catch {
-			toast.error("Failed to update cart");
-		}
+	const handleUpdateQuantity = async (productId, newQuantity, variant) => {
+		await updateQuantity(productId, newQuantity, variant);
 	};
 
-	const removeItem = async (productId) => {
-		if (!isAuthenticated) {
-			toast.error("Please login to manage your cart");
-			return;
-		}
-		try {
-			await axios.delete(`${BACKEND_URL}/api/cart/remove/${productId}`, { withCredentials: true });
-			const { data } = await axios.get(`${BACKEND_URL}/api/cart`, { withCredentials: true });
-			setCart(data);
-			window.dispatchEvent(new Event("cart:updated"));
-			toast.success("Item removed from cart");
-		} catch {
-			toast.error("Failed to remove item");
-		}
+	const handleRemoveItem = async (productId, variant) => {
+		await removeFromCart(productId, variant);
+		toast.success("Item removed from cart");
 	};
 
 	const shippingProgress = Math.min((cart.total / FREE_SHIPPING_THRESHOLD) * 100, 100);
 	const remainingForFreeShipping = Math.max(FREE_SHIPPING_THRESHOLD - cart.total, 0);
-	const currentItem = cart.items.length > 0 ? cart.items[scrollIndex] : null;
+	const currentItem = cart.items.length > 0 ? cart.items[scrollIndex % cart.items.length] : null;
 
 	return (
 		<>
@@ -201,7 +141,7 @@ const CartDrawer = ({ isOpen, onClose }) => {
 									<div className="mt-3 flex items-center justify-between gap-3">
 										<div className="flex items-center gap-2 bg-gradient-to-r from-[#FAF7F2] to-[#F5EEE6] rounded-full border border-[#E0D8C8] px-3 py-1.5">
 											<button
-												onClick={() => currentItem.quantity > 1 && updateQuantity(currentItem.product.id, currentItem.quantity - 1)}
+												onClick={() => currentItem.quantity > 1 && handleUpdateQuantity(currentItem.product.id, currentItem.quantity - 1, currentItem.variant)}
 												className="text-[#D97736] hover:text-[#C96626] p-0.5"
 												aria-label="Decrease quantity"
 											>
@@ -209,7 +149,7 @@ const CartDrawer = ({ isOpen, onClose }) => {
 											</button>
 											<span className="text-sm font-bold text-[#3E2723] w-6 text-center">{currentItem.quantity}</span>
 											<button
-												onClick={() => updateQuantity(currentItem.product.id, currentItem.quantity + 1)}
+												onClick={() => handleUpdateQuantity(currentItem.product.id, currentItem.quantity + 1, currentItem.variant)}
 												className="text-[#D97736] hover:text-[#C96626] p-0.5"
 												aria-label="Increase quantity"
 											>
@@ -217,7 +157,7 @@ const CartDrawer = ({ isOpen, onClose }) => {
 											</button>
 										</div>
 										<button
-											onClick={() => removeItem(currentItem.product.id)}
+											onClick={() => handleRemoveItem(currentItem.product.id, currentItem.variant)}
 											className="text-xs font-bold text-[#E53935] hover:bg-red-50 px-2 py-1 rounded"
 										>
 											Delete

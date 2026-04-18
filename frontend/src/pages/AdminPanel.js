@@ -6,9 +6,9 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { ChevronDown, ChevronUp, Edit2, LogOut, Plus, Trash2, TrendingUp } from "lucide-react";
 import { formatPrice } from "../utils/helpers";
+import { useAuth, ADMIN_EMAILS } from "../contexts/AuthContext";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
-const ADMIN_EMAIL = "gsrinadh55@gmail.com";
 
 const ORDER_STATUS_OPTIONS = [
   { value: "pending", label: "Order Placed" },
@@ -56,7 +56,8 @@ function fileToDataUrl(file) {
 
 const AdminPanel = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("overview");
+  const { user, loading: authLoading, logout } = useAuth();
+  const [activeTab, setActiveTab] = useState("new-product");
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
   const [expandedOrderId, setExpandedOrderId] = useState(null);
@@ -68,13 +69,15 @@ const AdminPanel = () => {
   const tabsScrollRef = useRef(null);
   const tabButtonRefs = useRef({});
 
+  // Firebase auth guard
   useEffect(() => {
-    const adminToken = localStorage.getItem("adminToken");
-    const adminEmail = localStorage.getItem("adminEmail");
-    if (!adminToken || adminEmail !== ADMIN_EMAIL) {
-      navigate("/admin/login");
+    if (authLoading) return;
+    const isAdmin = ADMIN_EMAILS.map(e => e.toLowerCase()).includes((user?.email || "").toLowerCase());
+    if (!user || !isAdmin) {
+      toast.error("Admin access only.");
+      navigate("/");
     }
-  }, [navigate]);
+  }, [user, authLoading, navigate]);
 
   const fetchProducts = async () => {
     try {
@@ -250,11 +253,7 @@ const AdminPanel = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("adminToken");
-    localStorage.removeItem("adminEmail");
-    localStorage.removeItem("isAdmin");
-    toast.success("Logged out successfully");
-    navigate("/admin/login");
+    navigate("/admin/dashboard");
   };
 
   const isMobileViewport = () => window.matchMedia("(max-width: 767px)").matches;
@@ -315,10 +314,10 @@ const AdminPanel = () => {
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
           <div>
             <h1 className="font-heading text-2xl font-semibold text-[#3E2723]">Admin Dashboard</h1>
-            <p className="text-sm text-[#5D4037] break-all">{localStorage.getItem("adminEmail") || "Admin"}</p>
+            <p className="text-sm text-[#5D4037] break-all">{user?.email || "Admin"}</p>
           </div>
-          <Button onClick={handleLogout} className="bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center gap-2">
-            <LogOut className="w-4 h-4" /> Logout
+          <Button onClick={handleLogout} className="bg-[#D97736] hover:bg-[#C96626] text-white rounded-full flex items-center gap-2">
+            <LogOut className="w-4 h-4" /> Back to Dashboard
           </Button>
         </div>
       </header>

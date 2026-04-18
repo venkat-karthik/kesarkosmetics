@@ -1,311 +1,86 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { useAuth } from "../contexts/AuthContext";
-import { formatApiErrorDetail } from "../utils/helpers";
-import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
+import { useAuth, ADMIN_EMAILS } from "../contexts/AuthContext";
 import { toast } from "sonner";
-import axios from "axios";
-
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
+import { X } from "lucide-react";
 
 const LoginPage = () => {
-	const [email, setEmail] = useState("");
-	const [password, setPassword] = useState("");
-	const [error, setError] = useState("");
-	const [isForgotMode, setIsForgotMode] = useState(false);
-	const [forgotStep, setForgotStep] = useState("email");
-	const [forgotEmail, setForgotEmail] = useState("");
-	const [verificationCode, setVerificationCode] = useState("");
-	const [newPassword, setNewPassword] = useState("");
-	const [confirmPassword, setConfirmPassword] = useState("");
-	const [isSendingCode, setIsSendingCode] = useState(false);
-	const [isResettingPassword, setIsResettingPassword] = useState(false);
-	const { login } = useAuth();
-	const navigate = useNavigate();
-	const [searchParams] = useSearchParams();
-	const redirectPath = searchParams.get("redirect") || "/";
+  const [loading, setLoading] = useState(false);
+  const { loginWithGoogle, user } = useAuth();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectPath = searchParams.get("redirect") || "/";
 
-	const submit = async (e) => {
-		e.preventDefault();
-		setError("");
-		
-		// Check for admin credentials
-		const ADMIN_EMAIL = "gsrinadh55@gmail.com";
-		const ADMIN_PASSWORD = "123456";
-		
-		if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
-			// Admin login
-			localStorage.setItem("adminToken", "admin_" + Date.now());
-			localStorage.setItem("adminEmail", email);
-			toast.success("Admin login successful!");
-			navigate("/admin/dashboard", { replace: true });
-			return;
-		}
-		
-		try {
-			await login(email, password);
-			toast.success("Login successful!");
-			navigate(redirectPath, { replace: true });
-		} catch (err) {
-			setError(formatApiErrorDetail(err?.response?.data?.detail || err.message));
-			toast.error(formatApiErrorDetail(err?.response?.data?.detail || err.message));
-		}
-	};
+  // Already logged in — redirect
+  useEffect(() => {
+    if (user) {
+      if (ADMIN_EMAILS.includes(user.email?.toLowerCase())) {
+        navigate("/admin/dashboard", { replace: true });
+      } else {
+        navigate(redirectPath, { replace: true });
+      }
+    }
+  }, [user]);
 
-	const handleSendCode = async (e) => {
-		e.preventDefault();
-		if (!forgotEmail.trim()) {
-			toast.error("Please enter your registered email");
-			return;
-		}
+  const handleGoogle = async () => {
+    setLoading(true);
+    try {
+      const loggedIn = await loginWithGoogle();
+      toast.success(`Welcome, ${loggedIn.name}!`);
+      if (ADMIN_EMAILS.includes(loggedIn.email?.toLowerCase())) {
+        navigate("/admin/dashboard", { replace: true });
+      } else {
+        navigate(redirectPath, { replace: true });
+      }
+    } catch (err) {
+      if (err.code !== "auth/popup-closed-by-user" && err.code !== "auth/cancelled-popup-request") {
+        toast.error("Sign-in failed. Please try again.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
-		setIsSendingCode(true);
-		try {
-			await axios.post(`${BACKEND_URL}/api/auth/forgot-password/send-code`, {
-				email: forgotEmail.trim().toLowerCase(),
-			});
-			toast.success("Verification code sent to your email");
-			setForgotStep("reset");
-		} catch (err) {
-			toast.error(formatApiErrorDetail(err?.response?.data?.detail || err.message));
-		} finally {
-			setIsSendingCode(false);
-		}
-	};
+  return (
+    <div className="min-h-screen bg-[#FFF8EC] flex items-center justify-center px-4 py-10">
+      {/* Close / back button */}
+      <button
+        onClick={() => navigate(-1)}
+        className="fixed top-4 right-4 p-2 bg-white rounded-full shadow-md hover:bg-gray-100 transition-colors z-50"
+        aria-label="Close"
+      >
+        <X className="w-5 h-5 text-gray-600" />
+      </button>
 
-	const handleResetPassword = async (e) => {
-		e.preventDefault();
-		if (!verificationCode.trim() || !newPassword || !confirmPassword) {
-			toast.error("Please fill all fields");
-			return;
-		}
-		if (newPassword !== confirmPassword) {
-			toast.error("New password and confirm password do not match");
-			return;
-		}
+      <div className="w-full max-w-sm">
+        <div className="text-center mb-8">
+          <Link to="/"><img src="/logo.png" alt="Kesar Kosmetics" className="h-16 mx-auto object-contain" /></Link>
+          <h1 className="font-heading text-2xl font-semibold text-[#4A1A00] mt-4">Welcome back</h1>
+          <p className="text-[#7A3B00] mt-1 text-sm">Sign in to continue shopping</p>
+        </div>
 
-		setIsResettingPassword(true);
-		try {
-			await axios.post(`${BACKEND_URL}/api/auth/forgot-password/reset`, {
-				email: forgotEmail.trim().toLowerCase(),
-				code: verificationCode.trim(),
-				new_password: newPassword,
-				confirm_password: confirmPassword,
-			});
-			toast.success("Password reset successful. Please login.");
-			setEmail(forgotEmail.trim().toLowerCase());
-			setIsForgotMode(false);
-			setForgotStep("email");
-			setVerificationCode("");
-			setNewPassword("");
-			setConfirmPassword("");
-		} catch (err) {
-			toast.error(formatApiErrorDetail(err?.response?.data?.detail || err.message));
-		} finally {
-			setIsResettingPassword(false);
-		}
-	};
+        <div className="bg-white rounded-3xl shadow-lg border border-[#F5A800]/20 p-8">
+          <button
+            onClick={handleGoogle}
+            disabled={loading}
+            className="w-full flex items-center justify-center gap-3 border-2 border-[#E0D8C8] hover:border-[#E8620A] rounded-xl py-3.5 text-sm font-semibold text-gray-700 hover:bg-[#FFF8EC] transition-all disabled:opacity-60"
+          >
+            <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+            </svg>
+            {loading ? "Signing in..." : "Continue with Google"}
+          </button>
 
-	const switchToLogin = () => {
-		setIsForgotMode(false);
-		setForgotStep("email");
-		setVerificationCode("");
-		setNewPassword("");
-		setConfirmPassword("");
-	};
-
-	const switchToForgotPassword = () => {
-		setError("");
-		setIsForgotMode(true);
-		setForgotStep("email");
-		setForgotEmail(email || "");
-	};
-
-	return (
-		<div className="min-h-screen bg-[#FAF7F2] flex items-start sm:items-center justify-center px-4 py-6 sm:py-10 overflow-y-auto">
-			<div className="max-w-md w-full">
-				<div className="text-center mb-8">
-					<Link to="/">
-						<h1 className="font-heading text-4xl font-semibold text-[#3E2723] mb-2">Kesar Kosmetics</h1>
-					</Link>
-					<p className="text-[#5D4037]">Welcome back! Please login to your account.</p>
-				</div>
-
-				<div className="bg-white p-8 rounded-3xl shadow-lg border border-[#E0D8C8]">
-					{!isForgotMode ? (
-						<>
-							<div className="flex items-center gap-3 mb-6">
-								<button
-									type="button"
-									onClick={() => navigate("/")}
-									className="text-[#D97736] hover:text-[#C96626] transition-colors"
-									title="Go back"
-								>
-									<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-										<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-									</svg>
-								</button>
-								<h2 className="font-heading text-2xl font-semibold text-[#3E2723]">Login</h2>
-							</div>
-							{error && <p className="text-red-600 mb-4">{error}</p>}
-							<form onSubmit={submit} className="space-y-4">
-								<div>
-									<label className="block text-sm font-medium text-[#3E2723] mb-2">Email</label>
-									<Input
-										type="email"
-										value={email}
-										onChange={(e) => setEmail(e.target.value)}
-										placeholder="Enter your email"
-										autoComplete="username"
-										autoCapitalize="none"
-										autoCorrect="off"
-										spellCheck={false}
-										inputMode="email"
-										required
-										className="rounded-xl border-[#E0D8C8] focus:ring-[#D97736]"
-									/>
-								</div>
-								<div>
-									<label className="block text-sm font-medium text-[#3E2723] mb-2">Password</label>
-									<Input
-										type="password"
-										value={password}
-										onChange={(e) => setPassword(e.target.value)}
-										placeholder="Enter your password"
-										autoComplete="current-password"
-										autoCapitalize="none"
-										autoCorrect="off"
-										spellCheck={false}
-										required
-										className="rounded-xl border-[#E0D8C8] focus:ring-[#D97736]"
-									/>
-								</div>
-								<Button type="submit" className="w-full bg-[#D97736] hover:bg-[#C96626] text-white rounded-full h-12 text-lg font-medium transition-transform hover:-translate-y-1">Login</Button>
-							</form>
-							<div className="mt-6 text-center">
-								<p className="text-sm mb-2">
-									<button type="button" onClick={switchToForgotPassword} className="text-[#D97736] font-medium hover:underline">Forgot password?</button>
-								</p>
-								<p className="text-sm text-[#5D4037]">
-									Don&apos;t have an account? <Link to="/register" className="text-[#D97736] font-medium hover:underline">Register here</Link>
-								</p>
-							</div>
-						</>
-					) : (
-						<>
-							<div className="flex items-center gap-3 mb-2">
-								<button
-									type="button"
-									onClick={switchToLogin}
-									className="text-[#D97736] hover:text-[#C96626] transition-colors"
-									title="Go back"
-								>
-									<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-										<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-									</svg>
-								</button>
-								<h2 className="font-heading text-2xl font-semibold text-[#3E2723]">Forgot Password</h2>
-							</div>
-							<p className="text-sm text-[#5D4037] mb-6">
-								{forgotStep === "email"
-									? "Enter your registered email and we will send a verification code."
-									: "Enter the code from your email and set a new password."}
-							</p>
-
-							{forgotStep === "email" ? (
-								<form onSubmit={handleSendCode} className="space-y-4">
-									<div>
-										<label className="block text-sm font-medium text-[#3E2723] mb-2">Registered Email</label>
-										<Input
-											type="email"
-											value={forgotEmail}
-											onChange={(e) => setForgotEmail(e.target.value)}
-											placeholder="Enter your registered email"
-											autoComplete="email"
-											autoCapitalize="none"
-											autoCorrect="off"
-											spellCheck={false}
-											required
-											className="rounded-xl border-[#E0D8C8] focus:ring-[#D97736]"
-										/>
-									</div>
-									<Button
-										type="submit"
-										disabled={isSendingCode}
-										className="w-full bg-[#D97736] hover:bg-[#C96626] text-white rounded-full h-12 text-lg font-medium transition-transform hover:-translate-y-1"
-									>
-										{isSendingCode ? "Sending..." : "Send Verification Code"}
-									</Button>
-								</form>
-							) : (
-								<form onSubmit={handleResetPassword} className="space-y-4">
-									<div>
-										<label className="block text-sm font-medium text-[#3E2723] mb-2">Verification Code</label>
-										<Input
-											type="text"
-											value={verificationCode}
-											onChange={(e) => setVerificationCode(e.target.value)}
-											placeholder="Enter 6-digit code"
-											inputMode="numeric"
-											autoComplete="one-time-code"
-											required
-											className="rounded-xl border-[#E0D8C8] focus:ring-[#D97736]"
-										/>
-									</div>
-									<div>
-										<label className="block text-sm font-medium text-[#3E2723] mb-2">New Password</label>
-										<Input
-											type="password"
-											value={newPassword}
-											onChange={(e) => setNewPassword(e.target.value)}
-											placeholder="Enter new password"
-											autoComplete="new-password"
-											required
-											className="rounded-xl border-[#E0D8C8] focus:ring-[#D97736]"
-										/>
-									</div>
-									<div>
-										<label className="block text-sm font-medium text-[#3E2723] mb-2">Confirm Password</label>
-										<Input
-											type="password"
-											value={confirmPassword}
-											onChange={(e) => setConfirmPassword(e.target.value)}
-											placeholder="Confirm new password"
-											autoComplete="new-password"
-											required
-											className="rounded-xl border-[#E0D8C8] focus:ring-[#D97736]"
-										/>
-									</div>
-									<Button
-										type="submit"
-										disabled={isResettingPassword}
-										className="w-full bg-[#D97736] hover:bg-[#C96626] text-white rounded-full h-12 text-lg font-medium transition-transform hover:-translate-y-1"
-									>
-										{isResettingPassword ? "Resetting..." : "Reset Password"}
-									</Button>
-									<button
-										type="button"
-										onClick={handleSendCode}
-										disabled={isSendingCode}
-										className="w-full text-sm text-[#D97736] font-medium hover:underline"
-									>
-										{isSendingCode ? "Resending..." : "Resend code"}
-									</button>
-								</form>
-							)}
-
-							<div className="mt-6 text-center">
-								<p className="text-sm text-[#5D4037]">
-									Remembered your password? <button type="button" onClick={switchToLogin} className="text-[#D97736] font-medium hover:underline">Login</button>
-								</p>
-							</div>
-						</>
-					)}
-				</div>
-			</div>
-		</div>
-	);
+          <p className="mt-6 text-center text-xs text-gray-400">
+            New here? Clicking above creates your account automatically.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default LoginPage;

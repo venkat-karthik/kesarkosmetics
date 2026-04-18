@@ -4,7 +4,7 @@ import { Truck } from "lucide-react";
 const PromoBanner = () => {
 	return (
 		<>
-			<div className="bg-[#D97736] text-white text-xs sm:text-sm py-2 overflow-hidden">
+			<div className="bg-gradient-to-r from-[#C8380A] via-[#E8620A] to-[#C8380A] text-[#FFF8EC] text-xs sm:text-sm py-2 overflow-hidden">
 				<div className="promo-marquee whitespace-nowrap">
 					<span className="inline-flex items-center gap-2 mr-10"><Truck className="w-3.5 h-3.5" />Free shipping on orders above <span className="font-heading tabular-nums">₹2000</span> | Use code KESARIO for 10% off</span>
 					<span className="inline-flex items-center gap-2 mr-10"><Truck className="w-3.5 h-3.5" />Free shipping on orders above <span className="font-heading tabular-nums">₹2000</span> | Use code KESARIO for 10% off</span>

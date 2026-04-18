@@ -1,7 +1,10 @@
 import React, { useState } from "react";
 import { Mail, Phone, MapPin, Clock, Send } from "lucide-react";
 import { toast } from "sonner";
+import axios from "axios";
 import Footer from "../components/Footer";
+
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
 
 const ContactPage = () => {
 	const [formData, setFormData] = useState({
@@ -19,16 +22,28 @@ const ContactPage = () => {
 		setFormData(prev => ({ ...prev, [name]: value }));
 	};
 
-	const handleSubmit = (e) => {
+	const handleSubmit = async (e) => {
 		e.preventDefault();
 		setIsSubmitting(true);
-
-		// Simulate form submission
-		setTimeout(() => {
-			toast.success("Message sent successfully! We'll get back to you soon.");
+		try {
+			await axios.post(`${BACKEND_URL}/api/contact`, {
+				name: formData.name,
+				email: formData.email,
+				phone: formData.phone,
+				subject: formData.subject,
+				message: formData.message,
+			});
+			toast.success("Message sent! We'll get back to you soon.");
 			setFormData({ name: "", email: "", phone: "", subject: "", message: "" });
+		} catch (err) {
+			// Fallback to mailto if backend fails
+			const subject = encodeURIComponent(formData.subject || "Contact Form Enquiry");
+			const body = encodeURIComponent(`Name: ${formData.name}\nEmail: ${formData.email}\nPhone: ${formData.phone || "N/A"}\n\nMessage:\n${formData.message}`);
+			window.location.href = `mailto:kesarkosmetics@gmail.com?subject=${subject}&body=${body}`;
+			toast.success("Your email client has been opened.");
+		} finally {
 			setIsSubmitting(false);
-		}, 1000);
+		}
 	};
 
 	return (
@@ -51,22 +66,30 @@ const ContactPage = () => {
 						<div className="bg-white rounded-2xl p-8 border border-[#E0D8C8] shadow-lg hover:shadow-xl transition-shadow">
 							<Mail className="w-8 h-8 text-[#D97736] mb-4" />
 							<h3 className="font-bold text-[#3E2723] mb-2">Email</h3>
-							<p className="text-[#5D4037]">support@neinative.com</p>
-							<p className="text-[#5D4037]">info@neinative.com</p>
+							<p className="text-[#5D4037]">kesarkosmetics@gmail.com</p>
 						</div>
 
 						<div className="bg-white rounded-2xl p-8 border border-[#E0D8C8] shadow-lg hover:shadow-xl transition-shadow">
 							<Phone className="w-8 h-8 text-[#D97736] mb-4" />
 							<h3 className="font-bold text-[#3E2723] mb-2">Phone</h3>
-							<p className="text-[#5D4037]">+91 (555) 123-4567</p>
-							<p className="text-[#5D4037]">+91 (555) 765-4321</p>
+							<p className="text-[#5D4037]">+91 98415 24064</p>
 						</div>
 
 						<div className="bg-white rounded-2xl p-8 border border-[#E0D8C8] shadow-lg hover:shadow-xl transition-shadow">
 							<MapPin className="w-8 h-8 text-[#D97736] mb-4" />
-							<h3 className="font-bold text-[#3E2723] mb-2">Address</h3>
-							<p className="text-[#5D4037]">NEI Native HQ</p>
-							<p className="text-[#5D4037]">New Delhi, India</p>
+							<h3 className="font-bold text-[#3E2723] mb-2">Head Office</h3>
+							<p className="text-[#5D4037]">Befina Pampore, Near Govt Middle School</p>
+							<p className="text-[#5D4037]">Pampore – 192121</p>
+						</div>
+					</div>
+
+					{/* Branch Office */}
+					<div className="bg-white rounded-2xl p-6 border border-[#E0D8C8] shadow-sm mb-8 flex items-start gap-4">
+						<MapPin className="w-6 h-6 text-[#D97736] mt-1 shrink-0" />
+						<div>
+							<h3 className="font-bold text-[#3E2723] mb-1">Branch Office</h3>
+							<p className="text-[#5D4037] text-sm">19, Valliammal Road, Vepery</p>
+							<p className="text-[#5D4037] text-sm">Chennai – 600007</p>
 						</div>
 					</div>
 
@@ -163,10 +186,18 @@ const ContactPage = () => {
 
 			{/* Map Placeholder */}
 			<section className="py-0 bg-white border-t border-[#E0D8C8]">
-				<div className="w-full h-96 bg-gradient-to-br from-[#D4A574] to-[#C99A5E] flex items-center justify-center">
-					<div className="text-center text-white">
-						<MapPin className="w-16 h-16 mx-auto mb-4 opacity-50" />
-						<p className="text-lg font-semibold opacity-75">Map Location - New Delhi, India</p>
+				<div className="w-full bg-[#FAF7F2] py-10 px-4">
+					<div className="max-w-4xl mx-auto grid sm:grid-cols-2 gap-6">
+						<div className="bg-white rounded-2xl p-6 border border-[#E0D8C8] shadow-sm">
+							<h4 className="font-bold text-[#3E2723] mb-3 flex items-center gap-2"><MapPin className="w-4 h-4 text-[#D97736]" /> Head Office</h4>
+							<p className="text-sm text-[#5D4037]">Befina Pampore, Near Govt Middle School</p>
+							<p className="text-sm text-[#5D4037]">Pampore – 192121, J&K, India</p>
+						</div>
+						<div className="bg-white rounded-2xl p-6 border border-[#E0D8C8] shadow-sm">
+							<h4 className="font-bold text-[#3E2723] mb-3 flex items-center gap-2"><MapPin className="w-4 h-4 text-[#D97736]" /> Branch Office</h4>
+							<p className="text-sm text-[#5D4037]">19, Valliammal Road, Vepery</p>
+							<p className="text-sm text-[#5D4037]">Chennai – 600007, Tamil Nadu, India</p>
+						</div>
 					</div>
 				</div>
 			</section>

@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
 import { useWishlist } from "../contexts/WishlistContext";
 import { useCartDrawer } from "../contexts/CartDrawerContext";
+import { useCart } from "../contexts/CartContext";
 import Footer from "../components/Footer";
 import CartSuccessModal from "../components/CartSuccessModal";
 import CartOptionsModal from "../components/CartOptionsModal";
@@ -29,6 +30,7 @@ const HomePage = ({ setShakeCart, setTriggerCartRefresh }) => {
 	const { user } = useAuth();
 	const { isWishlisted, addToWishlist, removeFromWishlist } = useWishlist();
 	const { setIsCartOpen } = useCartDrawer();
+	const { addToCart: addToCartCtx } = useCart();
 	const [error, setError] = useState("");
 	const [addingToCart, setAddingToCart] = useState(null);
 	const [currentCarouselIndex, setCurrentCarouselIndex] = useState(0);
@@ -45,6 +47,8 @@ const HomePage = ({ setShakeCart, setTriggerCartRefresh }) => {
 	const [selectedCircleProductId, setSelectedCircleProductId] = useState(null);
 	const [reviewStartIndex, setReviewStartIndex] = useState(0);
 	const [isReviewSectionVisible, setIsReviewSectionVisible] = useState(false);
+	const [reviewFading, setReviewFading] = useState(false);
+	const reviewAutoPlayRef = useRef(null);
 	const autoScrollTimeoutRef = useRef(null);
 	const reviewSectionRef = useRef(null);
 	const reviewSectionObserverRef = useRef(null);
@@ -206,57 +210,17 @@ const HomePage = ({ setShakeCart, setTriggerCartRefresh }) => {
 		const buttonElement = addToCartButtonRefs.current[product.id];
 		if (buttonElement) {
 			const rect = buttonElement.getBoundingClientRect();
-			setFlyingCart({
-				active: true,
-				position: { x: rect.left, y: rect.top },
-			});
+			setFlyingCart({ active: true, position: { x: rect.left, y: rect.top } });
 		}
-		
 		setAddingToCart(product.id);
 		try {
-			if (user && user._id) {
-				await axios.post(
-					`${BACKEND_URL}/api/cart/add`,
-					{ product_id: product.id, quantity },
-					{ withCredentials: true }
-				);
-			} else {
-				const guestCartItem = {
-					product,
-					quantity,
-					variant: null,
-				};
-				const rawGuestCart = localStorage.getItem(GUEST_CART_STORAGE_KEY);
-				const guestCart = rawGuestCart ? JSON.parse(rawGuestCart) : [];
-				const existingIndex = guestCart.findIndex((item) => item.product?.id === product.id);
-				if (existingIndex >= 0) {
-					guestCart[existingIndex].quantity += quantity;
-				} else {
-					guestCart.push(guestCartItem);
-				}
-				localStorage.setItem(GUEST_CART_STORAGE_KEY, JSON.stringify(guestCart));
-			}
-
+			await addToCartCtx(product, quantity);
 			window.dispatchEvent(new Event("cart:updated"));
-			
-			// Trigger cart shake after flying animation completes
 			setTimeout(() => {
-				if (setShakeCart) {
-					setShakeCart(true);
-					setTimeout(() => setShakeCart(false), 600);
-				}
-				// Refresh cart count in header
-				if (setTriggerCartRefresh) {
-					setTriggerCartRefresh((prev) => prev + 1);
-				}
+				if (setShakeCart) { setShakeCart(true); setTimeout(() => setShakeCart(false), 600); }
+				if (setTriggerCartRefresh) setTriggerCartRefresh((prev) => prev + 1);
 			}, 800);
-			
-			// Show success modal after animations
-			setTimeout(() => {
-				setSuccessProduct(product);
-				setShowSuccessModal(true);
-			}, 1000);
-			
+			setTimeout(() => { setSuccessProduct(product); setShowSuccessModal(true); }, 1000);
 		} catch (err) {
 			toast.error("Failed to add to cart");
 			console.error(err);
@@ -396,8 +360,43 @@ const HomePage = ({ setShakeCart, setTriggerCartRefresh }) => {
 		})
 		.filter((item) => Boolean(item.id));
 
+	const staticFallbackReviews = [
+		{
+			id: "static-1",
+			productId: null,
+			productName: "NEI Native Products",
+			rating: 5,
+			comment: "Absolutely love the quality! The A2 Ghee has transformed my cooking — rich aroma, pure taste. Will never go back to store-bought.",
+			userName: "Ananya S.",
+		},
+		{
+			id: "static-2",
+			productId: null,
+			productName: "Wood Pressed Oils",
+			rating: 5,
+			comment: "The wood pressed oil is exceptional. You can taste the difference immediately — clean, natural, and so much healthier for the family.",
+			userName: "Rajesh M.",
+		},
+		{
+			id: "static-3",
+			productId: null,
+			productName: "Millet Flour",
+			rating: 5,
+			comment: "Switched to NEI Native's millet flour for our rotis and the whole family noticed the difference. Authentic, wholesome, and delicious.",
+			userName: "Preethi K.",
+		},
+		{
+			id: "static-4",
+			productId: null,
+			productName: "Turmeric Powder",
+			rating: 5,
+			comment: "The turmeric is so vibrant and fragrant — nothing like the supermarket stuff. Fast delivery and beautifully packaged too.",
+			userName: "Vikram N.",
+		},
+	];
+
 	const featuredReviews = useMemo(() => {
-		return products
+		const fromProducts = products
 			.flatMap((product) => {
 				const productId = product.id || product._id;
 				const reviews = Array.isArray(product.reviews) ? product.reviews : [];
@@ -412,26 +411,31 @@ const HomePage = ({ setShakeCart, setTriggerCartRefresh }) => {
 			})
 			.filter((review) => (review.rating >= 3 && review.rating <= 5) && review.comment)
 			.slice(0, 12);
+		return fromProducts.length > 0 ? fromProducts : staticFallbackReviews;
 	}, [products]);
 
-	const reviewWindow = useMemo(() => {
-		if (featuredReviews.length === 0) return [];
-		const visibleCount = Math.min(3, featuredReviews.length);
-		return Array.from({ length: visibleCount }, (_, index) => featuredReviews[(reviewStartIndex + index) % featuredReviews.length]);
-	}, [featuredReviews, reviewStartIndex]);
+	// reviewWindow kept for compatibility but not used in new single-card slideshow
 
 	const handleReviewPrev = () => {
-		setReviewStartIndex((prev) => {
-			if (featuredReviews.length === 0) return 0;
-			return (prev - 1 + featuredReviews.length) % featuredReviews.length;
-		});
+		setReviewFading(true);
+		setTimeout(() => {
+			setReviewStartIndex((prev) => {
+				if (featuredReviews.length === 0) return 0;
+				return (prev - 1 + featuredReviews.length) % featuredReviews.length;
+			});
+			setReviewFading(false);
+		}, 400);
 	};
 
 	const handleReviewNext = () => {
-		setReviewStartIndex((prev) => {
-			if (featuredReviews.length === 0) return 0;
-			return (prev + 1) % featuredReviews.length;
-		});
+		setReviewFading(true);
+		setTimeout(() => {
+			setReviewStartIndex((prev) => {
+				if (featuredReviews.length === 0) return 0;
+				return (prev + 1) % featuredReviews.length;
+			});
+			setReviewFading(false);
+		}, 400);
 	};
 
 	useEffect(() => {
@@ -455,6 +459,18 @@ const HomePage = ({ setShakeCart, setTriggerCartRefresh }) => {
 	}, [featuredReviews.length]);
 
 	useEffect(() => {
+		if (featuredReviews.length <= 1) return;
+		reviewAutoPlayRef.current = setInterval(() => {
+			setReviewFading(true);
+			setTimeout(() => {
+				setReviewStartIndex((prev) => (prev + 1) % featuredReviews.length);
+				setReviewFading(false);
+			}, 400);
+		}, 5000);
+		return () => clearInterval(reviewAutoPlayRef.current);
+	}, [featuredReviews.length]);
+
+	useEffect(() => {
 		if (heroCircleProducts.length === 0) {
 			setSelectedCircleProductId(null);
 			return;
@@ -467,7 +483,7 @@ const HomePage = ({ setShakeCart, setTriggerCartRefresh }) => {
 	}, [heroCircleProducts, selectedCircleProductId]);
 
 	return (
-		<div className="min-h-screen bg-[#F3F3F3]">
+		<div className="min-h-screen bg-[#FFF8EC]">
 			{/* Flying Cart Animation */}
 			<FlyingToCart
 				isActive={flyingCart.active}
@@ -480,271 +496,253 @@ const HomePage = ({ setShakeCart, setTriggerCartRefresh }) => {
 				endPosition={flyingWishlist.end}
 			/>
 
-			<section className="relative w-full bg-[#532126] overflow-hidden">
+			{/* ── Hero Carousel ─────────────────────────────── */}
+			<section className="relative w-full overflow-hidden bg-[#1A0800]">
 				{products.length > 0 && (
-					<div className={`relative w-full ${HERO_HEIGHT_CLASSES} overflow-hidden group`}>
+					<div className={`relative w-full ${HERO_HEIGHT_CLASSES} overflow-hidden`}>
+						{/* Image with crossfade */}
 						<div className="absolute inset-0">
-							<Link to={`/product/${products[currentCarouselIndex].id}`}>
-								<img
-									src={products[currentCarouselIndex].images?.[0] || HOME_HERO_BACKGROUND_IMAGE}
-									alt={products[currentCarouselIndex].name}
-									className={`w-full h-full ${HERO_IMAGE_FIT_CLASSES} object-center opacity-75 sm:opacity-80 transition-all duration-1000`}
-								/>
-							</Link>
-							<div className="absolute inset-0 bg-gradient-to-r from-[#3A120F]/58 via-[#3A120F]/38 to-[#3A120F]/62" />
+							<img
+								key={currentCarouselIndex}
+								src={products[currentCarouselIndex].images?.[0] || HOME_HERO_BACKGROUND_IMAGE}
+								alt={products[currentCarouselIndex].name}
+								className="w-full h-full object-cover object-center animate-fade-in"
+								style={{ animationDuration: "0.8s" }}
+							/>
+							{/* Gradient: dark at bottom only, light at top */}
+							<div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
 						</div>
 
-						<div className="absolute inset-0 flex items-center">
-							<div className="w-full max-w-7xl mx-auto px-5 sm:px-7 lg:px-10">
-								<div className="grid md:grid-cols-2 gap-10 items-center">
-									<div className="hidden md:block">
-										<p className="text-white/85 text-5xl lg:text-7xl font-heading leading-[0.9]">Crafted</p>
-										<p className="text-white/85 text-5xl lg:text-7xl font-heading leading-[0.9]">with Devotion</p>
-									</div>
-
-									<div className="text-white md:justify-self-end max-w-xl">
-										<h2 className="text-3xl sm:text-4xl lg:text-5xl font-medium mb-3">{products[currentCarouselIndex].name}</h2>
-										<p className="text-lg sm:text-xl text-[#F1EDE6] mb-7 leading-relaxed">
-											{products[currentCarouselIndex].description || "A delightful, unique flavor to enhance your every meal."}
-										</p>
-										<Button
-											ref={(el) => {
-												if (el) addToCartButtonRefs.current[products[currentCarouselIndex].id] = el;
-											}}
-											onClick={() => addToCart(products[currentCarouselIndex])}
-											disabled={addingToCart === products[currentCarouselIndex].id}
-										className="bg-[#D97736] hover:bg-[#C96626] text-white rounded-full px-10 h-14 text-xl font-semibold"
-										>
-											{addingToCart === products[currentCarouselIndex].id ? "Adding..." : "Buy Now"}
-										</Button>
-									</div>
+						{/* Text — pinned to bottom, never overlapping product face */}
+						<div className="absolute bottom-0 left-0 right-0 px-5 sm:px-8 lg:px-12 pb-16 sm:pb-20">
+							<div className="max-w-2xl">
+								<p
+									key={`badge-${currentCarouselIndex}`}
+									className="inline-block text-xs font-bold uppercase tracking-[0.2em] text-[#F5A800] bg-[#F5A800]/15 border border-[#F5A800]/30 rounded-full px-4 py-1.5 mb-3 animate-fade-in"
+									style={{ animationDuration: "0.6s" }}
+								>
+									{products[currentCarouselIndex].badge || "Featured"}
+								</p>
+								<h2
+									key={`title-${currentCarouselIndex}`}
+									className="font-heading text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight mb-3 animate-fade-in"
+									style={{ animationDuration: "0.7s", animationDelay: "0.05s" }}
+								>
+									{products[currentCarouselIndex].name}
+								</h2>
+								<p
+									key={`desc-${currentCarouselIndex}`}
+									className="text-sm sm:text-base text-white/75 mb-6 leading-relaxed max-w-lg line-clamp-2 animate-fade-in"
+									style={{ animationDuration: "0.7s", animationDelay: "0.1s" }}
+								>
+									{products[currentCarouselIndex].description || "Handcrafted with devotion for your everyday ritual."}
+								</p>
+								<div className="flex items-center gap-3 animate-fade-in" style={{ animationDuration: "0.7s", animationDelay: "0.15s" }}>
+									<Button
+										ref={(el) => { if (el) addToCartButtonRefs.current[products[currentCarouselIndex].id] = el; }}
+										onClick={() => addToCart(products[currentCarouselIndex])}
+										disabled={addingToCart === products[currentCarouselIndex].id}
+										className="bg-[#E8620A] hover:bg-[#C8380A] text-white rounded-full px-7 h-12 text-sm font-bold shadow-lg transition-all hover:shadow-xl hover:-translate-y-0.5"
+									>
+										{addingToCart === products[currentCarouselIndex].id ? "Adding..." : "Shop Now"}
+									</Button>
+									<Link
+										to={`/product/${products[currentCarouselIndex].id}`}
+										className="text-white/80 hover:text-white text-sm font-medium underline-offset-4 hover:underline transition-colors"
+									>
+										View Details →
+									</Link>
 								</div>
 							</div>
 						</div>
 
-						{/* Left Arrow */}
+						{/* Side arrows */}
 						<button
 							onClick={handleCarouselPrev}
-							className="hidden md:block absolute left-4 top-1/2 -translate-y-1/2 z-20 bg-white/90 hover:bg-white text-[#3E2723] p-3 rounded-full shadow-lg transition-all opacity-70 md:group-hover:opacity-100 hover:scale-110"
-							title="Previous product"
+							className="absolute left-3 sm:left-5 top-1/2 -translate-y-1/2 z-20 w-10 h-10 sm:w-11 sm:h-11 bg-white/15 hover:bg-white/30 backdrop-blur-sm border border-white/20 text-white rounded-full flex items-center justify-center transition-all hover:scale-105"
+							aria-label="Previous"
 						>
-							<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-							</svg>
+							<ChevronLeft className="w-5 h-5" />
 						</button>
-
-						{/* Right Arrow */}
 						<button
 							onClick={handleCarouselNext}
-							className="hidden md:block absolute right-4 top-1/2 -translate-y-1/2 z-20 bg-white/90 hover:bg-white text-[#3E2723] p-3 rounded-full shadow-lg transition-all opacity-70 md:group-hover:opacity-100 hover:scale-110"
-							title="Next product"
+							className="absolute right-3 sm:right-5 top-1/2 -translate-y-1/2 z-20 w-10 h-10 sm:w-11 sm:h-11 bg-white/15 hover:bg-white/30 backdrop-blur-sm border border-white/20 text-white rounded-full flex items-center justify-center transition-all hover:scale-105"
+							aria-label="Next"
 						>
-							<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-							</svg>
+							<ChevronRight className="w-5 h-5" />
 						</button>
 
-						{/* Bottom Navigation Bar */}
-						<div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-4 sm:px-6 lg:px-8 py-5 sm:py-7">
-							<div className="max-w-7xl mx-auto flex items-center justify-between">
-								{/* Left Arrow - Mobile Visible */}
+						{/* Dots */}
+						<div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex gap-2 z-20">
+							{products.slice(0, 6).map((_, idx) => (
 								<button
-									onClick={handleCarouselPrev}
-									className="md:hidden bg-white/90 hover:bg-white text-[#3E2723] p-2 rounded-full shadow-lg transition-all hover:scale-110"
-									title="Previous"
-								>
-									<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-										<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-									</svg>
-								</button>
-
-								{/* Carousel Dots */}
-								<div className="flex justify-center gap-2 flex-1">
-									{products.slice(0, 5).map((_, idx) => (
-										<button
-											key={idx}
-											onClick={() => handleCarouselDotClick(idx)}
-											className={`transition-all rounded-full hover:bg-[#D97736]/70 ${
-												idx === currentCarouselIndex 
-													? "bg-white w-8 h-2" 
-													: "bg-white/60 w-2.5 h-2.5 hover:bg-white/80"
-											}`}
-											title={`Go to product ${idx + 1}`}
-										/>
-									))}
-								</div>
-
-								{/* Right Arrow - Mobile Visible */}
-								<button
-									onClick={handleCarouselNext}
-									className="md:hidden bg-white/90 hover:bg-white text-[#3E2723] p-2 rounded-full shadow-lg transition-all hover:scale-110"
-									title="Next"
-								>
-									<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-										<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-									</svg>
-								</button>
-							</div>
-							
-							{isAutoScrolling && <p className="text-white/75 text-xs text-center mt-3">Auto-scrolling</p>}
+									key={idx}
+									onClick={() => handleCarouselDotClick(idx)}
+									className={`rounded-full transition-all duration-400 ${idx === currentCarouselIndex ? "w-7 h-2 bg-[#F5A800]" : "w-2 h-2 bg-white/40 hover:bg-white/70"}`}
+									aria-label={`Slide ${idx + 1}`}
+								/>
+							))}
 						</div>
 					</div>
 				)}
 			</section>
 
-			<section className="bg-white border-b border-[#E5E3DD] py-6">
+			<section className="bg-[#FFF8EC] py-8 sm:py-10 border-b border-[#F5A800]/10">
 				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-					<div className="mobile-circle-scroll flex items-start gap-5 sm:gap-8 lg:gap-10 overflow-x-auto pb-2 pl-1 pr-8 snap-x snap-mandatory sm:justify-center sm:pr-1">
-						{heroCircleProducts.map((item) => {
-							const activeCategoryImageIndex = categoryHoverIndices[item.id] ?? 0;
+					<p className="text-center text-[10px] font-bold uppercase tracking-[0.35em] text-[#E8620A]/60 mb-6">Browse Collection</p>
+					<div className="mobile-circle-scroll flex items-center gap-4 sm:gap-6 lg:gap-8 overflow-x-auto pb-2 snap-x snap-mandatory sm:justify-center"
+						style={{ scrollbarWidth: "none" }}>
+						{heroCircleProducts.map((item, i) => {
+							const activeIdx = categoryHoverIndices[item.id] ?? 0;
 							const isSelected = selectedCircleProductId === item.id;
-
 							return (
 								<button
 									key={item.id}
 									type="button"
 									onClick={() => handleCircleProductClick(item.id)}
-									className="w-44 sm:w-auto text-center group flex-shrink-0 snap-start"
 									onMouseEnter={() => startCategoryHoverScroll(item.id, item.images.length)}
 									onMouseLeave={() => stopCategoryHoverScroll(item.id)}
-									onFocus={() => startCategoryHoverScroll(item.id, item.images.length)}
-									onBlur={() => stopCategoryHoverScroll(item.id)}
 									onTouchStart={() => startCategoryHoverScroll(item.id, item.images.length)}
 									onTouchEnd={() => stopCategoryHoverScroll(item.id)}
-									onTouchCancel={() => stopCategoryHoverScroll(item.id)}
+									className="flex flex-col items-center gap-3 flex-shrink-0 snap-start group"
+									style={{ animationDelay: `${i * 80}ms` }}
 								>
-									<div
-										className={`mx-auto w-28 h-28 sm:w-28 sm:h-28 md:w-32 md:h-32 rounded-full overflow-hidden border-2 shadow-sm group-hover:shadow-md group-hover:-translate-y-0.5 transition-all bg-[#F4F2EC] ${
-											isSelected ? "border-[#D97736] ring-2 ring-[#F5D8BC]" : "border-[#EFEDE6]"
-										}`}
-									>
+									{/* Image container */}
+									<div className={`relative w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 rounded-2xl overflow-hidden transition-all duration-300 ${
+										isSelected
+											? "shadow-[0_0_0_3px_#E8620A,0_8px_24px_rgba(232,98,10,0.25)] scale-105"
+											: "shadow-[0_2px_12px_rgba(0,0,0,0.08)] group-hover:shadow-[0_0_0_2px_#F5A800,0_8px_20px_rgba(245,168,0,0.2)] group-hover:scale-105"
+									}`}>
 										<img
-											src={item.images[activeCategoryImageIndex] || item.images[0] || "/logo.png"}
+											src={item.images[activeIdx] || item.images[0] || "/logo.png"}
 											alt={item.label}
 											className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
 										/>
+										{/* Overlay shimmer on hover */}
+										<div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+										{isSelected && (
+											<div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-[#E8620A]" />
+										)}
 									</div>
-									<p className="mt-2 text-xs sm:text-base leading-tight text-[#1E1E1D] font-medium whitespace-normal line-clamp-2 min-h-[2.25rem] sm:min-h-0">{item.label}</p>
+									{/* Label */}
+									<span className={`text-[11px] sm:text-xs font-semibold text-center leading-tight max-w-[80px] sm:max-w-[96px] line-clamp-2 transition-colors duration-200 ${
+										isSelected ? "text-[#E8620A]" : "text-[#7A3B00] group-hover:text-[#E8620A]"
+									}`}>
+										{item.label}
+									</span>
 								</button>
 							);
-				})}
+						})}
 					</div>
 				</div>
 			</section>
 
 			<section
 				id="products"
-				className="relative py-20 md:py-32 rounded-t-3xl mt-12 shadow-lg overflow-hidden"
-				style={{
-					backgroundImage: `url(${PRODUCTS_SECTION_BACKGROUND_IMAGE})`,
-					backgroundSize: "cover",
-					backgroundPosition: "center",
-				}}
+				className="relative py-16 md:py-24 mt-0 overflow-hidden bg-[#FFF8EC]"
 			>
-				<div className="absolute inset-0 bg-white/90 backdrop-blur-[1px]" />
 				<div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-							<h2 className="font-heading text-3xl sm:text-4xl font-semibold text-[#111111] mb-12 text-center">
-						{searchParams.get("category") || "Our Products"}
-					</h2>
+					<div className="text-center mb-10 sm:mb-14">
+						<p className="text-xs font-bold uppercase tracking-[0.3em] text-[#E8620A] mb-2">Our Collection</p>
+						<h2 className="font-heading text-3xl sm:text-4xl font-semibold text-[#4A1A00]">
+							{searchParams.get("category") || "Our Products"}
+						</h2>
+						<div className="mt-3 mx-auto w-16 h-0.5 bg-gradient-to-r from-[#E8620A] to-[#F5A800] rounded-full" />
+					</div>
 					{error && <p className="text-red-600 text-center mb-6">{error}</p>}
 
 					{products.length === 0 ? (
-						<div className="text-center text-[#5D4037] py-12">
+						<div className="text-center text-[#7A3B00] py-12">
 							<p>Loading products...</p>
 						</div>
 					) : (
-						<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-12">
-							{products.map((product) => {
+						<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+							{products.map((product, i) => {
 								const productId = getProductId(product);
 								const wishlisted = isWishlisted(productId);
 
 								return (
 								<div
 									key={productId}
-									className="group flex h-full flex-col"
+									className="group flex flex-col bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
+									style={{ animationDelay: `${i * 60}ms` }}
 									onMouseEnter={() => startProductHoverScroll(productId, product.images?.length || 0)}
 									onMouseLeave={() => stopProductHoverScroll(productId)}
-									onFocus={() => startProductHoverScroll(productId, product.images?.length || 0)}
-									onBlur={() => stopProductHoverScroll(productId)}
 								>
-									<div className="relative mb-4">
+									<div className="relative">
 										<button
 											type="button"
 											onClick={(event) => toggleWishlistFromCard(event, product)}
-											className={`absolute top-3 right-3 z-20 flex h-9 w-9 items-center justify-center rounded-full border transition-all ${
+											className={`absolute top-3 right-3 z-20 flex h-9 w-9 items-center justify-center rounded-full border transition-all duration-200 ${
 												wishlisted
-													? "bg-[#8B2C6D] border-[#8B2C6D] text-white"
-													: "bg-white/95 border-[#E0D8C8] text-[#3E2723] hover:bg-[#F7F3EE]"
+													? "bg-[#E8620A] border-[#E8620A] text-white scale-110"
+													: "bg-white/90 border-white/50 text-[#7A3B00] hover:bg-[#FFF3D6] hover:border-[#F5A800] hover:scale-110"
 											}`}
 											aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
 										>
-											<Heart className={`w-4 h-4 ${wishlisted ? "fill-current" : ""}`} />
+											<Heart className={`w-4 h-4 transition-transform duration-200 ${wishlisted ? "fill-current scale-110" : ""}`} />
 										</button>
 										<Link to={`/product/${productId}`}>
-											<div className="relative overflow-hidden rounded-2xl">
-											{product.badge && (
-													<span className="absolute top-3 left-3 bg-[#D97736] text-white text-[11px] sm:text-xs font-bold px-3 py-1 rounded-full z-10 shadow-sm">
-													{product.badge}
-												</span>
-											)}
-											{(() => {
+											<div className="relative overflow-hidden aspect-square">
+												{product.badge && (
+													<span className="absolute top-3 left-3 bg-[#E8620A] text-white text-[11px] font-bold px-3 py-1 rounded-full z-10 shadow-sm">
+														{product.badge}
+													</span>
+												)}
+												{(() => {
 													const activeImageIndex = hoveredImageIndices[productId] ?? 0;
-												return (
-											<img
-													key={`${productId}-${activeImageIndex}`}
-													src={product.images?.[activeImageIndex] || product.images?.[0]}
-												alt={product.name}
-												className="w-full aspect-square object-cover transition-transform duration-700 group-hover:scale-105"
-											/>
-												);
-											})()}
+													return (
+														<img
+															key={`${productId}-${activeImageIndex}`}
+															src={product.images?.[activeImageIndex] || product.images?.[0]}
+															alt={product.name}
+															className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-108"
+															style={{ transform: "scale(1)", transition: "transform 0.7s ease" }}
+															onMouseEnter={e => e.currentTarget.style.transform = "scale(1.06)"}
+															onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
+														/>
+													);
+												})()}
 											</div>
 										</Link>
 									</div>
 
-									<div className="flex h-full flex-col text-left">
+									<div className="flex flex-col flex-1 p-4 text-center">
 										<Link to={`/product/${productId}`}>
-											<h3 className="font-heading text-2xl sm:text-3xl lg:text-[2rem] font-bold leading-[1.08] text-[#111111] mb-2 min-h-[4.25rem] sm:min-h-[4.8rem] lg:min-h-[5.1rem] line-clamp-2 hover:text-[#111111] transition-colors">
+											<h3 className="font-heading text-lg sm:text-xl font-bold text-[#4A1A00] mb-2 line-clamp-2 hover:text-[#E8620A] transition-colors duration-200">
 												{product.name}
 											</h3>
 										</Link>
 
-										<div className="flex items-center gap-2 mb-2 sm:mb-3 min-h-[1.5rem] sm:min-h-[1.75rem]">
-											<div className="flex items-center gap-1.5">
-												<Star className="w-[18px] h-[18px] sm:w-5 sm:h-5 fill-[#D97736] text-[#D97736]" />
-												<span className="text-lg sm:text-xl font-bold text-[#5D4037]">{product.rating || 4.8}</span>
-											</div>
+										<div className="flex items-center justify-center gap-1 mb-2">
+											{[1,2,3,4,5].map(s => (
+												<svg key={s} viewBox="0 0 20 20" className={`w-3.5 h-3.5 ${s <= Math.round(product.rating || 4.8) ? "fill-[#F5A800]" : "fill-gray-200"}`}>
+													<path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+												</svg>
+											))}
+											<span className="text-xs text-[#7A3B00] ml-1 font-medium">{product.rating || 4.8}</span>
 										</div>
 
-										<div className="flex items-center gap-2 mb-4 sm:mb-5 min-h-[2.2rem] sm:min-h-[2.6rem]">
-											<span className="text-2xl sm:text-3xl lg:text-[2rem] font-bold text-[#111111] leading-none">
-												{formatPrice(product.price)}
-											</span>
-											<span className={`text-lg sm:text-xl lg:text-2xl font-semibold text-[#5D4037] line-through leading-none ${product.oldPrice ? "" : "invisible"}`}>
-												{formatPrice(product.oldPrice || product.price)}
-											</span>
+										<div className="flex items-center justify-center gap-2 mb-4">
+											<span className="text-xl font-bold text-[#4A1A00]">{formatPrice(product.price)}</span>
+											{product.oldPrice && (
+												<span className="text-sm text-gray-400 line-through">{formatPrice(product.oldPrice)}</span>
+											)}
 										</div>
 
 										<Button
-										ref={(el) => {
-											if (el) addToCartButtonRefs.current[productId] = el;
-										}}
-										onClick={() => addToCart(product)}
-										disabled={addingToCart === productId}
-												className={`mt-auto w-full bg-gradient-to-r from-[#D97736] to-[#F5A962] hover:from-[#C96626] hover:to-[#E59650] text-white rounded-full transition-all font-bold shadow-lg text-sm sm:text-base ${
-											addingToCart === productId
-												? "scale-95 opacity-75 animate-magic-pulse"
-												: "hover:-translate-y-1 hover:shadow-xl active:scale-95"
-										}`}
-									>
-										{addingToCart === productId ? (
-											<>
-												<ShoppingCart className="w-4 h-4 mr-2 animate-bounce" />
-												Adding...
-											</>
-										) : (
-											<>✨ Add to Cart</>
-										)}
+											ref={(el) => { if (el) addToCartButtonRefs.current[productId] = el; }}
+											onClick={() => addToCart(product)}
+											disabled={addingToCart === productId}
+											className={`mt-auto w-full bg-gradient-to-r from-[#E8620A] to-[#F5A800] hover:from-[#C8380A] hover:to-[#E8620A] text-white rounded-full font-bold text-sm shadow-md transition-all duration-200 ${
+												addingToCart === productId
+													? "scale-95 opacity-75"
+													: "hover:-translate-y-0.5 hover:shadow-lg active:scale-95"
+											}`}
+										>
+											{addingToCart === productId ? (
+												<><ShoppingCart className="w-4 h-4 mr-2 animate-bounce" />Adding...</>
+											) : "Add to Cart"}
 										</Button>
 									</div>
 								</div>
@@ -755,63 +753,72 @@ const HomePage = ({ setShakeCart, setTriggerCartRefresh }) => {
 				</div>
 			</section>
 
-			<section ref={reviewSectionRef} id="customer-reviews" className="bg-white py-16 sm:py-20 lg:py-24 border-t border-[#E5E3DD]">
-				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-					<div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between mb-8 lg:mb-10">
-						<div>
-							<p className="text-xs font-bold uppercase tracking-[0.24em] text-[#D97736]">Customer Reviews</p>
-							<h2 className="mt-1 font-heading text-3xl sm:text-4xl text-[#3E2723]">Voices of Trust</h2>
+			<section ref={reviewSectionRef} id="customer-reviews" className="relative py-20 sm:py-28 overflow-hidden" style={{ background: "linear-gradient(135deg,#1A0800 0%,#2D0F00 45%,#1A0800 100%)" }}>
+				<div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#F5A800]/50 to-transparent" />
+				<div className="absolute bottom-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#F5A800]/50 to-transparent" />
+				<div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+					<div className="text-center mb-14">
+						<div className="inline-flex items-center gap-3 mb-5">
+							<div className="h-px w-10 bg-gradient-to-r from-transparent to-[#F5A800]/60" />
+							<span className="text-[10px] font-bold uppercase tracking-[0.45em] text-[#F5A800]">Customer Reviews</span>
+							<div className="h-px w-10 bg-gradient-to-l from-transparent to-[#F5A800]/60" />
 						</div>
-						<div className="flex items-center gap-2 self-start sm:self-auto">
-							<button
-								type="button"
-								onClick={handleReviewPrev}
-								aria-label="Previous reviews"
-								className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[#E0D8C8] bg-white text-[#8B2C6D] transition hover:border-[#D97736] hover:text-[#D97736]"
-							>
-								<ChevronLeft className="h-5 w-5" />
-							</button>
-							<button
-								type="button"
-								onClick={handleReviewNext}
-								aria-label="Next reviews"
-								className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[#E0D8C8] bg-white text-[#8B2C6D] transition hover:border-[#D97736] hover:text-[#D97736]"
-							>
-								<ChevronRight className="h-5 w-5" />
-							</button>
-						</div>
+						<h2 className="font-heading text-4xl sm:text-5xl lg:text-6xl text-white font-light">
+							What They&apos;re <em className="text-[#F5A800] not-italic">Saying</em>
+						</h2>
 					</div>
-
 					{featuredReviews.length === 0 ? (
-						<div className="rounded-[2rem] border border-dashed border-[#E0D8C8] bg-[#FAF7F2] p-8 text-center text-[#6B5B52]">
-							No customer reviews yet. Reviews will appear here as soon as shoppers submit them.
-						</div>
+						<p className="text-center text-white/30 text-sm">No reviews yet.</p>
 					) : (
-						<div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
-							{reviewWindow.map((review, index) => (
-								<Link
-									key={review.id}
-									to={`/product/${review.productId}`}
-									className={`group rounded-[2rem] border-2 border-[#E6DCCB] bg-[#FCFAF7] p-6 sm:p-7 shadow-sm transition-all duration-700 ${isReviewSectionVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}
-									style={{ transitionDelay: `${index * 140}ms` }}
-								>
-									<div className="flex items-center justify-between gap-3">
-										<div>
-											<div className="flex items-center gap-1 text-[#D97736]">
-												{Array.from({ length: 5 }).map((_, starIndex) => (
-													<Star key={starIndex} className={`h-4 w-4 ${starIndex < review.rating ? "fill-current" : "text-[#E3D8C7]"}`} />
-												))}
-											</div>
-											<h3 className="mt-4 font-heading text-xl font-bold text-[#3E2723] group-hover:text-[#D97736]">
-												{review.userName}
-												<span className="ml-2 inline-flex items-center rounded-full bg-[#8B2C6D] px-2 py-0.5 text-xs font-medium text-white">Verified</span>
-											</h3>
-										</div>
+						<div>
+							<div className={`transition-all duration-500 ${reviewFading ? "opacity-0 translate-y-3" : "opacity-100 translate-y-0"}`}>
+								<div className="relative rounded-2xl overflow-hidden text-center px-8 sm:px-16 py-12 sm:py-16" style={{ background: "rgba(245,168,0,0.06)", border: "1px solid rgba(245,168,0,0.18)" }}>
+									<div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-[#F5A800] to-transparent" />
+									<div className="absolute bottom-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-[#F5A800] to-transparent" />
+									<div className="absolute top-0 left-4 font-serif leading-none select-none pointer-events-none text-[#F5A800]/8" style={{ fontSize: "150px" }}>&ldquo;</div>
+									<div className="flex justify-center gap-1.5 mb-8">
+										{Array.from({ length: 5 }).map((_, i) => (
+											<svg key={i} viewBox="0 0 20 20" className={`w-5 h-5 ${i < (featuredReviews[reviewStartIndex]?.rating || 5) ? "fill-[#F5A800]" : "fill-white/10"}`}>
+												<path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+											</svg>
+										))}
 									</div>
-									<p className="mt-4 text-sm uppercase tracking-[0.18em] text-[#D97736]">{review.productName}</p>
-									<p className="mt-3 text-base leading-7 text-[#4B4038]">{review.comment}</p>
-								</Link>
-							))}
+									<p className="relative z-10 text-xl sm:text-2xl lg:text-3xl text-white/90 font-light italic leading-relaxed max-w-2xl mx-auto mb-10">
+										&ldquo;{featuredReviews[reviewStartIndex]?.comment}&rdquo;
+									</p>
+									<div className="flex items-center justify-center gap-4 mb-6">
+										<div className="h-px w-16 bg-gradient-to-r from-transparent to-[#F5A800]/50" />
+										<svg viewBox="0 0 24 24" className="w-4 h-4 fill-[#F5A800]"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg>
+										<div className="h-px w-16 bg-gradient-to-l from-transparent to-[#F5A800]/50" />
+									</div>
+									<p className="text-white font-semibold text-sm tracking-[0.2em] uppercase mb-1">{featuredReviews[reviewStartIndex]?.userName}</p>
+									{featuredReviews[reviewStartIndex]?.productId ? (
+										<Link to={`/product/${featuredReviews[reviewStartIndex].productId}`} className="text-[#F5A800]/60 hover:text-[#F5A800] text-xs tracking-[0.18em] uppercase transition-colors">
+											{featuredReviews[reviewStartIndex]?.productName}
+										</Link>
+									) : (
+										<p className="text-[#F5A800]/60 text-xs tracking-[0.18em] uppercase">{featuredReviews[reviewStartIndex]?.productName}</p>
+									)}
+									<div className="mt-5 inline-flex items-center gap-2 rounded-full px-4 py-1.5" style={{ background: "rgba(245,168,0,0.1)", border: "1px solid rgba(245,168,0,0.25)" }}>
+										<svg viewBox="0 0 20 20" className="w-3 h-3 fill-[#F5A800]"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
+										<span className="text-[#F5A800] text-[10px] font-bold tracking-[0.25em] uppercase">Verified Purchase</span>
+									</div>
+								</div>
+							</div>
+							<div className="flex items-center justify-center gap-6 mt-10">
+								<button onClick={handleReviewPrev} aria-label="Previous" className="w-11 h-11 rounded-full flex items-center justify-center text-[#F5A800] transition-all hover:scale-110" style={{ border: "1px solid rgba(245,168,0,0.3)" }}>
+									<ChevronLeft className="w-5 h-5" />
+								</button>
+								<div className="flex gap-2 items-center">
+									{featuredReviews.map((_, idx) => (
+										<button key={idx} onClick={() => { setReviewFading(true); setTimeout(() => { setReviewStartIndex(idx); setReviewFading(false); }, 350); }} className={`rounded-full transition-all duration-300 ${idx === reviewStartIndex ? "w-8 h-2 bg-[#F5A800]" : "w-2 h-2 bg-white/20 hover:bg-[#F5A800]/50"}`} aria-label={`Review ${idx + 1}`} />
+									))}
+								</div>
+								<button onClick={handleReviewNext} aria-label="Next" className="w-11 h-11 rounded-full flex items-center justify-center text-[#F5A800] transition-all hover:scale-110" style={{ border: "1px solid rgba(245,168,0,0.3)" }}>
+									<ChevronRight className="w-5 h-5" />
+								</button>
+							</div>
+							<p className="text-center text-white/25 text-[10px] tracking-[0.3em] uppercase mt-5">{reviewStartIndex + 1} of {featuredReviews.length}</p>
 						</div>
 					)}
 				</div>

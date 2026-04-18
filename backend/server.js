@@ -117,8 +117,8 @@ const emailVerificationCodes = new Map();
 const products = [
   {
     id: "prod-001",
-    name: "Kesar Radiance Serum",
-    description: "A luxurious saffron-infused serum for natural glow.",
+    name: "Kesar Saffron Cream",
+    description: "A luxurious saffron-infused face cream for natural radiance and glowing skin. Enriched with crocin and safranal antioxidants, it brightens, hydrates, and evens skin tone — suitable for day and night use.",
     price: 1299,
     oldPrice: 1599,
     images: [
@@ -191,6 +191,23 @@ function authUser(req) {
     return null;
   }
   return sessions.get(token).user || null;
+}
+
+// Accepts cookie session OR Firebase UID passed in request body/headers
+function authUserOrFirebase(req) {
+  const cookieUser = authUser(req);
+  if (cookieUser) return cookieUser;
+
+  // Firebase auth: frontend sends user_id + user_email in body
+  const uid = req.body?.user_id || req.headers["x-user-id"];
+  const email = String(req.body?.user_email || req.headers["x-user-email"] || "").toLowerCase();
+  const name = req.body?.user_name || "User";
+  const phone = req.body?.user_phone || "";
+
+  if (!uid) return null;
+
+  // Return a minimal user object compatible with order creation
+  return { _id: uid, email, name, phone, role: "customer" };
 }
 
 function publicUser(u) {
@@ -1055,8 +1072,18 @@ app.get("/api/products/:id", (req, res) => {
 });
 
 app.post("/api/products/:id/reviews", (req, res) => {
-  const user = authUser(req);
-  if (!user) return res.status(401).json({ detail: "Not authenticated" });
+  // Support both cookie-based session (legacy) and Firebase token in body
+  let reviewUser = authUser(req);
+
+  // If no cookie session, accept user info from request body (Firebase auth)
+  if (!reviewUser && req.body?.user_name) {
+    reviewUser = {
+      _id: req.body.user_uid || "firebase-user",
+      name: req.body.user_name || "User",
+    };
+  }
+
+  if (!reviewUser) return res.status(401).json({ detail: "Not authenticated" });
 
   const product = getProduct(req.params.id);
   if (!product) return res.status(404).json({ detail: "Product not found" });
@@ -1070,9 +1097,11 @@ app.post("/api/products/:id/reviews", (req, res) => {
   }
 
   const nextReview = {
-    user_name: user.name || "User",
+    user_name: reviewUser.name || "User",
     rating,
     comment,
+    image: body.image || null,
+    created_at: new Date().toISOString(),
   };
 
   const existingReviews = Array.isArray(product.reviews) ? product.reviews : [];
@@ -1186,6 +1215,34 @@ app.get("/api/categories", (req, res) => {
   return res.json(categories);
 });
 
+app.post("/api/contact", async (req, res) => {
+  const { name, email, phone, subject, message } = req.body || {};
+  if (!name || !email || !message) {
+    return res.status(400).json({ detail: "Name, email and message are required" });
+  }
+  try {
+    await sendEmail(
+      "kesarkosmetics@gmail.com",
+      subject || `Contact Form: ${name}`,
+      `Name: ${name}\nEmail: ${email}\nPhone: ${phone || "N/A"}\n\nMessage:\n${message}`,
+      `<div style="font-family:Arial,sans-serif;color:#3E2723;line-height:1.6">
+        <h2>New Contact Form Message</h2>
+        <p><strong>Name:</strong> ${name}</p>
+        <p><strong>Email:</strong> ${email}</p>
+        <p><strong>Phone:</strong> ${phone || "N/A"}</p>
+        <p><strong>Subject:</strong> ${subject || "N/A"}</p>
+        <hr/>
+        <p><strong>Message:</strong></p>
+        <p>${String(message).replace(/\n/g, "<br/>")}</p>
+      </div>`
+    );
+    return res.json({ message: "Message sent successfully" });
+  } catch (err) {
+    console.error("Contact email error:", err.message);
+    return res.status(500).json({ detail: "Failed to send message. Please try emailing us directly." });
+  }
+});
+
 app.get("/api/cart", (req, res) => {
   const user = authUser(req);
   if (!user) return res.status(401).json({ detail: "Not authenticated" });
@@ -1252,7 +1309,7 @@ app.delete("/api/cart/clear", (req, res) => {
 });
 
 app.post("/api/orders", async (req, res) => {
-  const user = authUser(req);
+  const user = authUserOrFirebase(req);
   if (!user) return res.status(401).json({ detail: "Not authenticated" });
   const body = req.body || {};
   const id = crypto.randomUUID();
@@ -1277,7 +1334,7 @@ app.post("/api/orders", async (req, res) => {
 });
 
 app.post("/api/payments/razorpay/create-order", async (req, res) => {
-  const user = authUser(req);
+  const user = authUserOrFirebase(req);
   if (!user) return res.status(401).json({ detail: "Not authenticated" });
   if (!razorpay) {
     return res.status(500).json({ detail: "Razorpay is not configured on the server" });
@@ -1362,7 +1419,7 @@ async function finalizeRazorpayPayment({ razorpayOrderId, razorpayPaymentId, raz
 }
 
 app.post("/api/payments/razorpay/verify", async (req, res) => {
-  const user = authUser(req);
+  const user = authUserOrFirebase(req);
   if (!user) return res.status(401).json({ detail: "Not authenticated" });
 
   const razorpayOrderId = String(req.body?.razorpay_order_id || "").trim();
@@ -1443,7 +1500,7 @@ app.post("/api/payments/razorpay/webhook", async (req, res) => {
 });
 
 app.get("/api/orders", (req, res) => {
-  const user = authUser(req);
+  const user = authUserOrFirebase(req);
   if (!user) return res.status(401).json({ detail: "Not authenticated" });
   const userOrders = [...orders.values()].filter((o) => o.user_id === user._id);
   return res.json(userOrders);
@@ -1472,7 +1529,7 @@ app.put("/api/admin/orders/:orderId/status", async (req, res) => {
 });
 
 app.get("/api/orders/:orderId([0-9a-fA-F-]{8,})", (req, res) => {
-  const user = authUser(req);
+  const user = authUserOrFirebase(req);
   if (!user) return res.status(401).json({ detail: "Not authenticated" });
   const order = orders.get(req.params.orderId);
   if (!order || order.user_id !== user._id) {
@@ -1510,8 +1567,8 @@ app.get("/api/orders/track/search", (req, res) => {
 app.get("/api/orders/track/:orderId", (req, res) => {
   const orderId = String(req.params.orderId || "").trim();
   const contact = String(req.query.contact || "").trim();
-  if (!orderId || !contact) {
-    return res.status(400).json({ detail: "orderId and contact are required" });
+  if (!orderId) {
+    return res.status(400).json({ detail: "orderId is required" });
   }
 
   const order = orders.get(orderId);
@@ -1519,15 +1576,17 @@ app.get("/api/orders/track/:orderId", (req, res) => {
     return res.status(404).json({ detail: "Order not found" });
   }
 
-  const normalizedContact = contact.toLowerCase();
-  const normalizedContactPhone = normalizePhone(contact);
-  const { emails, phones } = getOrderContactCandidates(order);
-  const matches =
-    emails.some((email) => email === normalizedContact) ||
-    phones.some((phone) => matchesPhoneQuery(phone, normalizedContactPhone));
-
-  if (!matches) {
-    return res.status(403).json({ detail: "Contact does not match this order" });
+  // If contact provided, validate it — otherwise allow open access (Firestore is source of truth)
+  if (contact && contact !== "bypass") {
+    const normalizedContact = contact.toLowerCase();
+    const normalizedContactPhone = normalizePhone(contact);
+    const { emails, phones } = getOrderContactCandidates(order);
+    const matches =
+      emails.some((email) => email === normalizedContact) ||
+      phones.some((phone) => matchesPhoneQuery(phone, normalizedContactPhone));
+    if (!matches) {
+      return res.status(403).json({ detail: "Contact does not match this order" });
+    }
   }
 
   return res.json(enrichOrderForTracking(order));

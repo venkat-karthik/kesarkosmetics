@@ -1,9 +1,3 @@
-import { createClient } from "@supabase/supabase-js";
-
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
-const supabaseKey = process.env.REACT_APP_SUPABASE_ANON_KEY || process.env.REACT_APP_SUPABASE_KEY;
-
-export const supabase =
-	supabaseUrl && supabaseKey
-		? createClient(supabaseUrl, supabaseKey)
-		: null;
+// Supabase has been replaced with Firebase.
+// This file is kept to avoid breaking any stale imports.
+export const supabase = null;

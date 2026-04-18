@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Search, PackageSearch, ChevronRight } from "lucide-react";
 import axios from "axios";
+import { collection, query, where, getDocs } from "firebase/firestore";
+import { db } from "../firebaseClient";
 import { toast } from "sonner";
 import { formatPrice } from "../utils/helpers";
 import { useAuth } from "../contexts/AuthContext";
@@ -25,9 +27,62 @@ const TrackOrderPage = () => {
 			}
 
 			try {
-				const { data } = await axios.get(`${BACKEND_URL}/api/orders`, { withCredentials: true });
-				setOrders(Array.isArray(data) ? data : []);
-			} catch {
+				// Fetch from Firestore (no orderBy to avoid composite index requirement)
+				const q = query(
+					collection(db, "orders"),
+					where("userId", "==", user._id)
+				);
+				const snap = await getDocs(q);
+				const firestoreOrders = snap.docs
+					.map(d => ({ id: d.id, ...d.data() }))
+					.sort((a, b) => {
+						const ta = a.createdAt?.toDate?.()?.getTime() || 0;
+						const tb = b.createdAt?.toDate?.()?.getTime() || 0;
+						return tb - ta;
+					});
+
+				// Also fetch from backend (in-memory store, may have recent orders)
+				let backendOrders = [];
+				try {
+					const { data } = await axios.get(`${BACKEND_URL}/api/orders`, {
+						withCredentials: true,
+						headers: { "x-user-id": user._id, "x-user-email": user.email },
+					});
+					backendOrders = Array.isArray(data) ? data : [];
+				} catch {
+					// backend may be unavailable, that's ok
+				}
+
+				// Normalize Firestore orders
+				const normalizedFirestore = firestoreOrders.map(o => ({
+					id: o.orderId || o.id,
+					_firestoreId: o.id,
+					user_id: o.userId,
+					items: (o.items || []).map(i => ({
+						product_id: i.product_id,
+						product_name: i.product_name,
+						quantity: i.quantity,
+						price: i.price,
+						image: null,
+					})),
+					shipping_address: o.shippingAddress || {},
+					payment_method: o.paymentMethod || "cod",
+					total: o.total || 0,
+					status: o.status || "pending",
+					contact_email: user.email,
+					contact_phone: user.phone || "",
+					created_at: o.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+				}));
+
+				// Merge: prefer Firestore, add backend orders not already in Firestore
+				const firestoreIds = new Set(normalizedFirestore.map(o => o.id));
+				const mergedBackend = backendOrders.filter(o => !firestoreIds.has(o.id));
+				const allOrders = [...normalizedFirestore, ...mergedBackend]
+					.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+				setOrders(allOrders);
+			} catch (err) {
+				console.error("Failed to fetch orders:", err);
 				setOrders([]);
 			} finally {
 				setOrdersLoading(false);

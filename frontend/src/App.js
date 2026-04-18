@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes, useNavigate } from "react-route
 import { Toaster } from "sonner";
 import { AuthProvider } from "./contexts/AuthContext";
 import { CartDrawerProvider, useCartDrawer } from "./contexts/CartDrawerContext";
+import { CartProvider, useCart } from "./contexts/CartContext";
 import { WishlistProvider } from "./contexts/WishlistContext";
 import { useAuth } from "./contexts/AuthContext";
 import Header from "./components/Header";
@@ -19,10 +20,13 @@ import RegisterPage from "./pages/RegisterPage";
 import CartPage from "./pages/CartPage";
 import CheckoutPage from "./pages/CheckoutPage";
 import OrderSuccessPage from "./pages/OrderSuccessPage";
+import AdminDashboard from "./pages/AdminDashboard";
+import AdminLoginPage from "./pages/AdminLoginPage";
 import AdminPanel from "./pages/AdminPanel";
 import AboutUsPage from "./pages/AboutUsPage";
 import BlogsPage from "./pages/BlogsPage";
 import ContactPage from "./pages/ContactPage";
+import FAQPage from "./pages/FAQPage";
 import TrackOrderPage from "./pages/TrackOrderPage";
 import TrackOrderResultsPage from "./pages/TrackOrderResultsPage";
 import TrackOrderStatusPage from "./pages/TrackOrderStatusPage";
@@ -53,7 +57,6 @@ function AppLayout() {
   return (
     <>
       <Toaster position="top-center" richColors />
-      <PromoBanner />
       <Header
         onMenuClick={() => setIsMenuOpen(true)}
         onSearchClick={() => setIsSearchOpen(true)}
@@ -79,6 +82,7 @@ function AppLayout() {
         <Route path="/about-us" element={<AboutUsPage />} />
         <Route path="/blogs" element={<BlogsPage />} />
         <Route path="/contact-us" element={<ContactPage />} />
+        <Route path="/faq" element={<FAQPage />} />
         <Route path="/track-order" element={<TrackOrderPage />} />
         <Route path="/track-order/results" element={<TrackOrderResultsPage />} />
         <Route path="/track-order/status/:orderId" element={<TrackOrderStatusPage />} />
@@ -116,18 +120,21 @@ function App() {
   return (
     <AuthProvider>
       <WishlistProvider>
+        <CartProvider>
         <CartDrawerProvider>
           <BrowserRouter>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/admin/login" element={<Navigate to="/login" replace />} />
-            <Route path="/admin" element={<AdminPanel />} />
-            <Route path="/admin/dashboard" element={<AdminPanel />} />
+            <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/admin/dashboard" element={<AdminDashboard />} />
+            <Route path="/admin/panel" element={<AdminPanel />} />
             <Route path="/*" element={<AppLayout />} />
           </Routes>
         </BrowserRouter>
         </CartDrawerProvider>
+        </CartProvider>
       </WishlistProvider>
     </AuthProvider>
   );

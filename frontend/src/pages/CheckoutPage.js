@@ -6,7 +6,10 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
+import { useCart } from "../contexts/CartContext";
 import { Truck, Lock, CreditCard, Wallet, Banknote, ReceiptText, Minus, Plus, Trash2, ChevronDown, Home, Building2, Package } from "lucide-react";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { db } from "../firebaseClient";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
 
@@ -60,37 +63,35 @@ const INDIA_STATES = [
 const CheckoutPage = () => {
 	const navigate = useNavigate();
 	const { user } = useAuth();
-	const [cart, setCart] = useState({ items: [], total: 0 });
+	const { cart, updateQuantity, removeFromCart, clearCart } = useCart();
 	const [form, setForm] = useState({ name: "", phone: "", address: "", city: "", country: "India", state: "", pincode: "", addressType: "" });
 	const [paymentMethod, setPaymentMethod] = useState("cod");
 	const [loading, setLoading] = useState(false);
 	const [couponCode, setCouponCode] = useState("");
 	const [discountApplied, setDiscountApplied] = useState(0);
-	const [orderStep, setOrderStep] = useState("details"); // details, review, payment
+	const [orderStep, setOrderStep] = useState("details");
 
 	useEffect(() => {
-		const load = async () => {
-			if (!user || !user._id) {
-				navigate("/login");
-				return;
-			}
-			try {
-				const { data } = await axios.get(`${BACKEND_URL}/api/cart`, { withCredentials: true });
-				if (!data.items || data.items.length === 0) {
-					toast.error("Your cart is empty");
-					navigate("/cart");
-					return;
-				}
-				setCart(data);
-			} catch {
-				toast.error("Could not load checkout data");
-			}
-			setForm((prev) => ({ ...prev, name: user.name || "", phone: user.phone || "", country: prev.country || "India", state: prev.country === "India" ? prev.state : "", addressType: prev.addressType || "" }));
-		};
-		load();
-	}, [user, navigate]);
+		if (!user || !user._id) { navigate("/login"); return; }
+		if (cart.items.length === 0) { toast.error("Your cart is empty"); navigate("/cart"); return; }
+		setForm((prev) => ({ ...prev, name: user.name || "", phone: user.phone || "", country: prev.country || "India", state: prev.country === "India" ? prev.state : "", addressType: prev.addressType || "" }));
+	}, [user, navigate, cart.items.length]);
 
-	const applyCoupon = () => {
+	const refreshCart = async () => {
+		// Cart is managed by CartContext — no backend call needed
+		window.dispatchEvent(new Event("cart:updated"));
+	};
+
+	const handleUpdateQuantity = async (productId, quantity) => {
+		await updateQuantity(productId, quantity);
+	};
+
+	const handleRemoveItem = async (productId) => {
+		await removeFromCart(productId);
+		toast.success("Item removed");
+	};
+
+	const handleApplyCoupon = () => {
 		const validCoupons = { "KESAR10": 0.10, "SAVE20": 0.20, "SUMMER5": 0.05 };
 		if (!couponCode.trim()) {
 			toast.error("Enter a coupon code");
@@ -105,46 +106,6 @@ const CheckoutPage = () => {
 			setDiscountApplied(0);
 		}
 		setCouponCode("");
-	};
-
-	const refreshCart = async () => {
-		const { data } = await axios.get(`${BACKEND_URL}/api/cart`, { withCredentials: true });
-		if (!data.items || data.items.length === 0) {
-			toast.error("Your cart is empty");
-			window.dispatchEvent(new Event("cart:updated"));
-			navigate("/cart");
-			return;
-		}
-		setCart(data);
-		setDiscountApplied(0);
-		window.dispatchEvent(new Event("cart:updated"));
-	};
-
-	const handleUpdateQuantity = async (productId, quantity) => {
-		try {
-			if (quantity <= 0) {
-				await axios.delete(`${BACKEND_URL}/api/cart/remove/${productId}`, { withCredentials: true });
-			} else {
-				await axios.post(
-					`${BACKEND_URL}/api/cart/update`,
-					{ product_id: productId, quantity },
-					{ withCredentials: true }
-				);
-			}
-			await refreshCart();
-		} catch {
-			toast.error("Could not update quantity");
-		}
-	};
-
-	const handleRemoveItem = async (productId) => {
-		try {
-			await axios.delete(`${BACKEND_URL}/api/cart/remove/${productId}`, { withCredentials: true });
-			await refreshCart();
-			toast.success("Item removed");
-		} catch {
-			toast.error("Could not remove item");
-		}
 	};
 
 	const isShippingFormValid = () => {
@@ -173,6 +134,8 @@ const CheckoutPage = () => {
 		e.preventDefault();
 		setLoading(true);
 		const shippingCost = (cart.total - discountApplied) >= 2000 ? 0 : 100;
+		const TAX = cart.total * 0.12;
+		const grandTotal = cart.total - discountApplied + shippingCost + TAX;
 		const payload = {
 			items: cart.items.map((i) => ({
 				product_id: i.product.id,
@@ -183,77 +146,121 @@ const CheckoutPage = () => {
 			})),
 			shipping_address: form,
 			payment_method: paymentMethod,
-			total: cart.total - discountApplied + shippingCost,
+			total: grandTotal,
 			discount: discountApplied,
+			user_id: user._id,
+			user_email: user.email,
+			user_name: user.name,
+			user_phone: user.phone || form.phone,
 		};
-		try {
-			if (paymentMethod === "online") {
-				const { data } = await axios.post(`${BACKEND_URL}/api/payments/razorpay/create-order`, payload, { withCredentials: true });
-				const checkoutKey = data?.razorpay?.key_id;
-				if (!checkoutKey || !window.Razorpay) {
-					throw new Error("Razorpay checkout is not available");
-				}
 
-				await new Promise((resolve, reject) => {
-					const options = {
-						key: checkoutKey,
-						amount: data.razorpay.amount,
-						currency: data.razorpay.currency,
-						name: "Kesar Kosmetics",
-						description: "Order payment",
-						order_id: data.razorpay.order_id,
-						prefill: {
-							name: form.name,
-							email: user?.email || "",
-							contact: form.phone,
-						},
-						notes: {
-							app_order_id: data.order.id,
-						},
-						theme: {
-							color: "#D97736",
-						},
-						handler: async (response) => {
-							try {
-								const verify = await axios.post(
-									`${BACKEND_URL}/api/payments/razorpay/verify`,
-									{
-										razorpay_order_id: response.razorpay_order_id,
-										razorpay_payment_id: response.razorpay_payment_id,
-										razorpay_signature: response.razorpay_signature,
-									},
-									{ withCredentials: true }
-								);
-								toast.success("Payment verified successfully!");
-								navigate(`/order-success?orderId=${verify.data.id || data.order.id}`);
-								resolve();
-							} catch (verifyError) {
-								toast.error("Payment verification failed");
-								reject(verifyError);
-							}
-						},
-						modal: {
-							ondismiss: () => {
-								toast.error("Payment cancelled");
-								reject(new Error("Payment cancelled"));
-							},
-						},
-					};
-
-					const razorpayInstance = new window.Razorpay(options);
-					razorpayInstance.on("payment.failed", (response) => {
-						toast.error(response?.error?.description || "Payment failed");
-						reject(new Error(response?.error?.description || "Payment failed"));
-					});
-					razorpayInstance.open();
+		// Save order to Firestore for persistent tracking
+		const saveOrderToFirestore = async (orderId, status = "confirmed") => {
+			try {
+				await addDoc(collection(db, "orders"), {
+					orderId,
+					userId: user._id,
+					userEmail: user.email,
+					userName: user.name,
+					items: payload.items,
+					shippingAddress: form,
+					paymentMethod,
+					subtotal: cart.total,
+					discount: discountApplied,
+					shipping: shippingCost,
+					tax: TAX,
+					total: grandTotal,
+					status,
+					createdAt: serverTimestamp(),
 				});
-			} else {
+			} catch (err) {
+				console.error("Failed to save order to Firestore:", err);
+			}
+		};
+
+		// Razorpay checkout for online/upi/bank methods
+		const openRazorpay = async () => {
+			const { data } = await axios.post(`${BACKEND_URL}/api/payments/razorpay/create-order`, payload, { withCredentials: true });
+			const checkoutKey = data?.razorpay?.key_id;
+			if (!checkoutKey || !window.Razorpay) {
+				throw new Error("Razorpay checkout is not available");
+			}
+
+			// Map payment method to Razorpay method hint
+			const methodMap = { online: "card", upi: "upi", bank: "netbanking" };
+
+			await new Promise((resolve, reject) => {
+				const options = {
+					key: checkoutKey,
+					amount: data.razorpay.amount,
+					currency: data.razorpay.currency,
+					name: "Kesar Kosmetics",
+					description: "Order payment",
+					order_id: data.razorpay.order_id,
+					prefill: {
+						name: form.name,
+						email: user?.email || "",
+						contact: form.phone,
+					},
+					notes: { app_order_id: data.order.id },
+					theme: { color: "#D97736" },
+					...(methodMap[paymentMethod] ? { method: methodMap[paymentMethod] } : {}),
+					handler: async (response) => {
+						try {
+							const verify = await axios.post(
+								`${BACKEND_URL}/api/payments/razorpay/verify`,
+								{
+									razorpay_order_id: response.razorpay_order_id,
+									razorpay_payment_id: response.razorpay_payment_id,
+									razorpay_signature: response.razorpay_signature,
+									user_id: user._id,
+									user_email: user.email,
+								},
+								{ withCredentials: true }
+							);
+							toast.success("Payment verified successfully!");
+							const finalOrderId = verify.data.id || data.order.id;
+							await saveOrderToFirestore(finalOrderId, "paid");
+							await clearCart();
+							navigate(`/order-success?orderId=${finalOrderId}`);
+							resolve();
+						} catch (verifyError) {
+							toast.error("Payment verification failed");
+							reject(verifyError);
+						}
+					},
+					modal: {
+						ondismiss: () => {
+							toast.error("Payment cancelled");
+							reject(new Error("Payment cancelled"));
+						},
+					},
+				};
+
+				const razorpayInstance = new window.Razorpay(options);
+				razorpayInstance.on("payment.failed", (response) => {
+					toast.error(response?.error?.description || "Payment failed");
+					reject(new Error(response?.error?.description || "Payment failed"));
+				});
+				razorpayInstance.open();
+			});
+		};
+
+		try {
+			if (paymentMethod === "cod") {
+				// COD: create order on backend, save to Firestore
 				const { data } = await axios.post(`${BACKEND_URL}/api/orders`, payload, { withCredentials: true });
+				await saveOrderToFirestore(data.id, "confirmed");
+				await clearCart();
 				toast.success("Order placed successfully!");
 				navigate(`/order-success?orderId=${data.id}`);
+			} else {
+				// All other methods (online/upi/bank) go through Razorpay
+				await openRazorpay();
 			}
 		} catch (err) {
-			toast.error("Could not place order.");
+			console.error("Order error:", err?.response?.data || err?.message || err);
+			toast.error(err?.response?.data?.detail || "Could not place order.");
 		} finally {
 			setLoading(false);
 		}
@@ -445,9 +452,9 @@ const CheckoutPage = () => {
 								<div className="grid sm:grid-cols-2 gap-4 mb-8">
 									{[
 										{ id: "cod", name: "Cash on Delivery", desc: "Pay at doorstep", icon: Banknote, color: "from-orange-50 to-amber-50" },
-										{ id: "online", name: "Debit/Credit Card", desc: "Secure online payment", icon: CreditCard, color: "from-blue-50 to-cyan-50" },
-										{ id: "upi", name: "Google Pay/PhonePe", desc: "Quick & easy UPI", icon: Wallet, color: "from-green-50 to-emerald-50" },
-										{ id: "bank", name: "Bank Transfer", desc: "Direct bank payment", icon: Banknote, color: "from-purple-50 to-pink-50" },
+										{ id: "online", name: "Debit/Credit Card", desc: "Powered by Razorpay", icon: CreditCard, color: "from-blue-50 to-cyan-50" },
+										{ id: "upi", name: "UPI / Google Pay / PhonePe", desc: "Powered by Razorpay", icon: Wallet, color: "from-green-50 to-emerald-50" },
+										{ id: "bank", name: "Net Banking", desc: "Powered by Razorpay", icon: Banknote, color: "from-purple-50 to-pink-50" },
 									].map((method) => {
 										const Icon = method.icon;
 										return (
@@ -565,7 +572,7 @@ const CheckoutPage = () => {
 									/>
 									<Button 
 										type="button" 
-										onClick={applyCoupon}
+										onClick={handleApplyCoupon}
 										className="bg-[#D97736] hover:bg-[#C96626] text-white px-4 rounded-lg text-sm font-medium transition"
 									>
 										Apply
