@@ -4,8 +4,8 @@
  */
 import {
   collection, doc, getDocs, getDoc,
-  addDoc, setDoc, updateDoc, deleteDoc,
-  query, where, orderBy, serverTimestamp,
+  addDoc, updateDoc, deleteDoc,
+  query, where, serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../firebaseClient";
 
@@ -30,15 +30,20 @@ function normalize(id, data) {
 export async function getAllProducts(categoryFilter = null) {
   const snap = await getDocs(
     categoryFilter
-      ? query(collection(db, COL), where("category", "==", categoryFilter), orderBy("createdAt", "desc"))
-      : query(collection(db, COL), orderBy("createdAt", "desc"))
+      ? query(collection(db, COL), where("category", "==", categoryFilter))
+      : collection(db, COL)
   );
-  return snap.docs.map(d => normalize(d.id, d.data()));
+  return snap.docs
+    .map(d => normalize(d.id, d.data()))
+    .sort((a, b) => {
+      const ta = a.createdAt?.toMillis?.() || a.createdAt?.seconds * 1000 || 0;
+      const tb = b.createdAt?.toMillis?.() || b.createdAt?.seconds * 1000 || 0;
+      return tb - ta;
+    });
 }
 
 export async function searchProducts(searchQuery) {
-  // Firestore doesn't support full-text search — fetch all and filter client-side
-  const snap = await getDocs(query(collection(db, COL), orderBy("createdAt", "desc")));
+  const snap = await getDocs(collection(db, COL));
   const q = searchQuery.toLowerCase();
   return snap.docs
     .map(d => normalize(d.id, d.data()))

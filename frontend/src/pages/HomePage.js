@@ -22,6 +22,7 @@ const PRODUCTS_SECTION_BACKGROUND_IMAGE = "/background2.jpeg";
 
 const HomePage = ({ setShakeCart, setTriggerCartRefresh }) => {
 	const [products, setProducts] = useState([]);
+	const [productsLoading, setProductsLoading] = useState(true);
 	const [searchParams] = useSearchParams();
 	const navigate = useNavigate();
 	const { user } = useAuth();
@@ -67,6 +68,8 @@ const HomePage = ({ setShakeCart, setTriggerCartRefresh }) => {
 				console.error("Product fetch error:", err);
 				setError("Could not load products.");
 				setProducts([]);
+			} finally {
+				setProductsLoading(false);
 			}
 		};
 
@@ -628,9 +631,13 @@ const HomePage = ({ setShakeCart, setTriggerCartRefresh }) => {
 					</div>
 					{error && <p className="text-red-600 text-center mb-6">{error}</p>}
 
-					{products.length === 0 ? (
+					{productsLoading ? (
 						<div className="text-center text-[#7A3B00] py-12">
 							<p>Loading products...</p>
+						</div>
+					) : products.length === 0 ? (
+						<div className="text-center text-[#7A3B00] py-12">
+							<p>No products yet. Check back soon!</p>
 						</div>
 					) : (
 						<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
