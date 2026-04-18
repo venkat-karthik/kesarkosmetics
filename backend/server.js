@@ -6,7 +6,6 @@ const fs = require("fs");
 const path = require("path");
 const nodemailer = require("nodemailer");
 const Razorpay = require("razorpay");
-const { createClient } = require("@supabase/supabase-js");
 require("dotenv").config();
 
 const app = express();
@@ -17,10 +16,6 @@ const shouldServeFrontendBuild =
 const razKeyId = process.env.RAZORPAY_KEY_ID || "";
 const razKeySecret = process.env.RAZORPAY_KEY_SECRET || "";
 const razWebhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET || "";
-const supabaseUrl = process.env.SUPABASE_URL || process.env.REACT_APP_SUPABASE_URL || "";
-const supabaseServiceKey =
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY || "";
-const supabase = supabaseUrl && supabaseServiceKey ? createClient(supabaseUrl, supabaseServiceKey) : null;
 const razorpay = razKeyId && razKeySecret ? new Razorpay({ key_id: razKeyId, key_secret: razKeySecret }) : null;
 const normalizeOrigin = (value) => {
   const raw = String(value || "").trim();
@@ -107,8 +102,6 @@ const users = new Map();
 const usersByEmail = new Map();
 const orders = new Map();
 
-const products = [];
-
 // Firebase UID passed in request body/headers
 function authUserOrFirebase(req) {
   const uid = req.body?.user_id || req.headers["x-user-id"];
@@ -128,11 +121,7 @@ function normalizeUserRow(row) {
     name: row.name,
     email: String(row.email || "").toLowerCase(),
     phone: row.phone || "",
-    password: row.password || "",
     role: row.role || "customer",
-    email_verified: Boolean(row.email_verified),
-    email_verification_code_hash: row.email_verification_code_hash || null,
-    email_verification_expires_at: row.email_verification_expires_at || null,
   };
 }
 
@@ -161,118 +150,20 @@ function normalizeOrderRow(row) {
   };
 }
 
+// In-memory store — orders persist in memory while server is running.
+// For full persistence, integrate Firebase Admin SDK.
 async function loadSupabaseState() {
-  if (!supabase) return;
-
-  const [usersResult, ordersResult, productsResult] = await Promise.all([
-    supabase.from("users").select("*").order("created_at", { ascending: true }),
-    supabase.from("orders").select("*").order("created_at", { ascending: true }),
-    supabase.from("products").select("*").order("created_at", { ascending: true }),
-  ]);
-
-  if (!usersResult.error && Array.isArray(usersResult.data)) {
-    users.clear();
-    usersByEmail.clear();
-    for (const row of usersResult.data) {
-      const user = normalizeUserRow(row);
-      if (!user) continue;
-      users.set(user._id, user);
-      usersByEmail.set(user.email, user._id);
-    }
-  }
-
-  if (!ordersResult.error && Array.isArray(ordersResult.data)) {
-    orders.clear();
-    for (const row of ordersResult.data) {
-      const order = normalizeOrderRow(row);
-      if (!order) continue;
-      orders.set(order.id, order);
-    }
-  }
-
-  if (!productsResult.error && Array.isArray(productsResult.data) && productsResult.data.length > 0) {
-    products.length = 0;
-    for (const row of productsResult.data) {
-      products.push({
-        id: row.id,
-        name: row.name,
-        description: row.description || "",
-        price: Number(row.price || 0),
-        category: row.category || "General",
-        images: Array.isArray(row.images) ? row.images : [],
-        video: row.video || null,
-        rating: Number(row.rating || 4.5),
-        reviews: Array.isArray(row.reviews) ? row.reviews : [],
-        variants: Array.isArray(row.variants) ? row.variants : [{ name: "Default" }],
-      });
-    }
-    console.log(`[supabase] Loaded ${products.length} products`);
-  }
+  // No-op: Supabase removed. Orders are stored in Firestore by the frontend.
 }
 
 async function saveUserToStore(user) {
   users.set(user._id, user);
   usersByEmail.set(String(user.email || "").toLowerCase(), user._id);
-
-  if (!supabase) return user;
-
-  const { error } = await supabase.from("users").upsert(
-    {
-      id: user._id,
-      name: user.name,
-      email: String(user.email || "").toLowerCase(),
-      phone: user.phone || "",
-      password: user.password,
-      role: user.role || "customer",
-      email_verified: Boolean(user.email_verified),
-      email_verification_code_hash: user.email_verification_code_hash || null,
-      email_verification_expires_at: user.email_verification_expires_at || null,
-      created_at: user.created_at || new Date().toISOString(),
-    },
-    { onConflict: "id" }
-  );
-
-  if (error) {
-    throw error;
-  }
-
   return user;
 }
 
 async function saveOrderToStore(order) {
   orders.set(order.id, order);
-
-  if (!supabase) return order;
-
-  const { error } = await supabase.from("orders").upsert(
-    {
-      id: order.id,
-      user_id: order.user_id,
-      items: order.items,
-      shipping_address: order.shipping_address,
-      payment_method: order.payment_method,
-      total: order.total,
-      status: order.status,
-      contact_email: order.contact_email,
-      contact_registered_email: order.contact_registered_email,
-      contact_phone: order.contact_phone,
-      contact_registered_phone: order.contact_registered_phone,
-      payment_status: order.payment_status || "created",
-      razorpay_order_id: order.razorpay_order_id || null,
-      razorpay_payment_id: order.razorpay_payment_id || null,
-      razorpay_signature: order.razorpay_signature || null,
-      payment_gateway: order.payment_gateway || null,
-      currency: order.currency || "INR",
-      amount_paise: Number(order.amount_paise || 0),
-      created_at: order.created_at,
-    },
-    { onConflict: "id" }
-  );
-
-  if (error) {
-    throw error;
-  }
-
   return order;
 }
 
@@ -281,42 +172,7 @@ async function updateOrderInStore(orderId, patch) {
   if (!existing) return null;
   const nextOrder = { ...existing, ...patch };
   orders.set(orderId, nextOrder);
-
-  if (!supabase) return nextOrder;
-
-  const { error } = await supabase.from("orders").update(patch).eq("id", orderId);
-  if (error) {
-    throw error;
-  }
-
   return nextOrder;
-}
-
-async function saveProductToStore(product) {
-  if (!supabase) return product;
-  const { error } = await supabase.from("products").upsert(
-    {
-      id: product.id,
-      name: product.name,
-      description: product.description || "",
-      price: product.price,
-      category: product.category || "General",
-      images: product.images || [],
-      video: product.video || null,
-      rating: product.rating || 4.5,
-      reviews: product.reviews || [],
-      variants: product.variants || [{ name: "Default" }],
-    },
-    { onConflict: "id" }
-  );
-  if (error) console.error("[supabase] saveProductToStore error:", error.message);
-  return product;
-}
-
-async function deleteProductFromStore(productId) {
-  if (!supabase) return;
-  const { error } = await supabase.from("products").delete().eq("id", productId);
-  if (error) console.error("[supabase] deleteProductFromStore error:", error.message);
 }
 
 function getOrderByRazorpayOrderId(razorpayOrderId) {
@@ -465,21 +321,8 @@ async function sendOrderStatusEmail(order) {
   );
 }
 
-function getProduct(productId) {
-  return products.find((p) => p.id === productId || p._id === productId) || null;
-}
-
-function getProductIndex(productId) {
-  return products.findIndex((p) => p.id === productId || p._id === productId);
-}
-
 function normalizePhone(value) {
   return String(value || "").replace(/\D/g, "");
-}
-
-function normalizeMediaValue(value) {
-  const text = String(value ?? "").trim();
-  return text || null;
 }
 
 function formatMoney(value) {
@@ -597,190 +440,6 @@ app.get("/api", (req, res) => {
 
 app.get("/api/", (req, res) => {
   res.json({ message: "Backend running" });
-});
-
-app.get("/api/products", (req, res) => {
-  const { category, search } = req.query;
-  let out = [...products];
-  if (category) out = out.filter((p) => p.category === String(category));
-  if (search) {
-    const q = String(search).toLowerCase();
-    out = out.filter((p) => p.name.toLowerCase().includes(q));
-  }
-  return res.json(out);
-});
-
-app.get("/api/products/:id", (req, res) => {
-  const product = getProduct(req.params.id);
-  if (!product) return res.status(404).json({ detail: "Product not found" });
-  return res.json(product);
-});
-
-app.post("/api/products/:id/reviews", (req, res) => {
-  // Accept user info from request body (Firebase auth)
-  const reviewUser = req.body?.user_name
-    ? { _id: req.body.user_uid || "firebase-user", name: req.body.user_name || "User" }
-    : null;
-
-  if (!reviewUser) return res.status(401).json({ detail: "Not authenticated" });
-
-  const product = getProduct(req.params.id);
-  if (!product) return res.status(404).json({ detail: "Product not found" });
-
-  const body = req.body || {};
-  const rating = Number(body.rating);
-  const comment = String(body.comment || "").trim();
-
-  if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
-    return res.status(400).json({ detail: "Rating must be between 1 and 5" });
-  }
-
-  const nextReview = {
-    user_name: reviewUser.name || "User",
-    rating,
-    comment,
-    image: body.image || null,
-    created_at: new Date().toISOString(),
-  };
-
-  const existingReviews = Array.isArray(product.reviews) ? product.reviews : [];
-  product.reviews = [nextReview, ...existingReviews];
-
-  const avgRating = product.reviews.reduce((sum, review) => sum + Number(review.rating || 0), 0) / product.reviews.length;
-  product.rating = Number(avgRating.toFixed(1));
-
-  // Persist updated reviews to Supabase
-  saveProductToStore(product).catch(err => console.error("[review] persist error:", err.message));
-
-  return res.status(201).json({ message: "Review added", product });
-});
-
-app.post("/api/products", async (req, res) => {
-  const body = req.body || {};
-  const name = String(body.name || "").trim();
-  const description = String(body.description || "").trim();
-  const price = Number(body.price || 0);
-  const category = String(body.category || "General").trim() || "General";
-  const video = normalizeMediaValue(body.video ?? body.videoUrl);
-  
-  let images = [];
-  if (Array.isArray(body.images) && body.images.length > 0) {
-    images = body.images.filter(img => typeof img === "string" && img.trim()).map(img => img.trim());
-  } else if (typeof body.image === "string" && body.image.trim()) {
-    images = [body.image.trim()];
-  }
-  if (images.length === 0) {
-    images = ["https://images.unsplash.com/photo-1556228720-195a672e8a03?w=600"];
-  }
-
-  if (!name || !description || !Number.isFinite(price) || price <= 0) {
-    return res.status(400).json({ detail: "Invalid product payload" });
-  }
-
-  const product = {
-    id: `prod-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-    name,
-    description,
-    price,
-    images,
-    category,
-    rating: Number(body.rating || 4.5),
-    reviews: [],
-    variants: Array.isArray(body.variants) && body.variants.length > 0 ? body.variants : [{ name: "Default" }],
-    video,
-  };
-
-  products.push(product);
-  await saveProductToStore(product);
-  return res.status(201).json(product);
-});
-
-app.put("/api/products/:id", async (req, res) => {
-  const index = getProductIndex(req.params.id);
-  if (index < 0) return res.status(404).json({ detail: "Product not found" });
-
-  const body = req.body || {};
-  const existing = products[index];
-  const nextName = body.name != null ? String(body.name).trim() : existing.name;
-  const nextDescription = body.description != null ? String(body.description).trim() : existing.description;
-  const nextPrice = body.price != null ? Number(body.price) : existing.price;
-  const nextCategory = body.category != null ? String(body.category).trim() : existing.category;
-  const hasVideoField = Object.prototype.hasOwnProperty.call(body, "video") || Object.prototype.hasOwnProperty.call(body, "videoUrl");
-  const nextVideo = hasVideoField ? normalizeMediaValue(body.video ?? body.videoUrl) : existing.video ?? null;
-  
-  let nextImages = existing.images;
-  if (Array.isArray(body.images) && body.images.length > 0) {
-    nextImages = body.images.filter(img => typeof img === "string" && img.trim()).map(img => img.trim());
-  } else if (typeof body.image === "string" && body.image.trim()) {
-    nextImages = [body.image.trim()];
-  }
-  if (!nextImages || nextImages.length === 0) {
-    nextImages = ["https://images.unsplash.com/photo-1556228720-195a672e8a03?w=600"];
-  }
-
-  if (!nextName || !nextDescription || !Number.isFinite(nextPrice) || nextPrice <= 0) {
-    return res.status(400).json({ detail: "Invalid product payload" });
-  }
-
-  products[index] = {
-    ...existing,
-    name: nextName,
-    description: nextDescription,
-    price: nextPrice,
-    category: nextCategory || "General",
-    images: nextImages,
-    video: nextVideo,
-  };
-
-  await saveProductToStore(products[index]);
-  return res.json(products[index]);
-});
-
-app.delete("/api/products/:id", async (req, res) => {
-  const index = getProductIndex(req.params.id);
-  if (index < 0) return res.status(404).json({ detail: "Product not found" });
-
-  const [deleted] = products.splice(index, 1);
-  await deleteProductFromStore(deleted.id);
-  return res.json({ message: "Product deleted", product: deleted });
-});
-
-app.get("/api/categories", (req, res) => {
-  const categories = [...new Set(products.map((p) => p.category))];
-  return res.json(categories);
-});
-
-// n8n automation endpoints — subscribers and ordered users
-app.get("/api/subscribers", (req, res) => {
-  // Returns all users from in-memory store (Firestore subscribers are managed client-side)
-  // This endpoint is for n8n to pull subscriber list from backend orders
-  const orderedUsers = [...orders.values()].map(o => ({
-    email: o.contact_email || o.contact_registered_email || "",
-    name: o.shipping_address?.name || "",
-    phone: o.contact_phone || o.contact_registered_phone || "",
-    total: o.total,
-    status: o.status,
-    paymentMethod: o.payment_method,
-    orderedAt: o.created_at,
-  })).filter(u => u.email);
-  return res.json(orderedUsers);
-});
-
-app.get("/api/ordered-users", (req, res) => {
-  const result = [...orders.values()]
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    .map(o => ({
-      orderId: o.id,
-      email: o.contact_email || o.contact_registered_email || "",
-      name: o.shipping_address?.name || "",
-      phone: o.contact_phone || "",
-      total: o.total,
-      items: o.items?.length || 0,
-      status: o.status,
-      paymentMethod: o.payment_method,
-      orderedAt: o.created_at,
-    }));
-  return res.json(result);
 });
 
 app.post("/api/contact", async (req, res) => {

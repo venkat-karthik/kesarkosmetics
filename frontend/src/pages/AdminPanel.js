@@ -81,10 +81,10 @@ const AdminPanel = () => {
 
   const fetchProducts = async () => {
     try {
-      const { data } = await axios.get(`${BACKEND_URL}/api/products`);
-      setProducts(Array.isArray(data) ? data : []);
+      const { getAllProducts } = await import("../utils/productsDb");
+      setProducts(await getAllProducts());
     } catch (err) {
-      toast.error(err?.response?.data?.detail || "Failed to load products");
+      toast.error("Failed to load products");
     }
   };
 
@@ -167,7 +167,8 @@ const AdminPanel = () => {
       const imageDataUrls = await Promise.all(newProduct.images.map((file) => fileToDataUrl(file)));
       const videoDataUrl = newProduct.video ? await fileToDataUrl(newProduct.video) : null;
 
-      await axios.post(`${BACKEND_URL}/api/products`, {
+      const { createProduct } = await import("../utils/productsDb");
+      await createProduct({
         name: newProduct.name.trim(),
         description: newProduct.description.trim(),
         price: parseFloat(newProduct.price),
@@ -180,7 +181,7 @@ const AdminPanel = () => {
       setNewProduct(DEFAULT_NEW_PRODUCT);
       fetchProducts();
     } catch (err) {
-      toast.error(err?.response?.data?.detail || "Failed to add product");
+      toast.error("Failed to add product");
     }
   };
 
@@ -210,13 +211,14 @@ const AdminPanel = () => {
         return;
       }
 
-      await axios.put(`${BACKEND_URL}/api/products/${productId}`, {
+      const { updateProduct } = await import("../utils/productsDb");
+      await updateProduct(productId, {
         name: editForm.name.trim(),
         description: editForm.description.trim(),
         price: parseFloat(editForm.price),
         category: editForm.category,
         images: mergedImages,
-        ...(videoDataUrl ? { video: videoDataUrl } : editingProduct?.video && editForm.existingVideo === null ? { video: null } : {}),
+        video: videoDataUrl || (editForm.existingVideo === null ? null : editingProduct?.video),
       });
 
       toast.success("Product updated successfully");
@@ -224,19 +226,19 @@ const AdminPanel = () => {
       setEditForm(DEFAULT_EDIT_FORM);
       fetchProducts();
     } catch (err) {
-      toast.error(err?.response?.data?.detail || "Failed to update product");
+      toast.error("Failed to update product");
     }
   };
 
   const handleDeleteProduct = async (productId) => {
     if (!window.confirm("Are you sure you want to delete this product?")) return;
-
     try {
-      await axios.delete(`${BACKEND_URL}/api/products/${productId}`);
+      const { deleteProduct } = await import("../utils/productsDb");
+      await deleteProduct(productId);
       toast.success("Product deleted successfully");
       fetchProducts();
     } catch (err) {
-      toast.error(err?.response?.data?.detail || "Failed to delete product");
+      toast.error("Failed to delete product");
     }
   };
 

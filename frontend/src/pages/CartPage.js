@@ -1,14 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowRight, Minus, Plus, ShoppingBag, Sparkles, Trash2 } from "lucide-react";
-import axios from "axios";
 import { formatPrice } from "../utils/helpers";
 import { Button } from "../components/ui/button";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
 import { useCart } from "../contexts/CartContext";
-
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
 
 const CartPage = () => {
 	const [products, setProducts] = useState([]);
@@ -18,9 +15,9 @@ const CartPage = () => {
 	const { cart, cartCount, updateQuantity, removeFromCart, loading } = useCart();
 
 	useEffect(() => {
-		axios.get(`${BACKEND_URL}/api/products`)
-			.then(r => setProducts(Array.isArray(r.data) ? r.data : []))
-			.catch(() => {});
+		import("../utils/productsDb").then(({ getAllProducts }) =>
+			getAllProducts().then(r => setProducts(r)).catch(() => {})
+		);
 	}, []);
 
 	const handleUpdateQuantity = (productId, quantity, variant = null) => {
@@ -44,11 +41,13 @@ const CartPage = () => {
 		const draft = reviewDrafts[productId] || { rating: 0, comment: "" };
 		if (!draft.rating || draft.rating < 1) { toast.error("Please select a rating first"); return; }
 		try {
-			await axios.post(`${BACKEND_URL}/api/products/${productId}/reviews`, {
+			const { addReview } = await import("../utils/productsDb");
+			await addReview(productId, {
 				rating: draft.rating,
 				comment: draft.comment || "",
 				user_name: user?.name || "User",
 				user_uid: user?._id || "",
+				created_at: new Date().toISOString(),
 			});
 			setReviewDrafts(prev => ({ ...prev, [productId]: { rating: 0, comment: "" } }));
 			toast.success("Thanks for your review!");

@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { Star, ShoppingCart, Heart, ChevronLeft, ChevronRight } from "lucide-react";
-import axios from "axios";
 import { Button } from "../components/ui/button";
 import { formatPrice } from "../utils/helpers";
 import { toast } from "sonner";
@@ -15,8 +14,6 @@ import CartOptionsModal from "../components/CartOptionsModal";
 import FlyingToCart from "../components/FlyingToCart";
 import FlyingToWishlist from "../components/FlyingToWishlist";
 import LoginRequiredModal from "../components/LoginRequiredModal";
-
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
 
 const HERO_HEIGHT_CLASSES = "h-[420px] sm:h-[520px] lg:h-[620px] xl:h-[700px]";
 const HERO_IMAGE_FIT_CLASSES = "object-cover lg:object-contain";
@@ -62,20 +59,17 @@ const HomePage = ({ setShakeCart, setTriggerCartRefresh }) => {
 		const fetchProducts = async () => {
 			try {
 				const category = searchParams.get("category");
-				const url = category ? `${BACKEND_URL}/api/products?category=${category}` : `${BACKEND_URL}/api/products`;
-				const { data } = await axios.get(url);
-				console.log("Fetched products:", data);
-				const productArray = Array.isArray(data) ? data : [];
+				const { getAllProducts } = await import("../utils/productsDb");
+				const productArray = await getAllProducts(category || null);
 				setProducts(productArray);
 				setError("");
 			} catch (err) {
 				console.error("Product fetch error:", err);
-				setError("Could not load products. Please check backend server.");
+				setError("Could not load products.");
 				setProducts([]);
 			}
 		};
 
-		// Fetch immediately on load
 		fetchProducts();
 
 		// Set up periodic refresh every 10 seconds for admin changes

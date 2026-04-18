@@ -201,8 +201,8 @@ const Footer = () => {
 	useEffect(() => {
 		const fetchProducts = async () => {
 			try {
-				const { data } = await axios.get(`${BACKEND_URL}/api/products`);
-				setProducts(Array.isArray(data) ? data : []);
+				const { getAllProducts } = await import("../utils/productsDb");
+				setProducts(await getAllProducts());
 			} catch {
 				setProducts([]);
 			}

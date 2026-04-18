@@ -1,56 +1,53 @@
 # Setup Guide
 
-## Prerequisites
-- Node.js 18+
-- A [Supabase](https://supabase.com) account (free tier works)
-- A [Firebase](https://firebase.google.com) project (for auth)
+## Architecture
+
+- **Auth** — Firebase Authentication (Google sign-in)
+- **Database** — Firebase Firestore (products, orders, users, carts, blogs, subscribers)
+- **Backend** — Express.js (Razorpay payments + email only)
+- **Frontend** — React (reads/writes Firestore directly)
+
+No Supabase. No separate database setup needed.
 
 ---
 
-## 1. Supabase Setup
+## 1. Firebase Setup
 
-1. Go to [supabase.com](https://supabase.com) and create a new project
-2. In the left sidebar click **SQL Editor**
-3. Open `backend/supabase-schema.sql` from this repo
-4. Paste the entire contents into the SQL editor and click **Run**
-5. Go to **Settings → API** and copy:
-   - **Project URL** → `SUPABASE_URL`
-   - **service_role** secret key → `SUPABASE_SERVICE_ROLE_KEY`
+The Firebase project is already configured in `frontend/src/firebaseClient.js`.  
+Your friend can use the same project — no changes needed.
+
+If you want your own Firebase project:
+1. Go to [firebase.google.com](https://firebase.google.com) → create a project
+2. Enable **Firestore** and **Authentication → Google sign-in**
+3. Replace the config in `frontend/src/firebaseClient.js`
 
 ---
 
 ## 2. Backend `.env`
 
-Create `backend/.env` with:
+Create `backend/.env`:
 
 ```
 PORT=8001
 NODE_ENV=development
 
-SUPABASE_URL=https://your-project-id.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
-
 RAZORPAY_KEY_ID=your-razorpay-key-id
 RAZORPAY_KEY_SECRET=your-razorpay-key-secret
 ```
+
+That's it. No Supabase, no extra DB credentials.
 
 ---
 
 ## 3. Frontend `.env.local`
 
-Create `frontend/.env.local` with:
+Create `frontend/.env.local`:
 
 ```
 REACT_APP_BACKEND_URL=http://localhost:8001
-REACT_APP_FIREBASE_API_KEY=your-firebase-api-key
-REACT_APP_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
-REACT_APP_FIREBASE_PROJECT_ID=your-project-id
-REACT_APP_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
-REACT_APP_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
-REACT_APP_FIREBASE_APP_ID=your-app-id
-REACT_APP_SUPABASE_URL=https://your-project-id.supabase.co
-REACT_APP_SUPABASE_ANON_KEY=your-anon-key-here
 ```
+
+Firebase config is already hardcoded in `firebaseClient.js`.
 
 ---
 
@@ -68,8 +65,8 @@ npm install
 npm start
 ```
 
-Frontend runs on http://localhost:3000  
-Backend runs on http://localhost:8001
+Frontend → http://localhost:3000  
+Backend → http://localhost:8001
 
 ---
 
@@ -78,6 +75,6 @@ Backend runs on http://localhost:8001
 1. Open http://localhost:3000
 2. Click **Admin** in the footer
 3. Log in with an admin Google account
-4. Go to Admin Panel → add your products
+4. Go to **Admin Panel → New Product** and add products
 
-Products are now saved to Supabase and will persist across restarts and for anyone who clones the repo.
+Products are saved to **Firestore** and persist for everyone automatically.

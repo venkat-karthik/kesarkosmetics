@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { X, Search as SearchIcon } from "lucide-react";
 import { Input } from "./ui/input";
-import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { formatPrice } from "../utils/helpers";
 
@@ -10,14 +9,12 @@ const SearchOverlay = ({ isOpen, onClose }) => {
 	const [results, setResults] = useState([]);
 	const navigate = useNavigate();
 
-	const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
-
 	const handleSearch = async (query) => {
 		setSearchQuery(query);
 		if (query.length > 2) {
 			try {
-				const { data } = await axios.get(`${BACKEND_URL}/api/products?search=${query}`);
-				setResults(data);
+				const { searchProducts } = await import("../utils/productsDb");
+				setResults(await searchProducts(query));
 			} catch {
 				setResults([]);
 			}

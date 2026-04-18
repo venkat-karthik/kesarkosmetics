@@ -120,18 +120,20 @@ const [showLoginModal, setShowLoginModal] = useState(false);
 	useEffect(() => {
 		const fetchProduct = async () => {
 			try {
-				const [productResponse, productsResponse] = await Promise.all([
-					axios.get(`${BACKEND_URL}/api/products/${id}`),
-					axios.get(`${BACKEND_URL}/api/products`),
+				const { getProduct, getAllProducts } = await import("../utils/productsDb");
+				const [productData, allProductsData] = await Promise.all([
+					getProduct(id),
+					getAllProducts(),
 				]);
 
-				setProduct(productResponse.data);
-				setAllProducts(Array.isArray(productsResponse.data) ? productsResponse.data : []);
+				if (!productData) { toast.error("Product not found"); navigate("/"); return; }
+				setProduct(productData);
+				setAllProducts(allProductsData);
 				setSelectedImage(0);
-				if (productResponse.data?.variants?.length > 0) {
-					setSelectedVariant(productResponse.data.variants[0].name);
+				if (productData?.variants?.length > 0) {
+					setSelectedVariant(productData.variants[0].name);
 				} else {
-					setSelectedVariant(productResponse.data?.size || null);
+					setSelectedVariant(productData?.size || null);
 				}
 			} catch {
 				toast.error("Product not found");
@@ -141,7 +143,6 @@ const [showLoginModal, setShowLoginModal] = useState(false);
 			}
 		};
 
-		// Fetch immediately on load
 		fetchProduct();
 
 		// Set up periodic refresh every 10 seconds for admin changes
@@ -238,27 +239,16 @@ const handleReviewSubmit = async ({ rating, comment, image }) => {
 		return;
 	}
 	try {
-		const { data } = await axios.post(
-			`${BACKEND_URL}/api/products/${product.id}/reviews`,
-			{
-				rating,
-				comment,
-				image: image || null,
-				user_name: user.name || user.email || "Anonymous",
-				user_uid: user._id,
-			},
-			{ withCredentials: true }
-		);
-		if (data?.product) {
-			setProduct(data.product);
-		} else {
-			setProduct((prev) => ({
-				...prev,
-				reviews: Array.isArray(prev.reviews)
-					? [{ rating, comment, user_name: user.name || user.email || "Anonymous", image: image || null }, ...prev.reviews]
-					: [{ rating, comment, user_name: user.name || user.email || "Anonymous", image: image || null }],
-			}));
-		}
+		const { addReview } = await import("../utils/productsDb");
+		const updatedProduct = await addReview(product.id, {
+			rating,
+			comment,
+			image: image || null,
+			user_name: user.name || user.email || "Anonymous",
+			user_uid: user._id,
+			created_at: new Date().toISOString(),
+		});
+		setProduct(updatedProduct);
 		window.dispatchEvent(new Event("reviews:updated"));
 		toast.success("Review submitted successfully!");
 	} catch (err) {

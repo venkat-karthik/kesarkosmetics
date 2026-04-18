@@ -92,14 +92,14 @@ const AdminDashboard = () => {
       setUsers(usersSnap.docs.map(d => ({ _docId: d.id, ...d.data() })));
       setBlogs(blogsSnap.docs.map(d => ({ _docId: d.id, ...d.data() })));
       setSubscribers(subsSnap.docs.map(d => ({ _docId: d.id, ...d.data() })));
-      const { data } = await axios.get(`${BACKEND_URL}/api/products`);
-      setProducts(Array.isArray(data) ? data : []);
-      // Build collection summary for DB viewer
+      const { getAllProducts } = await import("../utils/productsDb");
+      setProducts(await getAllProducts());
       setDbCollections([
         { name: "orders",      count: ordersSnap.size,  icon: "🛒" },
         { name: "users",       count: usersSnap.size,   icon: "👥" },
         { name: "blogs",       count: blogsSnap.size,   icon: "📝" },
         { name: "subscribers", count: subsSnap.size,    icon: "📧" },
+        { name: "products",    count: null,             icon: "📦" },
         { name: "carts",       count: null,             icon: "🛍️" },
       ]);
     } catch (err) {
