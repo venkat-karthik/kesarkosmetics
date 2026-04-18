@@ -164,9 +164,10 @@ function normalizeOrderRow(row) {
 async function loadSupabaseState() {
   if (!supabase) return;
 
-  const [usersResult, ordersResult] = await Promise.all([
+  const [usersResult, ordersResult, productsResult] = await Promise.all([
     supabase.from("users").select("*").order("created_at", { ascending: true }),
     supabase.from("orders").select("*").order("created_at", { ascending: true }),
+    supabase.from("products").select("*").order("created_at", { ascending: true }),
   ]);
 
   if (!usersResult.error && Array.isArray(usersResult.data)) {
@@ -187,6 +188,25 @@ async function loadSupabaseState() {
       if (!order) continue;
       orders.set(order.id, order);
     }
+  }
+
+  if (!productsResult.error && Array.isArray(productsResult.data) && productsResult.data.length > 0) {
+    products.length = 0;
+    for (const row of productsResult.data) {
+      products.push({
+        id: row.id,
+        name: row.name,
+        description: row.description || "",
+        price: Number(row.price || 0),
+        category: row.category || "General",
+        images: Array.isArray(row.images) ? row.images : [],
+        video: row.video || null,
+        rating: Number(row.rating || 4.5),
+        reviews: Array.isArray(row.reviews) ? row.reviews : [],
+        variants: Array.isArray(row.variants) ? row.variants : [{ name: "Default" }],
+      });
+    }
+    console.log(`[supabase] Loaded ${products.length} products`);
   }
 }
 
@@ -270,6 +290,33 @@ async function updateOrderInStore(orderId, patch) {
   }
 
   return nextOrder;
+}
+
+async function saveProductToStore(product) {
+  if (!supabase) return product;
+  const { error } = await supabase.from("products").upsert(
+    {
+      id: product.id,
+      name: product.name,
+      description: product.description || "",
+      price: product.price,
+      category: product.category || "General",
+      images: product.images || [],
+      video: product.video || null,
+      rating: product.rating || 4.5,
+      reviews: product.reviews || [],
+      variants: product.variants || [{ name: "Default" }],
+    },
+    { onConflict: "id" }
+  );
+  if (error) console.error("[supabase] saveProductToStore error:", error.message);
+  return product;
+}
+
+async function deleteProductFromStore(productId) {
+  if (!supabase) return;
+  const { error } = await supabase.from("products").delete().eq("id", productId);
+  if (error) console.error("[supabase] deleteProductFromStore error:", error.message);
 }
 
 function getOrderByRazorpayOrderId(razorpayOrderId) {
@@ -602,10 +649,13 @@ app.post("/api/products/:id/reviews", (req, res) => {
   const avgRating = product.reviews.reduce((sum, review) => sum + Number(review.rating || 0), 0) / product.reviews.length;
   product.rating = Number(avgRating.toFixed(1));
 
+  // Persist updated reviews to Supabase
+  saveProductToStore(product).catch(err => console.error("[review] persist error:", err.message));
+
   return res.status(201).json({ message: "Review added", product });
 });
 
-app.post("/api/products", (req, res) => {
+app.post("/api/products", async (req, res) => {
   const body = req.body || {};
   const name = String(body.name || "").trim();
   const description = String(body.description || "").trim();
@@ -613,17 +663,12 @@ app.post("/api/products", (req, res) => {
   const category = String(body.category || "General").trim() || "General";
   const video = normalizeMediaValue(body.video ?? body.videoUrl);
   
-  // Handle multiple images (new format) or single image (backward compatibility)
   let images = [];
   if (Array.isArray(body.images) && body.images.length > 0) {
-    // New format: multiple images array
     images = body.images.filter(img => typeof img === "string" && img.trim()).map(img => img.trim());
   } else if (typeof body.image === "string" && body.image.trim()) {
-    // Old format: single image
     images = [body.image.trim()];
   }
-  
-  // Fallback to default image if none provided
   if (images.length === 0) {
     images = ["https://images.unsplash.com/photo-1556228720-195a672e8a03?w=600"];
   }
@@ -646,10 +691,11 @@ app.post("/api/products", (req, res) => {
   };
 
   products.push(product);
+  await saveProductToStore(product);
   return res.status(201).json(product);
 });
 
-app.put("/api/products/:id", (req, res) => {
+app.put("/api/products/:id", async (req, res) => {
   const index = getProductIndex(req.params.id);
   if (index < 0) return res.status(404).json({ detail: "Product not found" });
 
@@ -662,17 +708,12 @@ app.put("/api/products/:id", (req, res) => {
   const hasVideoField = Object.prototype.hasOwnProperty.call(body, "video") || Object.prototype.hasOwnProperty.call(body, "videoUrl");
   const nextVideo = hasVideoField ? normalizeMediaValue(body.video ?? body.videoUrl) : existing.video ?? null;
   
-  // Handle multiple images (new format) or single image (backward compatibility)
   let nextImages = existing.images;
   if (Array.isArray(body.images) && body.images.length > 0) {
-    // New format: multiple images array
     nextImages = body.images.filter(img => typeof img === "string" && img.trim()).map(img => img.trim());
   } else if (typeof body.image === "string" && body.image.trim()) {
-    // Old format: single image
     nextImages = [body.image.trim()];
   }
-  
-  // Fallback to default if no images
   if (!nextImages || nextImages.length === 0) {
     nextImages = ["https://images.unsplash.com/photo-1556228720-195a672e8a03?w=600"];
   }
@@ -691,14 +732,16 @@ app.put("/api/products/:id", (req, res) => {
     video: nextVideo,
   };
 
+  await saveProductToStore(products[index]);
   return res.json(products[index]);
 });
 
-app.delete("/api/products/:id", (req, res) => {
+app.delete("/api/products/:id", async (req, res) => {
   const index = getProductIndex(req.params.id);
   if (index < 0) return res.status(404).json({ detail: "Product not found" });
 
   const [deleted] = products.splice(index, 1);
+  await deleteProductFromStore(deleted.id);
   return res.json({ message: "Product deleted", product: deleted });
 });
 

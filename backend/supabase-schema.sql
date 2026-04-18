@@ -5,7 +5,7 @@ create table if not exists public.users (
   name text not null,
   email text not null unique,
   phone text not null,
-  password text not null,
+  password text not null default '',
   role text not null default 'customer',
   email_verified boolean not null default false,
   email_verification_code_hash text,
@@ -13,10 +13,22 @@ create table if not exists public.users (
   created_at timestamptz not null default now()
 );
 
-alter table public.users
-  add column if not exists email_verified boolean not null default false,
-  add column if not exists email_verification_code_hash text,
-  add column if not exists email_verification_expires_at bigint;
+create table if not exists public.products (
+  id text primary key,
+  name text not null,
+  description text not null default '',
+  price numeric not null default 0,
+  category text not null default 'General',
+  images jsonb not null default '[]'::jsonb,
+  video text,
+  rating numeric not null default 4.5,
+  reviews jsonb not null default '[]'::jsonb,
+  variants jsonb not null default '[{"name":"Default"}]'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists products_category_idx on public.products (category);
+create index if not exists products_created_at_idx on public.products (created_at desc);
 
 create table if not exists public.orders (
   id uuid primary key,
