@@ -145,6 +145,8 @@ const AdminPanel = () => {
     [products.length, orders.length]
   );
 
+  const [addingProduct, setAddingProduct] = useState(false);
+
   const handleAddProduct = async (e) => {
     e.preventDefault();
 
@@ -163,6 +165,7 @@ const AdminPanel = () => {
       return;
     }
 
+    setAddingProduct(true);
     try {
       const imageDataUrls = await Promise.all(newProduct.images.map((file) => fileToDataUrl(file)));
       const videoDataUrl = newProduct.video ? await fileToDataUrl(newProduct.video) : null;
@@ -177,11 +180,14 @@ const AdminPanel = () => {
         video: videoDataUrl,
       });
 
-      toast.success("Product added successfully");
+      toast.success("Product added successfully!");
       setNewProduct(DEFAULT_NEW_PRODUCT);
       fetchProducts();
     } catch (err) {
-      toast.error("Failed to add product");
+      console.error("Add product error:", err);
+      toast.error(`Failed to add product: ${err?.message || "Unknown error"}`);
+    } finally {
+      setAddingProduct(false);
     }
   };
 
@@ -401,12 +407,22 @@ const AdminPanel = () => {
                   onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
                   className="w-full px-4 py-2 rounded-full border border-[#E0D8C8] focus:ring-2 focus:ring-[#D97736] focus:outline-none"
                 >
+                  <option>Skin Care</option>
                   <option>Serums</option>
                   <option>Moisturizers</option>
                   <option>Cleansers</option>
                   <option>Night Care</option>
                   <option>Toners</option>
                   <option>Masks</option>
+                  <option>Ghee</option>
+                  <option>Oils</option>
+                  <option>Flours</option>
+                  <option>Jaggery</option>
+                  <option>Coffee</option>
+                  <option>Turmeric</option>
+                  <option>Peanut Butter</option>
+                  <option>Gift Hampers</option>
+                  <option>General</option>
                 </select>
               </div>
               <div className="md:col-span-2">
@@ -439,8 +455,8 @@ const AdminPanel = () => {
                 />
               </div>
               <div className="md:col-span-2 flex gap-4">
-                <Button type="submit" className="flex-1 bg-gradient-to-r from-[#D97736] to-[#F5A962] hover:from-[#C96626] hover:to-[#E59650] text-white rounded-full h-12 font-medium">
-                  <Plus className="w-4 h-4 mr-2" /> Add Product
+                <Button type="submit" disabled={addingProduct} className="flex-1 bg-gradient-to-r from-[#D97736] to-[#F5A962] hover:from-[#C96626] hover:to-[#E59650] text-white rounded-full h-12 font-medium disabled:opacity-60">
+                  <Plus className="w-4 h-4 mr-2" /> {addingProduct ? "Adding..." : "Add Product"}
                 </Button>
               </div>
             </form>
@@ -484,12 +500,22 @@ const AdminPanel = () => {
                 <div>
                   <label className="block text-sm font-medium text-[#3E2723] mb-2">Category</label>
                   <select value={editForm.category} onChange={(e) => setEditForm({ ...editForm, category: e.target.value })} className="w-full px-4 py-2 rounded-full border border-[#E0D8C8] focus:ring-2 focus:ring-[#D97736] focus:outline-none">
+                    <option>Skin Care</option>
                     <option>Serums</option>
                     <option>Moisturizers</option>
                     <option>Cleansers</option>
                     <option>Night Care</option>
                     <option>Toners</option>
                     <option>Masks</option>
+                    <option>Ghee</option>
+                    <option>Oils</option>
+                    <option>Flours</option>
+                    <option>Jaggery</option>
+                    <option>Coffee</option>
+                    <option>Turmeric</option>
+                    <option>Peanut Butter</option>
+                    <option>Gift Hampers</option>
+                    <option>General</option>
                   </select>
                 </div>
                 <div className="md:col-span-2">
