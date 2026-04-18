@@ -17,7 +17,7 @@ import FlyingToWishlist from "../components/FlyingToWishlist";
 import LoginRequiredModal from "../components/LoginRequiredModal";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
-const GUEST_CART_STORAGE_KEY = "guestCartItems";
+
 const HERO_HEIGHT_CLASSES = "h-[420px] sm:h-[520px] lg:h-[620px] xl:h-[700px]";
 const HERO_IMAGE_FIT_CLASSES = "object-cover lg:object-contain";
 const HOME_HERO_BACKGROUND_IMAGE = "/background1.jpeg";

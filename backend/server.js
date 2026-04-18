@@ -4,7 +4,6 @@ const cookieParser = require("cookie-parser");
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
-const bcrypt = require("bcryptjs");
 const nodemailer = require("nodemailer");
 const Razorpay = require("razorpay");
 const { createClient } = require("@supabase/supabase-js");
@@ -46,8 +45,6 @@ const cookieSecure =
   typeof process.env.COOKIE_SECURE === "string"
     ? process.env.COOKIE_SECURE.toLowerCase() === "true"
     : cookieSameSite === "none";
-const allowAuthFallbackWhenEmailFails = String(process.env.ALLOW_AUTH_FALLBACK_WHEN_EMAIL_FAILS || "false").toLowerCase() === "true";
-const exposeOtpOnEmailFailure = String(process.env.EXPOSE_OTP_ON_EMAIL_FAILURE || "true").toLowerCase() === "true";
 const authCookieOptions = {
   httpOnly: true,
   sameSite: cookieSameSite,
@@ -108,54 +105,12 @@ app.get("/health", (req, res) => {
 
 const users = new Map();
 const usersByEmail = new Map();
-const sessions = new Map();
-const carts = new Map();
 const orders = new Map();
-const passwordResetCodes = new Map();
-const emailVerificationCodes = new Map();
 
 const products = [];
 
-async function seedAdmin() {
-  const email = "admin@kesarkosmetics.com";
-  if (usersByEmail.has(email)) return;
-  const id = crypto.randomUUID();
-  const hashedPassword = await bcrypt.hash("Admin@123", 10);
-  const admin = {
-    _id: id,
-    name: "Admin",
-    email,
-    phone: "+91 9999999999",
-    password: hashedPassword,
-    role: "admin",
-    email_verified: true,
-  };
-  await saveUserToStore(admin);
-}
-
-function isTokenExpired(token) {
-  const session = sessions.get(token);
-  if (!session) return true;
-  const expiryTime = session.createdAt + 24 * 60 * 60 * 1000; // 24 hours
-  return Date.now() > expiryTime;
-}
-
-function authUser(req) {
-  const token = req.cookies.access_token;
-  if (!token || !sessions.has(token)) return null;
-  if (isTokenExpired(token)) {
-    sessions.delete(token);
-    return null;
-  }
-  return sessions.get(token).user || null;
-}
-
-// Accepts cookie session OR Firebase UID passed in request body/headers
+// Firebase UID passed in request body/headers
 function authUserOrFirebase(req) {
-  const cookieUser = authUser(req);
-  if (cookieUser) return cookieUser;
-
-  // Firebase auth: frontend sends user_id + user_email in body
   const uid = req.body?.user_id || req.headers["x-user-id"];
   const email = String(req.body?.user_email || req.headers["x-user-email"] || "").toLowerCase();
   const name = req.body?.user_name || "User";
@@ -163,13 +118,7 @@ function authUserOrFirebase(req) {
 
   if (!uid) return null;
 
-  // Return a minimal user object compatible with order creation
   return { _id: uid, email, name, phone, role: "customer" };
-}
-
-function publicUser(u) {
-  const { password, ...rest } = u;
-  return rest;
 }
 
 function normalizeUserRow(row) {
@@ -442,15 +391,6 @@ async function sendEmail(to, subject, text, html) {
   }
 }
 
-function buildOrderSummary(order) {
-  const itemLines = Array.isArray(order.items)
-    ? order.items
-        .map((item) => `${item.product_name || "Product"} x ${item.quantity || 1}`)
-        .join(", ")
-    : "";
-  return `Order ${order.id} - ${itemLines || "No items"} - Total ${formatMoney(Number(order.total || 0))}`;
-}
-
 async function sendOrderCreatedEmail(order) {
   await sendOrderNotificationEmail(
     order,
@@ -499,84 +439,7 @@ function formatMoney(value) {
   return `₹${Number(value || 0).toFixed(2)}`;
 }
 
-function hashResetCode(email, code) {
-  return crypto
-    .createHash("sha256")
-    .update(`${String(email || "").toLowerCase()}:${String(code || "")}`)
-    .digest("hex");
-}
-
-function generateResetCode() {
-  return String(Math.floor(100000 + Math.random() * 900000));
-}
-
-function generateVerificationCode() {
-  return generateResetCode();
-}
-
-function clearUserSessions(userId) {
-  for (const [token, session] of sessions.entries()) {
-    if (session?.userId === userId || session?.user?._id === userId || session?.user?.id === userId) {
-      sessions.delete(token);
-    }
-  }
-}
-
-async function sendResetCodeEmail(email, code) {
-  const smtp = getSmtpConfig();
-
-  if (!smtp.host || !smtp.user || !smtp.pass) {
-    console.log(`[reset-code:fallback] ${email} -> ${code}`);
-    console.warn(`[SMTP Config Missing] Host: ${!smtp.host}, User: ${!smtp.user}, Pass: ${!smtp.pass}`);
-    return { delivered: false };
-  }
-
-  try {
-    const transporter = createSmtpTransporter(smtp);
-
-    await transporter.sendMail({
-      from: smtp.from,
-      to: email,
-      subject: "Your Kesar Kosmetics password reset code",
-      text: `Use this verification code to reset your password: ${code}. This code expires in 10 minutes.`,
-      html: `<div style="font-family: Arial, sans-serif; line-height: 1.6; color: #3E2723;"><h2>Password Reset Code</h2><p>Use this verification code to reset your password:</p><p style="font-size: 28px; font-weight: bold; letter-spacing: 3px; color: #D97736;">${code}</p><p>This code expires in 10 minutes.</p><p>If you did not request this, you can ignore this email.</p></div>`,
-    });
-
-    console.log(`[reset-code:success] Email sent to ${email}`);
-    return { delivered: true };
-  } catch (err) {
-    console.error(`[reset-code:error] Failed to send email to ${email}:`, err.message);
-    throw err;
-  }
-}
-
-async function sendVerificationEmail(email, code) {
-  const smtp = getSmtpConfig();
-
-  if (!smtp.host || !smtp.user || !smtp.pass) {
-    console.log(`[email-verify:fallback] ${email} -> ${code}`);
-    console.warn(`[SMTP Config Missing] Host: ${!smtp.host}, User: ${!smtp.user}, Pass: ${!smtp.pass}`);
-    return { delivered: false };
-  }
-
-  try {
-    const transporter = createSmtpTransporter(smtp);
-
-    await transporter.sendMail({
-      from: smtp.from,
-      to: email,
-      subject: "Verify your Kesar Kosmetics email",
-      text: `Use this verification code to activate your account: ${code}. This code expires in 10 minutes.`,
-      html: `<div style="font-family: Arial, sans-serif; line-height: 1.6; color: #3E2723;"><h2>Email Verification Code</h2><p>Use this verification code to activate your account:</p><p style="font-size: 28px; font-weight: bold; letter-spacing: 3px; color: #D97736;">${code}</p><p>This code expires in 10 minutes.</p></div>`,
-    });
-
-    console.log(`[email-verify:success] Verification email sent to ${email}`);
-    return { delivered: true };
-  } catch (err) {
-    console.error(`[email-verify:error] Failed to send verification email to ${email}:`, err.message);
-    throw err;
-  }
-}
+// Legacy auth helpers removed — frontend uses Firebase auth
 
 function buildTrackingSteps(status) {
   const activeStatus = String(status || "pending").toLowerCase();
@@ -689,328 +552,6 @@ app.get("/api/", (req, res) => {
   res.json({ message: "Backend running" });
 });
 
-app.post("/api/auth/register", async (req, res) => {
-  const { name, email, phone, password } = req.body || {};
-  const safeEmail = String(email || "").toLowerCase();
-  if (!name || !safeEmail || !phone || !password) {
-    return res.status(400).json({ detail: "Missing required fields" });
-  }
-
-  const existingUserId = usersByEmail.get(safeEmail);
-  if (existingUserId) {
-    const existingUser = users.get(existingUserId);
-    
-    // If email is already verified, ask user to login
-    if (existingUser && existingUser.email_verified) {
-      return res.status(400).json({ 
-        detail: "Email already registered and verified. Please login instead.",
-        alreadyVerified: true 
-      });
-    }
-    
-    // If email exists but not verified, resend verification code
-    if (existingUser && !existingUser.email_verified) {
-      const code = generateVerificationCode();
-      existingUser.email_verification_code_hash = hashResetCode(safeEmail, code);
-      existingUser.email_verification_expires_at = Date.now() + 10 * 60 * 1000;
-      await saveUserToStore(existingUser);
-      
-      try {
-        await sendVerificationEmail(safeEmail, code);
-      } catch (err) {
-        console.error("Failed to resend verification email:", err);
-        if (allowAuthFallbackWhenEmailFails) {
-          existingUser.email_verified = true;
-          existingUser.email_verification_code_hash = null;
-          existingUser.email_verification_expires_at = null;
-          await saveUserToStore(existingUser);
-          const token = crypto.randomBytes(32).toString("hex");
-          sessions.set(token, { user: publicUser(existingUser), createdAt: Date.now() });
-          res.cookie("access_token", token, authCookieOptions);
-          return res.status(200).json({
-            ...publicUser(existingUser),
-            requires_verification: false,
-            message: "Email service unavailable. Account verified automatically.",
-          });
-        }
-        if (exposeOtpOnEmailFailure) {
-          return res.status(200).json({
-            message: "Email delivery failed. Use the fallback verification code.",
-            email: safeEmail,
-            requires_verification: true,
-            isResend: true,
-            delivery_failed: true,
-            verification_code: code,
-            detail: getSmtpErrorDetail(err),
-          });
-        }
-        return res.status(500).json({ detail: getSmtpErrorDetail(err) });
-      }
-      
-      return res.status(200).json({
-        message: "New verification code sent to your email",
-        email: safeEmail,
-        requires_verification: true,
-        isResend: true,
-      });
-    }
-  }
-
-  const id = crypto.randomUUID();
-  const hashedPassword = await bcrypt.hash(password, 10);
-  const code = generateVerificationCode();
-  const user = {
-    _id: id,
-    name,
-    email: safeEmail,
-    phone,
-    password: hashedPassword,
-    role: "customer",
-    email_verified: false,
-    email_verification_code_hash: hashResetCode(safeEmail, code),
-    email_verification_expires_at: Date.now() + 10 * 60 * 1000,
-  };
-  await saveUserToStore(user);
-
-  try {
-    await sendVerificationEmail(safeEmail, code);
-  } catch (err) {
-    console.error("Failed to send verification email:", err);
-    if (allowAuthFallbackWhenEmailFails) {
-      user.email_verified = true;
-      user.email_verification_code_hash = null;
-      user.email_verification_expires_at = null;
-      await saveUserToStore(user);
-
-      const token = crypto.randomBytes(32).toString("hex");
-      sessions.set(token, { user: publicUser(user), createdAt: Date.now() });
-      res.cookie("access_token", token, authCookieOptions);
-
-      return res.status(201).json({
-        ...publicUser(user),
-        requires_verification: false,
-        message: "Email service unavailable. Account verified automatically.",
-      });
-    }
-    if (exposeOtpOnEmailFailure) {
-      return res.status(201).json({
-        message: "Email delivery failed. Use the fallback verification code.",
-        email: safeEmail,
-        requires_verification: true,
-        delivery_failed: true,
-        verification_code: code,
-        detail: getSmtpErrorDetail(err),
-      });
-    }
-    return res.status(500).json({ detail: getSmtpErrorDetail(err) });
-  }
-
-  return res.status(201).json({
-    message: "Verification code sent to your email",
-    email: safeEmail,
-    requires_verification: true,
-  });
-});
-
-app.post("/api/auth/login", async (req, res) => {
-  const safeEmail = String(req.body?.email || "").toLowerCase();
-  const password = String(req.body?.password || "");
-  const userId = usersByEmail.get(safeEmail);
-  if (!userId) return res.status(401).json({ detail: "Invalid credentials" });
-  const user = users.get(userId);
-  if (!user) {
-    return res.status(401).json({ detail: "Invalid credentials" });
-  }
-  const passwordMatch = await bcrypt.compare(password, user.password);
-  if (!passwordMatch) {
-    return res.status(401).json({ detail: "Invalid credentials" });
-  }
-
-  if (!user.email_verified) {
-    return res.status(403).json({ detail: "Email not verified. Please verify your email first." });
-  }
-
-  const token = crypto.randomBytes(32).toString("hex");
-  sessions.set(token, { user: publicUser(user), createdAt: Date.now() });
-  res.cookie("access_token", token, authCookieOptions);
-  return res.json(publicUser(user));
-});
-
-app.post("/api/auth/register/resend-code", async (req, res) => {
-  const safeEmail = String(req.body?.email || "").trim().toLowerCase();
-  if (!safeEmail) {
-    return res.status(400).json({ detail: "Email is required" });
-  }
-
-  const userId = usersByEmail.get(safeEmail);
-  const user = userId ? users.get(userId) : null;
-  if (!user) {
-    return res.status(404).json({ detail: "Account not found" });
-  }
-
-  if (user.email_verified) {
-    return res.status(400).json({ detail: "Email is already verified" });
-  }
-
-  const code = generateVerificationCode();
-  user.email_verification_code_hash = hashResetCode(safeEmail, code);
-  user.email_verification_expires_at = Date.now() + 10 * 60 * 1000;
-  await saveUserToStore(user);
-
-  try {
-    await sendVerificationEmail(safeEmail, code);
-  } catch (err) {
-    console.error("Failed to resend verification email:", err);
-    if (exposeOtpOnEmailFailure) {
-      return res.status(200).json({
-        message: "Email delivery failed. Use the fallback verification code.",
-        requires_verification: true,
-        delivery_failed: true,
-        verification_code: code,
-        detail: getSmtpErrorDetail(err),
-      });
-    }
-    return res.status(500).json({ detail: getSmtpErrorDetail(err) });
-  }
-
-  return res.json({ message: "Verification code sent to your email" });
-});
-
-app.post("/api/auth/register/verify-code", async (req, res) => {
-  const safeEmail = String(req.body?.email || "").trim().toLowerCase();
-  const code = String(req.body?.code || "").trim();
-
-  if (!safeEmail || !code) {
-    return res.status(400).json({ detail: "Email and verification code are required" });
-  }
-
-  const userId = usersByEmail.get(safeEmail);
-  const user = userId ? users.get(userId) : null;
-  if (!user) {
-    return res.status(404).json({ detail: "Account not found" });
-  }
-
-  if (user.email_verified) {
-    const token = crypto.randomBytes(32).toString("hex");
-    sessions.set(token, { user: publicUser(user), createdAt: Date.now() });
-    res.cookie("access_token", token, authCookieOptions);
-    return res.json(publicUser(user));
-  }
-
-  if (!user.email_verification_code_hash || Date.now() > Number(user.email_verification_expires_at || 0)) {
-    return res.status(400).json({ detail: "Verification code has expired. Please resend the code." });
-  }
-
-  const expectedHash = hashResetCode(safeEmail, code);
-  if (expectedHash !== user.email_verification_code_hash) {
-    return res.status(400).json({ detail: "Invalid verification code" });
-  }
-
-  user.email_verified = true;
-  user.email_verification_code_hash = null;
-  user.email_verification_expires_at = null;
-  await saveUserToStore(user);
-
-  const token = crypto.randomBytes(32).toString("hex");
-  sessions.set(token, { user: publicUser(user), createdAt: Date.now() });
-  res.cookie("access_token", token, authCookieOptions);
-  return res.json(publicUser(user));
-});
-
-app.post("/api/auth/forgot-password/send-code", async (req, res) => {
-  const safeEmail = String(req.body?.email || "").trim().toLowerCase();
-  if (!safeEmail) {
-    return res.status(400).json({ detail: "Email is required" });
-  }
-
-  const userId = usersByEmail.get(safeEmail);
-  if (!userId) {
-    return res.json({ message: "If this email is registered, a verification code has been sent." });
-  }
-
-  const code = generateResetCode();
-  passwordResetCodes.set(safeEmail, {
-    codeHash: hashResetCode(safeEmail, code),
-    expiresAt: Date.now() + 10 * 60 * 1000,
-    attempts: 0,
-  });
-
-  try {
-    const emailResult = await sendResetCodeEmail(safeEmail, code);
-    if (!emailResult.delivered) {
-      console.warn(`[forgot-password] Email not delivered for ${safeEmail}, but code stored`);
-    }
-  } catch (err) {
-    console.error("Failed to send reset code email:", err.message);
-    return res.status(500).json({ detail: "Failed to send verification code. Please check your email configuration or try again later." });
-  }
-
-  return res.json({ message: "If this email is registered, a verification code has been sent." });
-});
-
-app.post("/api/auth/forgot-password/reset", async (req, res) => {
-  const safeEmail = String(req.body?.email || "").trim().toLowerCase();
-  const code = String(req.body?.code || "").trim();
-  const newPassword = String(req.body?.new_password || "");
-  const confirmPassword = String(req.body?.confirm_password || "");
-
-  if (!safeEmail || !code || !newPassword || !confirmPassword) {
-    return res.status(400).json({ detail: "Email, code, new password and confirm password are required" });
-  }
-
-  if (newPassword !== confirmPassword) {
-    return res.status(400).json({ detail: "New password and confirm password do not match" });
-  }
-
-  if (newPassword.length < 6) {
-    return res.status(400).json({ detail: "Password must be at least 6 characters" });
-  }
-
-  const userId = usersByEmail.get(safeEmail);
-  const user = userId ? users.get(userId) : null;
-  const resetEntry = passwordResetCodes.get(safeEmail);
-  if (!user || !resetEntry) {
-    return res.status(400).json({ detail: "Invalid or expired verification code" });
-  }
-
-  if (Date.now() > resetEntry.expiresAt) {
-    passwordResetCodes.delete(safeEmail);
-    return res.status(400).json({ detail: "Verification code has expired" });
-  }
-
-  if (resetEntry.attempts >= 5) {
-    passwordResetCodes.delete(safeEmail);
-    return res.status(400).json({ detail: "Too many invalid attempts. Request a new code." });
-  }
-
-  const expectedHash = hashResetCode(safeEmail, code);
-  if (expectedHash !== resetEntry.codeHash) {
-    resetEntry.attempts += 1;
-    passwordResetCodes.set(safeEmail, resetEntry);
-    return res.status(400).json({ detail: "Invalid verification code" });
-  }
-
-  user.password = await bcrypt.hash(newPassword, 10);
-  await saveUserToStore(user);
-  passwordResetCodes.delete(safeEmail);
-  clearUserSessions(user._id);
-
-  return res.json({ message: "Password reset successful" });
-});
-
-app.get("/api/auth/me", (req, res) => {
-  const user = authUser(req);
-  if (!user) return res.status(401).json({ detail: "Not authenticated" });
-  return res.json(publicUser(user));
-});
-
-app.post("/api/auth/logout", (req, res) => {
-  const token = req.cookies.access_token;
-  if (token) sessions.delete(token);
-  res.clearCookie("access_token", authCookieOptions);
-  return res.json({ message: "Logged out" });
-});
-
 app.get("/api/products", (req, res) => {
   const { category, search } = req.query;
   let out = [...products];
@@ -1029,16 +570,10 @@ app.get("/api/products/:id", (req, res) => {
 });
 
 app.post("/api/products/:id/reviews", (req, res) => {
-  // Support both cookie-based session (legacy) and Firebase token in body
-  let reviewUser = authUser(req);
-
-  // If no cookie session, accept user info from request body (Firebase auth)
-  if (!reviewUser && req.body?.user_name) {
-    reviewUser = {
-      _id: req.body.user_uid || "firebase-user",
-      name: req.body.user_name || "User",
-    };
-  }
+  // Accept user info from request body (Firebase auth)
+  const reviewUser = req.body?.user_name
+    ? { _id: req.body.user_uid || "firebase-user", name: req.body.user_name || "User" }
+    : null;
 
   if (!reviewUser) return res.status(401).json({ detail: "Not authenticated" });
 
@@ -1233,71 +768,6 @@ app.post("/api/contact", async (req, res) => {
   }
 });
 
-app.get("/api/cart", (req, res) => {
-  const user = authUser(req);
-  if (!user) return res.status(401).json({ detail: "Not authenticated" });
-  const items = carts.get(user._id) || [];
-  let total = 0;
-  const expanded = items
-    .map((item) => {
-      const product = getProduct(item.product_id);
-      if (!product) return null;
-      total += product.price * item.quantity;
-      return { product, quantity: item.quantity, variant: item.variant || null };
-    })
-    .filter(Boolean);
-  return res.json({ items: expanded, total });
-});
-
-app.post("/api/cart/add", (req, res) => {
-  const user = authUser(req);
-  if (!user) return res.status(401).json({ detail: "Not authenticated" });
-
-  const { product_id, quantity, variant } = req.body || {};
-  const product = getProduct(product_id);
-  if (!product) return res.status(404).json({ detail: "Product not found" });
-
-  const userCart = carts.get(user._id) || [];
-  const index = userCart.findIndex((it) => it.product_id === product_id && (it.variant || null) === (variant || null));
-  if (index >= 0) {
-    userCart[index].quantity += Number(quantity || 1);
-  } else {
-    userCart.push({ product_id, quantity: Number(quantity || 1), variant: variant || null });
-  }
-  carts.set(user._id, userCart);
-  return res.json({ message: "Item added" });
-});
-
-app.post("/api/cart/update", (req, res) => {
-  const user = authUser(req);
-  if (!user) return res.status(401).json({ detail: "Not authenticated" });
-
-  const { product_id, quantity } = req.body || {};
-  const userCart = carts.get(user._id) || [];
-  const idx = userCart.findIndex((it) => it.product_id === product_id);
-  if (idx < 0) return res.status(404).json({ detail: "Item not found" });
-
-  if (Number(quantity) <= 0) userCart.splice(idx, 1);
-  else userCart[idx].quantity = Number(quantity);
-  carts.set(user._id, userCart);
-  return res.json({ message: "Cart updated" });
-});
-
-app.delete("/api/cart/remove/:productId", (req, res) => {
-  const user = authUser(req);
-  if (!user) return res.status(401).json({ detail: "Not authenticated" });
-  const userCart = carts.get(user._id) || [];
-  carts.set(user._id, userCart.filter((it) => it.product_id !== req.params.productId));
-  return res.json({ message: "Item removed" });
-});
-
-app.delete("/api/cart/clear", (req, res) => {
-  const user = authUser(req);
-  if (!user) return res.status(401).json({ detail: "Not authenticated" });
-  carts.set(user._id, []);
-  return res.json({ message: "Cart cleared" });
-});
-
 app.post("/api/orders", async (req, res) => {
   const user = authUserOrFirebase(req);
   if (!user) return res.status(401).json({ detail: "Not authenticated" });
@@ -1318,7 +788,6 @@ app.post("/api/orders", async (req, res) => {
     created_at: new Date().toISOString(),
   };
   await saveOrderToStore(order);
-  carts.set(user._id, []);
   await sendOrderCreatedEmail(order);
   return res.json(order);
 });
@@ -1401,7 +870,6 @@ async function finalizeRazorpayPayment({ razorpayOrderId, razorpayPaymentId, raz
   });
 
   if (paymentStatus === "captured") {
-    carts.set(order.user_id, []);
     await sendOrderPaidEmail(nextOrder);
   }
 
@@ -1595,7 +1063,6 @@ app.use((err, req, res, next) => {
 async function startServer() {
   try {
     await loadSupabaseState();
-    await seedAdmin();
   } catch (err) {
     console.error("Failed to initialize backend state:", err);
   }

@@ -77,11 +77,6 @@ const CheckoutPage = () => {
 		setForm((prev) => ({ ...prev, name: user.name || "", phone: user.phone || "", country: prev.country || "India", state: prev.country === "India" ? prev.state : "", addressType: prev.addressType || "" }));
 	}, [user, navigate, cart.items.length]);
 
-	const refreshCart = async () => {
-		// Cart is managed by CartContext — no backend call needed
-		window.dispatchEvent(new Event("cart:updated"));
-	};
-
 	const handleUpdateQuantity = async (productId, quantity) => {
 		await updateQuantity(productId, quantity);
 	};

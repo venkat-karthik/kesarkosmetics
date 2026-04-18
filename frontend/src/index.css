@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=Outfit:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,400;1,500&family=Outfit:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -7,29 +7,32 @@
 @layer base {
   :root {
     --kesar-gold:    #F5A800;
-    --kesar-orange:  #E8620A;
+    --kesar-orange:  #D97736;
     --kesar-red:     #C8380A;
-    --kesar-dark:    #4A1A00;
-    --kesar-brown:   #7A3B00;
-    --kesar-cream:   #FFF8EC;
-    --kesar-light:   #FFF3D6;
-    --kesar-muted:   #8B5E1A;
+    --kesar-dark:    #3E2723;
+    --kesar-brown:   #5D4037;
+    --kesar-cream:   #FAF7F2;
+    --kesar-light:   #FFF8EC;
+    --kesar-muted:   #8A7768;
+    --radius-card:   1.5rem;
+    --radius-btn:    9999px;
+    --shadow-card:   0 4px 24px rgba(62,39,35,0.07), 0 1px 4px rgba(62,39,35,0.04);
+    --shadow-hover:  0 8px 40px rgba(62,39,35,0.12), 0 2px 8px rgba(62,39,35,0.06);
   }
 
   * { box-sizing: border-box; }
 
   body {
-    @apply bg-[#FFF8EC] text-[#4A1A00];
+    @apply bg-[#FAF7F2] text-[#3E2723];
     margin: 0;
     font-family: 'Outfit', sans-serif;
     font-size: 16px;
     font-weight: 400;
-    line-height: 1.6;
+    line-height: 1.65;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* All numeric/price/count values use DM Mono for clarity */
   .font-numeric, [data-numeric], .tabular-nums {
     font-family: 'DM Mono', monospace;
     font-variant-numeric: tabular-nums;
@@ -41,16 +44,64 @@
     font-family: 'Cormorant Garamond', serif;
     @apply tracking-tight;
     font-weight: 600;
+    line-height: 1.15;
   }
 
   p, li, a { font-size: 1em; }
 
-  /* Smooth scrolling */
   html { scroll-behavior: smooth; }
 
-  /* Better tap targets on mobile */
   button, a { min-height: 44px; display: inline-flex; align-items: center; }
   button.inline, a.inline { min-height: unset; display: inline; }
+
+  /* Softer scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(62,39,35,0.15); border-radius: 99px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(62,39,35,0.28); }
+}
+
+@layer utilities {
+  .font-heading { font-family: 'Cormorant Garamond', serif; }
+  .font-body    { font-family: 'Outfit', sans-serif; }
+
+  /* Royal card style */
+  .card-royal {
+    background: #fff;
+    border-radius: var(--radius-card);
+    border: 1.5px solid #EDE4D8;
+    box-shadow: var(--shadow-card);
+    transition: box-shadow 0.25s ease, transform 0.25s ease;
+  }
+  .card-royal:hover {
+    box-shadow: var(--shadow-hover);
+    transform: translateY(-2px);
+  }
+
+  .glass-effect {
+    background: rgba(250, 247, 242, 0.88);
+    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(245, 168, 0, 0.2);
+  }
+
+  .kesar-gradient {
+    background: linear-gradient(135deg, #C8380A 0%, #D97736 50%, #F5A800 100%);
+  }
+
+  .kesar-text-gradient {
+    background: linear-gradient(135deg, #C8380A, #D97736, #F5A800);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Soft gold shimmer for premium elements */
+  .gold-shimmer {
+    background: linear-gradient(90deg, #F5A800 0%, #FFD166 50%, #F5A800 100%);
+    background-size: 200% auto;
+    animation: goldShimmer 3s linear infinite;
+  }
 }
 
 @layer utilities {
@@ -78,6 +129,10 @@
 
 /* ── Animations ─────────────────────────────────────────── */
 
+@keyframes goldShimmer {
+  0%   { background-position: 0% center; }
+  100% { background-position: 200% center; }
+}
 @keyframes slideInRight {
   from { transform: translateX(100%); opacity: 0; }
   to   { transform: translateX(0);    opacity: 1; }

@@ -1,30 +1,24 @@
 import React from "react";
-import { Truck } from "lucide-react";
+import { Sparkles } from "lucide-react";
 
 const PromoBanner = () => {
 	return (
 		<>
-			<div className="bg-gradient-to-r from-[#C8380A] via-[#E8620A] to-[#C8380A] text-[#FFF8EC] text-xs sm:text-sm py-2 overflow-hidden">
+			<div className="bg-gradient-to-r from-[#3E2723] via-[#5D4037] to-[#3E2723] text-[#F5A800] text-xs sm:text-sm py-2.5 overflow-hidden border-b border-[#F5A800]/10">
 				<div className="promo-marquee whitespace-nowrap">
-					<span className="inline-flex items-center gap-2 mr-10"><Truck className="w-3.5 h-3.5" />Free shipping on orders above <span className="font-heading tabular-nums">₹2000</span> | Use code KESARIO for 10% off</span>
-					<span className="inline-flex items-center gap-2 mr-10"><Truck className="w-3.5 h-3.5" />Free shipping on orders above <span className="font-heading tabular-nums">₹2000</span> | Use code KESARIO for 10% off</span>
-					<span className="inline-flex items-center gap-2 mr-10"><Truck className="w-3.5 h-3.5" />Free shipping on orders above <span className="font-heading tabular-nums">₹2000</span> | Use code KESARIO for 10% off</span>
-					<span className="inline-flex items-center gap-2 mr-10"><Truck className="w-3.5 h-3.5" />Free shipping on orders above <span className="font-heading tabular-nums">₹2000</span> | Use code KESARIO for 10% off</span>
+					{[0,1,2,3].map(i => (
+						<span key={i} className="inline-flex items-center gap-2 mr-12">
+							<Sparkles className="w-3 h-3 text-[#F5A800]" />
+							<span className="text-white/90">Free shipping on orders above</span>
+							<span className="font-heading tabular-nums text-[#F5A800] font-semibold">₹2000</span>
+							<span className="text-white/50 mx-1">·</span>
+							<span className="text-white/90">Use code</span>
+							<span className="font-semibold text-[#F5A800] tracking-wider">KESAR10</span>
+							<span className="text-white/90">for 10% off</span>
+						</span>
+					))}
 				</div>
 			</div>
-
-			<style>{`
-				@keyframes promoScroll {
-					0% { transform: translateX(0); }
-					100% { transform: translateX(-50%); }
-				}
-
-				.promo-marquee {
-					display: inline-block;
-					min-width: 200%;
-					animation: promoScroll 18s linear infinite;
-				}
-			`}</style>
 		</>
 	);
 };

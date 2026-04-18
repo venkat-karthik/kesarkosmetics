@@ -4,8 +4,7 @@ import { ArrowLeft, BadgeCheck, Box, CreditCard, MapPin, Package, ShoppingBag, T
 import axios from "axios";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../firebaseClient";
-import { formatPrice } from "../utils/helpers";
-import { toast } from "sonner";
+import { formatPrice, buildTrackingSteps } from "../utils/helpers";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
 
@@ -45,19 +44,7 @@ const TrackOrderStatusPage = () => {
 
 					if (match) {
 						const status = match.status || "pending";
-						const s = status.toLowerCase();
-						let normalized = s;
-						if (s === "confirmed" || s === "processing") normalized = "pending";
-						if (s === "out_for_delivery") normalized = "in_transit";
-						if (s === "cancelled") normalized = "pending";
-						const keys = ["pending", "shipped", "in_transit", "delivered"];
-						const activeIndex = Math.max(keys.indexOf(normalized), 0);
-						const tracking_steps = [
-							{ key: "pending",    label: "Order Placed", completed: activeIndex >= 0, active: activeIndex === 0 },
-							{ key: "shipped",    label: "Shipped",       completed: activeIndex >= 1, active: activeIndex === 1 },
-							{ key: "in_transit", label: "In Transit",    completed: activeIndex >= 2, active: activeIndex === 2 },
-							{ key: "delivered",  label: "Delivered",     completed: activeIndex >= 3, active: activeIndex === 3 },
-						];
+						const tracking_steps = buildTrackingSteps(status);
 						setOrder({
 							id: match.orderId || match._docId,
 							items: match.items || [],

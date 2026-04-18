@@ -4,7 +4,7 @@ import { ChevronRight, PackageSearch } from "lucide-react";
 import axios from "axios";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../firebaseClient";
-import { formatPrice } from "../utils/helpers";
+import { formatPrice, buildTrackingSteps } from "../utils/helpers";
 import { toast } from "sonner";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
@@ -31,22 +31,6 @@ function normalizeFirestoreOrder(doc) {
 		created_at: o.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
 		tracking_steps: buildTrackingSteps(o.status || "pending"),
 	};
-}
-
-function buildTrackingSteps(status) {
-	const s = String(status || "pending").toLowerCase();
-	let normalized = s;
-	if (s === "confirmed" || s === "processing") normalized = "pending";
-	if (s === "out_for_delivery") normalized = "in_transit";
-	if (s === "cancelled") normalized = "pending";
-	const keys = ["pending", "shipped", "in_transit", "delivered"];
-	const activeIndex = Math.max(keys.indexOf(normalized), 0);
-	return [
-		{ key: "pending",    label: "Order Placed", completed: activeIndex >= 0, active: activeIndex === 0 },
-		{ key: "shipped",    label: "Shipped",       completed: activeIndex >= 1, active: activeIndex === 1 },
-		{ key: "in_transit", label: "In Transit",    completed: activeIndex >= 2, active: activeIndex === 2 },
-		{ key: "delivered",  label: "Delivered",     completed: activeIndex >= 3, active: activeIndex === 3 },
-	];
 }
 
 const TrackOrderResultsPage = () => {
@@ -164,7 +148,6 @@ const TrackOrderResultsPage = () => {
 									{/* Items */}
 									<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
 										{(order.items || []).map((item, idx) => {
-											const productId = item.product_id;
 											return (
 												<div key={idx} className="rounded-2xl border border-[#E9E0D2] bg-[#FCFAF7] p-3">
 													<img src={item.image || "/logo.png"} alt={item.product_name} className="w-full h-28 object-cover rounded-xl" />

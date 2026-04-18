@@ -42,28 +42,31 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#FFF8EC] flex items-center justify-center px-4 py-10">
-      {/* Close / back button */}
+    <div className="min-h-screen bg-gradient-to-br from-[#FAF7F2] via-[#F5EEE6] to-[#EDE4D8] flex items-center justify-center px-4 py-10">
+      {/* Close button */}
       <button
         onClick={() => navigate(-1)}
-        className="fixed top-4 right-4 p-2 bg-white rounded-full shadow-md hover:bg-gray-100 transition-colors z-50"
+        className="fixed top-5 right-5 p-2.5 bg-white/80 backdrop-blur-sm rounded-2xl shadow-md hover:bg-white transition-all z-50 border border-[#EDE4D8]"
         aria-label="Close"
       >
-        <X className="w-5 h-5 text-gray-600" />
+        <X className="w-4 h-4 text-[#5D4037]" />
       </button>
 
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <Link to="/"><img src="/logo.png" alt="Kesar Kosmetics" className="h-16 mx-auto object-contain" /></Link>
-          <h1 className="font-heading text-2xl font-semibold text-[#4A1A00] mt-4">Welcome back</h1>
-          <p className="text-[#7A3B00] mt-1 text-sm">Sign in to continue shopping</p>
+          <Link to="/"><img src="/logo.png" alt="Kesar Kosmetics" className="h-20 mx-auto object-contain drop-shadow-sm" /></Link>
+          <h1 className="font-heading text-3xl font-semibold text-[#3E2723] mt-5">Welcome back</h1>
+          <p className="text-[#8A7768] mt-1.5 text-sm">Sign in to continue your journey</p>
         </div>
 
-        <div className="bg-white rounded-3xl shadow-lg border border-[#F5A800]/20 p-8">
+        <div className="bg-white rounded-3xl shadow-[0_8px_40px_rgba(62,39,35,0.1)] border border-[#EDE4D8] p-8">
+          {/* Decorative top line */}
+          <div className="h-0.5 w-16 bg-gradient-to-r from-[#D97736] to-[#F5A800] rounded-full mx-auto mb-8" />
+
           <button
             onClick={handleGoogle}
             disabled={loading}
-            className="w-full flex items-center justify-center gap-3 border-2 border-[#E0D8C8] hover:border-[#E8620A] rounded-xl py-3.5 text-sm font-semibold text-gray-700 hover:bg-[#FFF8EC] transition-all disabled:opacity-60"
+            className="w-full flex items-center justify-center gap-3 border-2 border-[#EDE4D8] hover:border-[#D97736] rounded-2xl py-3.5 text-sm font-semibold text-[#3E2723] hover:bg-[#FFF8F0] transition-all disabled:opacity-60 shadow-sm hover:shadow-md"
           >
             <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -74,10 +77,14 @@ const LoginPage = () => {
             {loading ? "Signing in..." : "Continue with Google"}
           </button>
 
-          <p className="mt-6 text-center text-xs text-gray-400">
+          <p className="mt-6 text-center text-xs text-[#B0A090] leading-relaxed">
             New here? Clicking above creates your account automatically.
           </p>
         </div>
+
+        <p className="text-center text-xs text-[#B0A090] mt-6">
+          Protected by Firebase Authentication
+        </p>
       </div>
     </div>
   );

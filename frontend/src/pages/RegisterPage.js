@@ -1,12 +1,10 @@
 import React from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { useNavigate as useNav } from "react-router-dom";
-import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 
-// Register is now just the login page — Google handles both
+// Register redirects to login — Google handles both sign-up and sign-in
 const RegisterPage = () => {
   const navigate = useNavigate();
-  React.useEffect(() => { navigate("/login", { replace: true }); }, []);
+  React.useEffect(() => { navigate("/login", { replace: true }); }, [navigate]);
   return null;
 };
 

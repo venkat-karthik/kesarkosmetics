@@ -24,6 +24,19 @@ export function CartProvider({ children }) {
   const [items, setItems] = useState(readLocal);
   const [loading, setLoading] = useState(false);
 
+  const saveToFirestore = useCallback(async (uid, cartItems) => {
+    if (!uid) return;
+    try {
+      await setDoc(doc(db, "carts", uid), {
+        userId: uid,
+        items: cartItems,
+        updatedAt: new Date().toISOString(),
+      });
+    } catch (err) {
+      console.error("Cart save error:", err);
+    }
+  }, []);
+
   // Load from Firestore when user logs in
   useEffect(() => {
     if (!user?._id) {
@@ -34,10 +47,10 @@ export function CartProvider({ children }) {
       setLoading(true);
       try {
         const snap = await getDoc(doc(db, "carts", user._id));
+        const local = readLocal();
         if (snap.exists()) {
           const firestoreItems = snap.data().items || [];
           // Merge local + firestore (local takes priority for qty)
-          const local = readLocal();
           const merged = [...firestoreItems];
           for (const localItem of local) {
             const idx = merged.findIndex(i => i.product_id === localItem.product_id && i.variant === localItem.variant);
@@ -46,10 +59,8 @@ export function CartProvider({ children }) {
           }
           setItems(merged);
           writeLocal(merged);
-          // Clear local after merge
           if (local.length > 0) await saveToFirestore(user._id, merged);
         } else {
-          const local = readLocal();
           setItems(local);
           if (local.length > 0) await saveToFirestore(user._id, local);
         }
@@ -61,27 +72,14 @@ export function CartProvider({ children }) {
       }
     };
     load();
-  }, [user?._id]);
-
-  const saveToFirestore = async (uid, cartItems) => {
-    if (!uid) return;
-    try {
-      await setDoc(doc(db, "carts", uid), {
-        userId: uid,
-        items: cartItems,
-        updatedAt: new Date().toISOString(),
-      });
-    } catch (err) {
-      console.error("Cart save error:", err);
-    }
-  };
+  }, [user?._id, saveToFirestore]);
 
   const persist = useCallback(async (newItems) => {
     setItems(newItems);
     writeLocal(newItems);
     window.dispatchEvent(new Event("cart:updated"));
     if (user?._id) await saveToFirestore(user._id, newItems);
-  }, [user?._id]);
+  }, [user?._id, saveToFirestore]);
 
   const addToCart = useCallback(async (product, quantity = 1, variant = null) => {
     const pid = product.id || product._id;
@@ -98,7 +96,7 @@ export function CartProvider({ children }) {
       if (user?._id) saveToFirestore(user._id, next);
       return next;
     });
-  }, [user?._id]);
+  }, [user?._id, saveToFirestore]);
 
   const updateQuantity = useCallback(async (productId, quantity, variant = null) => {
     setItems(prev => {
@@ -110,7 +108,7 @@ export function CartProvider({ children }) {
       if (user?._id) saveToFirestore(user._id, next);
       return next;
     });
-  }, [user?._id]);
+  }, [user?._id, saveToFirestore]);
 
   const removeFromCart = useCallback(async (productId, variant = null) => {
     setItems(prev => {
@@ -120,14 +118,14 @@ export function CartProvider({ children }) {
       if (user?._id) saveToFirestore(user._id, next);
       return next;
     });
-  }, [user?._id]);
+  }, [user?._id, saveToFirestore]);
 
   const clearCart = useCallback(async () => {
     setItems([]);
     writeLocal([]);
     window.dispatchEvent(new Event("cart:updated"));
     if (user?._id) await saveToFirestore(user._id, []);
-  }, [user?._id]);
+  }, [user?._id, saveToFirestore]);
 
   // Compute totals from stored product data
   const cartTotal = items.reduce((sum, i) => {

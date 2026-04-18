@@ -31,7 +31,10 @@ const MenuDrawer = ({ isOpen, onClose }) => {
 				className={`fixed top-0 left-0 h-full w-[88vw] max-w-[380px] z-50 transform transition-transform duration-300 ease-in-out overflow-y-auto ${
 					isOpen ? "translate-x-0" : "-translate-x-full"
 				}`}
-				style={{ background: "linear-gradient(160deg, #4A1A00 0%, #7A3B00 60%, #4A1A00 100%)" }}
+				style={{
+					background: "linear-gradient(160deg, #4A1A00 0%, #7A3B00 60%, #4A1A00 100%)",
+					visibility: isOpen ? "visible" : "hidden",
+				}}
 			>
 				{/* Header */}
 				<div className="px-4 py-4 border-b border-[#C8380A]/40">

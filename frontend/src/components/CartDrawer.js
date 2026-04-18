@@ -45,6 +45,7 @@ const CartDrawer = ({ isOpen, onClose }) => {
 				className={`fixed top-0 right-0 h-full w-full xs:w-80 sm:w-96 md:w-[420px] bg-gradient-to-b from-[#FAF7F2] to-[#F5EEE6] shadow-2xl z-50 transform transition-all duration-300 flex flex-col overflow-hidden ${
 					isOpen ? "cart-drawer-enter translate-x-0" : "cart-drawer-exit translate-x-full"
 				}`}
+				style={{ visibility: isOpen ? "visible" : "hidden" }}
 			>
 				{/* Header */}
 				<div className="px-4 xs:px-5 sm:px-6 py-4 border-b-2 border-[#E0D8C8] bg-white/50 backdrop-blur-sm">
