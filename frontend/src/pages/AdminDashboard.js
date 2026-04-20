@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { LogOut, Package, TrendingUp, Users, RefreshCw, ChevronDown, ChevronUp, Plus, Trash2, Edit2, Database, AlertTriangle } from "lucide-react";
+import { LogOut, Package, TrendingUp, Users, RefreshCw, ChevronDown, ChevronUp, Plus, Trash2, Edit2, Database, AlertTriangle, Star } from "lucide-react";
 import { toast } from "sonner";
 import axios from "axios";
 import { formatPrice } from "../utils/helpers";
@@ -211,6 +211,18 @@ const AdminDashboard = () => {
     } catch { toast.error("Failed to delete document"); }
   };
 
+  const handleDeleteReview = async (productId, reviewIndex) => {
+    if (!window.confirm("Delete this review?")) return;
+    try {
+      const { deleteReview } = await import("../utils/productsDb");
+      await deleteReview(productId, reviewIndex);
+      toast.success("Review deleted");
+      // Refresh products so review list updates
+      const { getAllProducts } = await import("../utils/productsDb");
+      setProducts(await getAllProducts());
+    } catch { toast.error("Failed to delete review"); }
+  };
+
   if (authLoading) return <div className="min-h-screen bg-[#FAF7F2] flex items-center justify-center"><p className="text-[#5D4037]">Loading...</p></div>;
 
   const tabs = [
@@ -220,6 +232,7 @@ const AdminDashboard = () => {
     { id: "users",       label: "Users" },
     { id: "subscribers", label: "Subscribers" },
     { id: "products",    label: "Products" },
+    { id: "reviews",     label: "Reviews" },
     { id: "blogs",       label: "Blogs" },
     { id: "database",    label: "🔥 Database" },
   ];
@@ -438,6 +451,74 @@ const AdminDashboard = () => {
             )}
           </div>
         )}
+
+        {/* REVIEWS */}
+        {activeTab === "reviews" && (() => {
+          const allReviews = products.flatMap(p =>
+            (Array.isArray(p.reviews) ? p.reviews : []).map((r, i) => ({
+              ...r, productId: p.id || p._id, productName: p.name,
+              productImage: p.images?.[0] || null, reviewIndex: i,
+            }))
+          ).sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+
+          return (
+            <div className="bg-white rounded-2xl p-6 border border-[#E0D8C8]">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-2">
+                  <Star className="w-5 h-5 text-[#D97736]" />
+                  <h2 className="font-heading text-xl font-semibold text-[#3E2723]">Customer Reviews</h2>
+                </div>
+                <span className="text-sm text-[#5D4037]">{allReviews.length} total</span>
+              </div>
+
+              {allReviews.length === 0 ? (
+                <div className="text-center py-16 text-[#8A7768]">
+                  <Star className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                  <p>No reviews yet.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {allReviews.map((review, i) => (
+                    <div key={`${review.productId}-${review.reviewIndex}-${i}`}
+                      className="flex gap-4 p-4 rounded-2xl border border-[#E0D8C8] bg-[#FAF7F2] hover:bg-[#F5EEE6] transition-colors">
+                      {review.productImage && (
+                        <img src={review.productImage} alt={review.productName}
+                          className="w-14 h-14 rounded-xl object-cover shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold uppercase tracking-wider text-[#D97736] mb-1">{review.productName}</p>
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="font-semibold text-[#3E2723] text-sm">{review.user_name || "Anonymous"}</p>
+                          <div className="flex gap-0.5">
+                            {[1,2,3,4,5].map(s => (
+                              <Star key={s} className={`w-3 h-3 ${s <= (review.rating || 0) ? "fill-[#F5A800] text-[#F5A800]" : "text-gray-300"}`} />
+                            ))}
+                          </div>
+                          <span className="text-xs text-[#8A7768]">{review.rating}/5</span>
+                        </div>
+                        {review.comment && (
+                          <p className="text-sm text-[#5D4037] leading-relaxed">{review.comment}</p>
+                        )}
+                        {review.created_at && (
+                          <p className="text-xs text-[#8A7768] mt-1">
+                            {new Date(review.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => handleDeleteReview(review.productId, review.reviewIndex)}
+                        className="shrink-0 self-start p-2 rounded-xl text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                        aria-label="Delete review"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* BLOGS */}
         {activeTab === "blogs" && (

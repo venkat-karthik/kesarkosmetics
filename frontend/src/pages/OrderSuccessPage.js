@@ -34,7 +34,7 @@ const OrderSuccessPage = () => {
 							<Package className="w-4 h-4" /> Track Order
 						</Button>
 					</Link>
-					<Link to="/" className="flex-1">
+					<Link to="/products" className="flex-1">
 						<Button className="w-full bg-gradient-to-r from-[#D97736] to-[#E8620A] hover:from-[#C96626] hover:to-[#D97736] text-white rounded-2xl h-12 font-semibold transition-all hover:shadow-lg">
 							Continue Shopping
 						</Button>

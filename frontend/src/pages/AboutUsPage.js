@@ -74,7 +74,7 @@ const AboutUsPage = () => {
 				<div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
 					<h2 className="font-heading text-3xl sm:text-4xl font-bold mb-6">Discover Our Collection</h2>
 					<p className="text-lg mb-8 opacity-90">Experience the purity and devotion in every product</p>
-					<Link to="/" className="inline-block bg-white text-[#D97736] font-bold py-3 px-8 rounded-full hover:bg-gray-50 transition-colors">
+					<Link to="/products" className="inline-block bg-white text-[#D97736] font-bold py-3 px-8 rounded-full hover:bg-gray-50 transition-colors">
 						Shop Now
 					</Link>
 				</div>

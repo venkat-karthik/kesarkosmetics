@@ -96,7 +96,7 @@ const CartPage = () => {
 							Explore the collection and add a few products to see them here.
 						</p>
 						<Button
-							onClick={() => navigate("/")}
+							onClick={() => navigate("/products")}
 							className="mt-6 rounded-full bg-[#D97736] px-6 py-3 font-semibold text-white hover:bg-[#C96626]"
 						>
 							Continue Shopping

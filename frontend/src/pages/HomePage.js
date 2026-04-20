@@ -203,6 +203,11 @@ const HomePage = ({ setShakeCart, setTriggerCartRefresh }) => {
 	};
 
 	const addToCart = async (product, quantity = 1) => {
+		if (!user || !user._id) {
+			setLoginModalProduct(product);
+			setShowLoginModal(true);
+			return;
+		}
 		// Get button position for flying animation
 		const buttonElement = addToCartButtonRefs.current[product.id];
 		if (buttonElement) {
@@ -535,14 +540,13 @@ const HomePage = ({ setShakeCart, setTriggerCartRefresh }) => {
 									{products[currentCarouselIndex].description || "Handcrafted with devotion for your everyday ritual."}
 								</p>
 								<div className="flex items-center gap-3 animate-fade-in" style={{ animationDuration: "0.7s", animationDelay: "0.15s" }}>
-									<Button
-										ref={(el) => { if (el) addToCartButtonRefs.current[products[currentCarouselIndex].id] = el; }}
-										onClick={() => addToCart(products[currentCarouselIndex])}
-										disabled={addingToCart === products[currentCarouselIndex].id}
-										className="bg-[#E8620A] hover:bg-[#C8380A] text-white rounded-full px-7 h-12 text-sm font-bold shadow-lg transition-all hover:shadow-xl hover:-translate-y-0.5"
-									>
-										{addingToCart === products[currentCarouselIndex].id ? "Adding..." : "Shop Now"}
-									</Button>
+									<Link to="/products">
+										<Button
+											className="bg-[#E8620A] hover:bg-[#C8380A] text-white rounded-full px-7 h-12 text-sm font-bold shadow-lg transition-all hover:shadow-xl hover:-translate-y-0.5"
+										>
+											Shop Now
+										</Button>
+									</Link>
 									<Link
 										to={`/product/${products[currentCarouselIndex].id}`}
 										className="text-white/80 hover:text-white text-sm font-medium underline-offset-4 hover:underline transition-colors"

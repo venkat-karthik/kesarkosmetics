@@ -176,6 +176,16 @@ const CheckoutPage = () => {
 		// Razorpay checkout for online/upi/bank methods
 		const openRazorpay = async () => {
 			const { data } = await axios.post(`${BACKEND_URL}/api/payments/razorpay/create-order`, payload, { withCredentials: true });
+
+			// Demo mode — no real Razorpay keys, simulate success
+			if (data?.demo) {
+				toast.success("Demo payment successful!");
+				await saveOrderToFirestore(data.order.id, "paid");
+				await clearCart();
+				navigate(`/order-success?orderId=${data.order.id}`);
+				return;
+			}
+
 			const checkoutKey = data?.razorpay?.key_id;
 			if (!checkoutKey || !window.Razorpay) {
 				throw new Error("Razorpay checkout is not available");
@@ -615,7 +625,7 @@ const CheckoutPage = () => {
 								<Button type="button" onClick={goToPaymentStep} className="w-full mt-6 bg-[#D97736] hover:bg-[#C96626] text-white rounded-full h-12 py-3 text-base font-bold transition-all hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0">
 									Buy Now
 								</Button>
-								<Button type="button" onClick={() => navigate("/")} className="w-full mt-3 bg-[#D97736] hover:bg-[#C96626] text-white rounded-full h-12 py-3 text-base font-bold transition-all hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0">
+								<Button type="button" onClick={() => navigate("/products")} className="w-full mt-3 bg-[#D97736] hover:bg-[#C96626] text-white rounded-full h-12 py-3 text-base font-bold transition-all hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0">
 									Continue Shopping
 								</Button>
 						</div>

@@ -12,7 +12,7 @@ const MenuDrawer = ({ isOpen, onClose }) => {
 
 	const navigationLinks = [
 		{ label: "Home", path: "/" },
-		{ label: "Products", path: "/#products" },
+		{ label: "Products", path: "/products" },
 		{ label: "Track Order", path: "/track-order" },
 		{ label: "About Us", path: "/about-us" },
 		{ label: "Blogs", path: "/blogs" },

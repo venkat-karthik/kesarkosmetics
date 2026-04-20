@@ -31,6 +31,9 @@ import TrackOrderPage from "./pages/TrackOrderPage";
 import TrackOrderResultsPage from "./pages/TrackOrderResultsPage";
 import TrackOrderStatusPage from "./pages/TrackOrderStatusPage";
 import WishlistPage from "./pages/WishlistPage";
+import ProductsPage from "./pages/ProductsPage";
+import ScrollToTop from "./components/ScrollToTop";
+import FallingParticles from "./components/FallingParticles";
 import "./App.css";
 
 function AppLayout() {
@@ -56,6 +59,7 @@ function AppLayout() {
 
   return (
     <>
+      <FallingParticles />
       <Toaster position="top-center" richColors />
       <Header
         onMenuClick={() => setIsMenuOpen(true)}
@@ -78,6 +82,7 @@ function AppLayout() {
       />
       <Routes>
         <Route path="/" element={<HomePage setShakeCart={setShakeCart} setTriggerCartRefresh={setTriggerCartRefresh} />} />
+        <Route path="/products" element={<ProductsPage />} />
         <Route path="/product/:id" element={<ProductDetailPage />} />
         <Route path="/about-us" element={<AboutUsPage />} />
         <Route path="/blogs" element={<BlogsPage />} />
@@ -123,15 +128,16 @@ function App() {
         <CartProvider>
         <CartDrawerProvider>
           <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
-            <Route path="/admin/login" element={<Navigate to="/login" replace />} />
-            <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/admin/dashboard" element={<AdminDashboard />} />
-            <Route path="/admin/panel" element={<AdminPanel />} />
-            <Route path="/*" element={<AppLayout />} />
-          </Routes>
+            <ScrollToTop />
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
+              <Route path="/admin/login" element={<Navigate to="/login" replace />} />
+              <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/admin/dashboard" element={<AdminDashboard />} />
+              <Route path="/admin/panel" element={<AdminPanel />} />
+              <Route path="/*" element={<AppLayout />} />
+            </Routes>
         </BrowserRouter>
         </CartDrawerProvider>
         </CartProvider>

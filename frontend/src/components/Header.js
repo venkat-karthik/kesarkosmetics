@@ -7,7 +7,7 @@ import { useCart } from "../contexts/CartContext";
 
 const LINKS = [
 	{ label: "Home",        to: "/" },
-	{ label: "Products",    to: "/#products" },
+	{ label: "Products",    to: "/products" },
 	{ label: "Track Order", to: "/track-order" },
 	{ label: "About Us",    to: "/about-us" },
 	{ label: "Blogs",       to: "/blogs" },
@@ -34,7 +34,6 @@ export default function Header({ onMenuClick, onSearchClick, onCartClick, shakeC
 	// Determine active link — exact match only
 	const isActive = (to) => {
 		if (to === "/" ) return pathname === "/";
-		if (to === "/#products") return false; // never mark Products as active via path
 		const base = to.split("#")[0];
 		return base !== "/" && pathname === base;
 	};
@@ -57,25 +56,10 @@ export default function Header({ onMenuClick, onSearchClick, onCartClick, shakeC
 				<nav className="hidden md:flex items-center gap-6 lg:gap-8">
 					{LINKS.map(({ label, to }) => {
 						const active = isActive(to);
-						const handleClick = (e) => {
-							if (to === "/#products") {
-								e.preventDefault();
-								if (pathname === "/") {
-									document.getElementById("products")?.scrollIntoView({ behavior: "smooth" });
-								} else {
-									navigate("/");
-									setTimeout(() => {
-										document.getElementById("products")?.scrollIntoView({ behavior: "smooth" });
-									}, 400);
-								}
-								return;
-							}
-						};
 						return (
 							<Link
 								key={label}
 								to={to}
-								onClick={handleClick}
 								style={{ textDecoration: "none" }}
 								className={[
 									"text-[14px] lg:text-[15px] font-medium whitespace-nowrap transition-colors duration-150 relative",

@@ -16,7 +16,10 @@ const shouldServeFrontendBuild =
 const razKeyId = process.env.RAZORPAY_KEY_ID || "";
 const razKeySecret = process.env.RAZORPAY_KEY_SECRET || "";
 const razWebhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET || "";
-const razorpay = razKeyId && razKeySecret ? new Razorpay({ key_id: razKeyId, key_secret: razKeySecret }) : null;
+// Consider keys valid only if they look like real Razorpay keys (not placeholders)
+const isRealRazorpayKey = (key) => key && key.startsWith("rzp_") && !key.includes("placeholder") && key.length > 20;
+const razorpayEnabled = isRealRazorpayKey(razKeyId) && razKeySecret && !razKeySecret.includes("placeholder");
+const razorpay = razorpayEnabled ? new Razorpay({ key_id: razKeyId, key_secret: razKeySecret }) : null;
 const normalizeOrigin = (value) => {
   const raw = String(value || "").trim();
   if (!raw) return null;
@@ -497,9 +500,6 @@ app.post("/api/orders", async (req, res) => {
 app.post("/api/payments/razorpay/create-order", async (req, res) => {
   const user = authUserOrFirebase(req);
   if (!user) return res.status(401).json({ detail: "Not authenticated" });
-  if (!razorpay) {
-    return res.status(500).json({ detail: "Razorpay is not configured on the server" });
-  }
 
   const body = req.body || {};
   const total = Number(body.total || 0);
@@ -510,6 +510,46 @@ app.post("/api/payments/razorpay/create-order", async (req, res) => {
   const id = crypto.randomUUID();
   const amountPaise = Math.round(total * 100);
   const currency = String(body.currency || "INR").toUpperCase();
+
+  // Demo mode — no real Razorpay keys configured
+  if (!razorpay) {
+    const demoRazorpayOrderId = `demo_order_${id}`;
+    const order = {
+      id,
+      user_id: user._id,
+      items: body.items || [],
+      shipping_address: body.shipping_address || {},
+      payment_method: "razorpay",
+      total,
+      status: "pending",
+      payment_status: "created",
+      payment_gateway: "razorpay_demo",
+      razorpay_order_id: demoRazorpayOrderId,
+      razorpay_payment_id: null,
+      razorpay_signature: null,
+      currency,
+      amount_paise: amountPaise,
+      contact_email: user.email,
+      contact_registered_email: user.email,
+      contact_phone: body.shipping_address?.phone || user.phone || "",
+      contact_registered_phone: user.phone || "",
+      created_at: new Date().toISOString(),
+      demo: true,
+    };
+    await saveOrderToStore(order);
+    await sendOrderCreatedEmail(order);
+    return res.status(201).json({
+      order,
+      demo: true,
+      razorpay: {
+        key_id: "rzp_test_demo",
+        order_id: demoRazorpayOrderId,
+        amount: amountPaise,
+        currency,
+      },
+    });
+  }
+
   const razorpayOrder = await razorpay.orders.create({
     amount: amountPaise,
     currency,

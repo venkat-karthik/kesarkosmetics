@@ -13,7 +13,8 @@
     "ship": "node scripts/auto-push.mjs"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "concurrently": "^9.1.2",
+    "firebase-admin": "^13.8.0"
   },
   "dependencies": {
     "serve": "^14.2.6"

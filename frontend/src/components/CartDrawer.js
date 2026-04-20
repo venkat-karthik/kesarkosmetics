@@ -114,7 +114,7 @@ const CartDrawer = ({ isOpen, onClose }) => {
 								Add some lovely products to get started!
 							</p>
 							<Button 
-								onClick={() => { onClose(); navigate("/"); }}
+								onClick={() => { onClose(); navigate("/products"); }}
 								className="bg-[#D97736] hover:bg-[#C96626] text-white px-6 py-2 rounded-full text-sm xs:text-base font-medium transition-all hover:shadow-lg hover:-translate-y-1"
 							>
 								Continue Shopping

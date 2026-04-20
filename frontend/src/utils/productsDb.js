@@ -101,3 +101,16 @@ export async function addReview(productId, review) {
   await updateDoc(ref, { reviews, rating });
   return normalize(snap.id, { ...data, reviews, rating });
 }
+
+export async function deleteReview(productId, reviewIndex) {
+  const ref = doc(db, COL, productId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) throw new Error("Product not found");
+  const data = snap.data();
+  const reviews = (Array.isArray(data.reviews) ? data.reviews : []).filter((_, i) => i !== reviewIndex);
+  const rating = reviews.length
+    ? Number((reviews.reduce((s, r) => s + Number(r.rating || 0), 0) / reviews.length).toFixed(1))
+    : Number(data.rating || 4.5);
+  await updateDoc(ref, { reviews, rating });
+  return normalize(snap.id, { ...data, reviews, rating });
+}

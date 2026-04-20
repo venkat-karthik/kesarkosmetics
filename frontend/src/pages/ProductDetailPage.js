@@ -196,6 +196,10 @@ count: rating === 5 ? 11 : rating === 4 ? 11 : 0,
 
 const addToCart = async () => {
 if (!product) return false;
+if (!user || !user._id) {
+setShowLoginModal(true);
+return false;
+}
 try {
 await addToCartCtx(product, quantity, selectedVariant);
 setSuccessProduct({ ...product, size: selectedVariant || product?.size || null });
