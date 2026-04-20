@@ -6,4 +6,4 @@ frontend/node_modules/
 frontend/.env
 frontend/build/
 .github/workflows/
-serviceAccountKey
+serviceAccountKey.json
