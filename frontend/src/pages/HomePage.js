@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState, useRef } from "react";
+﻿import React, { useEffect, useMemo, useState, useRef } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
-import { Star, ShoppingCart, Heart, ChevronLeft, ChevronRight } from "lucide-react";
+import { ShoppingCart, Heart, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { formatPrice } from "../utils/helpers";
 import { toast } from "sonner";
@@ -16,9 +16,6 @@ import FlyingToWishlist from "../components/FlyingToWishlist";
 import LoginRequiredModal from "../components/LoginRequiredModal";
 
 const HERO_HEIGHT_CLASSES = "h-[420px] sm:h-[520px] lg:h-[620px] xl:h-[700px]";
-const HERO_IMAGE_FIT_CLASSES = "object-cover lg:object-contain";
-const HOME_HERO_BACKGROUND_IMAGE = "/background1.jpeg";
-const PRODUCTS_SECTION_BACKGROUND_IMAGE = "/background2.jpeg";
 
 const HomePage = ({ setShakeCart, setTriggerCartRefresh }) => {
 	const [products, setProducts] = useState([]);
@@ -38,13 +35,10 @@ const HomePage = ({ setShakeCart, setTriggerCartRefresh }) => {
 	const [showLoginModal, setShowLoginModal] = useState(false);
 	const [loginModalProduct, setLoginModalProduct] = useState(null);
 	const [hoveredImageIndices, setHoveredImageIndices] = useState({});
-	const [categoryHoverIndices, setCategoryHoverIndices] = useState({});
 	const [flyingCart, setFlyingCart] = useState({ active: false, position: null });
 	const [flyingWishlist, setFlyingWishlist] = useState({ active: false, start: null, end: null });
 	const [isAutoScrolling, setIsAutoScrolling] = useState(true);
-	const [selectedCircleProductId, setSelectedCircleProductId] = useState(null);
 	const [reviewStartIndex, setReviewStartIndex] = useState(0);
-	const [isReviewSectionVisible, setIsReviewSectionVisible] = useState(false);
 	const [reviewFading, setReviewFading] = useState(false);
 	const reviewAutoPlayRef = useRef(null);
 	const autoScrollTimeoutRef = useRef(null);
@@ -52,7 +46,6 @@ const HomePage = ({ setShakeCart, setTriggerCartRefresh }) => {
 	const reviewSectionObserverRef = useRef(null);
 	const addToCartButtonRefs = useRef({});
 	const hoverIntervalsRef = useRef({});
-	const categoryHoverIntervalsRef = useRef({});
 
 	const getProductId = (product) => product.id || product._id;
 
@@ -108,7 +101,6 @@ const HomePage = ({ setShakeCart, setTriggerCartRefresh }) => {
 	useEffect(() => {
 		return () => {
 			Object.values(hoverIntervalsRef.current).forEach((intervalId) => clearInterval(intervalId));
-			Object.values(categoryHoverIntervalsRef.current).forEach((intervalId) => clearInterval(intervalId));
 		};
 	}, []);
 
@@ -154,51 +146,6 @@ const HomePage = ({ setShakeCart, setTriggerCartRefresh }) => {
 		setHoveredImageIndices((prev) => ({
 			...prev,
 			[productId]: 0,
-		}));
-	};
-
-	const startCategoryHoverScroll = (categoryKey, imageCount) => {
-		if (imageCount <= 1) return;
-
-		setCategoryHoverIndices((prev) => ({
-			...prev,
-			[categoryKey]: 0,
-		}));
-
-		if (categoryHoverIntervalsRef.current[categoryKey]) {
-			clearInterval(categoryHoverIntervalsRef.current[categoryKey]);
-		}
-
-		categoryHoverIntervalsRef.current[categoryKey] = setInterval(() => {
-			setCategoryHoverIndices((prev) => {
-				const currentIndex = prev[categoryKey] ?? 0;
-				const nextIndex = currentIndex + 1;
-
-				if (nextIndex >= imageCount) {
-					if (categoryHoverIntervalsRef.current[categoryKey]) {
-						clearInterval(categoryHoverIntervalsRef.current[categoryKey]);
-						delete categoryHoverIntervalsRef.current[categoryKey];
-					}
-					return prev;
-				}
-
-				return {
-					...prev,
-					[categoryKey]: nextIndex,
-				};
-			});
-		}, 700);
-	};
-
-	const stopCategoryHoverScroll = (categoryKey) => {
-		if (categoryHoverIntervalsRef.current[categoryKey]) {
-			clearInterval(categoryHoverIntervalsRef.current[categoryKey]);
-			delete categoryHoverIntervalsRef.current[categoryKey];
-		}
-
-		setCategoryHoverIndices((prev) => ({
-			...prev,
-			[categoryKey]: 0,
 		}));
 	};
 
@@ -300,11 +247,6 @@ const HomePage = ({ setShakeCart, setTriggerCartRefresh }) => {
 		}, 8000);
 	};
 
-	const handleCircleProductClick = (productId) => {
-		setSelectedCircleProductId(productId);
-		navigate(`/product/${productId}`);
-	};
-
 	const toggleWishlistFromCard = (event, product) => {
 		event.preventDefault();
 		event.stopPropagation();
@@ -344,23 +286,6 @@ const HomePage = ({ setShakeCart, setTriggerCartRefresh }) => {
 
 		toast.success("Added to wishlist");
 	};
-
-	const heroCircleProducts = products
-		.map((product) => {
-			const productId = product.id || product._id;
-			const productImages = Array.isArray(product.images)
-				? product.images
-				: product.image
-					? [product.image]
-					: [];
-
-			return {
-				id: productId,
-				label: product.name,
-				images: productImages,
-			};
-		})
-		.filter((item) => Boolean(item.id));
 
 	const staticFallbackReviews = [
 		{
@@ -445,11 +370,7 @@ const HomePage = ({ setShakeCart, setTriggerCartRefresh }) => {
 
 		reviewSectionObserverRef.current?.disconnect?.();
 		reviewSectionObserverRef.current = new IntersectionObserver(
-			([entry]) => {
-				if (entry.isIntersecting) {
-					setIsReviewSectionVisible(true);
-				}
-			},
+			() => {},
 			{ threshold: 0.22 }
 		);
 
@@ -471,18 +392,6 @@ const HomePage = ({ setShakeCart, setTriggerCartRefresh }) => {
 		}, 5000);
 		return () => clearInterval(reviewAutoPlayRef.current);
 	}, [featuredReviews.length]);
-
-	useEffect(() => {
-		if (heroCircleProducts.length === 0) {
-			setSelectedCircleProductId(null);
-			return;
-		}
-
-		const selectedStillExists = heroCircleProducts.some((item) => item.id === selectedCircleProductId);
-		if (!selectedStillExists) {
-			setSelectedCircleProductId(heroCircleProducts[0].id);
-		}
-	}, [heroCircleProducts, selectedCircleProductId]);
 
 	return (
 		<div className="min-h-screen bg-[#FFF8EC]">
@@ -506,7 +415,7 @@ const HomePage = ({ setShakeCart, setTriggerCartRefresh }) => {
 						<div className="absolute inset-0">
 							<img
 								key={currentCarouselIndex}
-								src={products[currentCarouselIndex].images?.[0] || HOME_HERO_BACKGROUND_IMAGE}
+								src={products[currentCarouselIndex].images?.[0] || "/logo.png"}
 								alt={products[currentCarouselIndex].name}
 								className="w-full h-full object-cover object-center animate-fade-in"
 								style={{ animationDuration: "0.8s" }}
@@ -652,7 +561,7 @@ const HomePage = ({ setShakeCart, setTriggerCartRefresh }) => {
 								return (
 								<div
 									key={productId}
-									className="group flex flex-col bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
+									className="group flex flex-col bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5"
 									style={{ animationDelay: `${i * 60}ms` }}
 									onMouseEnter={() => startProductHoverScroll(productId, product.images?.length || 0)}
 									onMouseLeave={() => stopProductHoverScroll(productId)}
@@ -684,10 +593,7 @@ const HomePage = ({ setShakeCart, setTriggerCartRefresh }) => {
 															key={`${productId}-${activeImageIndex}`}
 															src={product.images?.[activeImageIndex] || product.images?.[0]}
 															alt={product.name}
-															className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-108"
-															style={{ transform: "scale(1)", transition: "transform 0.7s ease" }}
-															onMouseEnter={e => e.currentTarget.style.transform = "scale(1.06)"}
-															onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
+															className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
 														/>
 													);
 												})()}
