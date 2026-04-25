@@ -42,7 +42,7 @@ $navLinks = [
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/></svg>
         </button>
         <a href="index.php" class="header-logo">
-          <img src="assets/logo.png" alt="Kesar Kosmetics" />
+          <img src="assets/logo.jpeg" alt="Kesar Kosmetics" />
         </a>
       </div>
 
@@ -105,7 +105,7 @@ $navLinks = [
 <div id="mobile-menu" role="dialog" aria-modal="true" aria-label="Navigation menu">
   <div id="mobile-menu-panel">
     <div class="flex items-center justify-between mb-6">
-      <img src="assets/logo.png" alt="Kesar Kosmetics" class="h-10" />
+      <img src="assets/logo.jpeg" alt="Kesar Kosmetics" class="h-10" />
       <button id="menu-close-btn" class="p-2 rounded-full hover:bg-gray-100" aria-label="Close menu">
         <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
       </button>

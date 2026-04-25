@@ -129,7 +129,7 @@ function renderHero() {
   container.innerHTML = `
     <div style="position:relative;overflow:hidden">
       <div id="hero-img-wrap" style="position:relative">
-        <img id="hero-img" src="${allProducts[0].images?.[0]||'assets/logo.png'}" alt="${allProducts[0].name}" style="width:100%;height:420px;object-fit:cover;object-position:center" />
+        <img id="hero-img" src="${allProducts[0].images?.[0]||'assets/logo.jpeg'}" alt="${allProducts[0].name}" style="width:100%;height:420px;object-fit:cover;object-position:center" />
         <div class="hero-overlay"></div>
       </div>
       <div class="hero-content">
@@ -167,7 +167,7 @@ function goSlide(idx) {
   const n = allProducts.length;
   currentSlide = ((idx % n) + n) % n;
   const p = allProducts[currentSlide];
-  document.getElementById('hero-img').src = p.images?.[0] || 'assets/logo.png';
+  document.getElementById('hero-img').src = p.images?.[0] || 'assets/logo.jpeg';
   document.getElementById('hero-img').alt = p.name;
   document.getElementById('hero-title').textContent = p.name;
   document.getElementById('hero-desc').textContent = p.description || '';
@@ -228,7 +228,7 @@ function productCard(p) {
           <svg xmlns="http://www.w3.org/2000/svg" fill="${wishlisted?'currentColor':'none'}" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z"/></svg>
         </button>
         <a href="product.php?id=${p.id}">
-          <img src="${p.images?.[0]||'assets/logo.png'}" alt="${p.name}" loading="lazy" />
+          <img src="${p.images?.[0]||'assets/logo.jpeg'}" alt="${p.name}" loading="lazy" />
         </a>
       </div>
       <div class="product-card-body">

@@ -249,7 +249,7 @@ function renderReview() {
 
   document.getElementById('review-items').innerHTML = items.map(item => `
     <div class="flex gap-3 p-3 rounded-xl border border-[#E9E0D2] bg-[#FCFAF7]">
-      <img src="${item.product?.images?.[0]||'assets/logo.png'}" alt="${item.product?.name||''}" class="w-16 h-16 object-cover rounded-xl shrink-0" />
+      <img src="${item.product?.images?.[0]||'assets/logo.jpeg'}" alt="${item.product?.name||''}" class="w-16 h-16 object-cover rounded-xl shrink-0" />
       <div class="flex-1">
         <p class="font-semibold text-[#3E2723]">${item.product?.name||'Product'}</p>
         <p class="text-sm text-[#5D4037]">Qty: ${item.quantity} × ${formatPrice(item.product?.price||0)}</p>

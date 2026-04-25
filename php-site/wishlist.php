@@ -54,7 +54,7 @@ function render() {
       <div class="rounded-2xl border-2 border-[#E6DCCB] bg-white p-4 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300">
         <a href="product.php?id=${pid}">
           <div class="overflow-hidden rounded-xl">
-            <img src="${product.images?.[0]||product.image||'assets/logo.png'}" alt="${product.name||''}" class="w-full aspect-square object-cover transition-transform duration-500 hover:scale-105" />
+            <img src="${product.images?.[0]||product.image||'assets/logo.jpeg'}" alt="${product.name||''}" class="w-full aspect-square object-cover transition-transform duration-500 hover:scale-105" />
           </div>
         </a>
         <h2 class="mt-3 font-heading text-xl font-bold text-[#111] line-clamp-2">${product.name||'Product'}</h2>

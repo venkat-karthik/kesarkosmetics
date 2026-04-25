@@ -1,0 +1,12 @@
+# Large files
+assets/logo.png
+
+# Sensitive config (copy config.php and fill in credentials)
+# config.php  ← uncomment this if you want to exclude credentials
+
+# Local data
+data/orders.json
+
+# OS files
+.DS_Store
+Thumbs.db
