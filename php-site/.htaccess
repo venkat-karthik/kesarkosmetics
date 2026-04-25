@@ -20,10 +20,169 @@ Options -Indexes
     Deny from all
 </FilesMatch>
 
-# ── Block direct access to data directory ────────────────────────────────────
+# ── Clean URLs ────────────────────────────────────────────────────────────────
+#
+# Maps friendly URL slugs to the actual .php files.
+# The two RewriteCond lines before each rule make sure real files
+# (css, js, images, api endpoints) are never intercepted.
+#
+# HOW TO READ EACH RULE:
+#   RewriteRule ^slug$    actual-file.php    [L]
+#                ^^^^^    ^^^^^^^^^^^^^^^
+#                |        └── the real PHP file on disk
+#                └── what the user types in the browser (no leading slash)
+#
+# HOW TO CHANGE A SLUG:
+#   Edit the part between ^ and $ on the RewriteRule line.
+#   Example: change ^home$ to ^start$ to make /start load index.php
+#
+# HOW TO CHANGE WHICH FILE A SLUG POINTS TO:
+#   Edit the filename after the slug on the same RewriteRule line.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+
 <IfModule mod_rewrite.c>
     RewriteEngine On
+
+    # Block direct access to the data/ directory
     RewriteRule ^data/ - [F,L]
+
+    # ── PUBLIC PAGES ─────────────────────────────────────────────────────────
+
+    # Actual file: index.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^home$              index.php           [L]
+
+    # Actual file: products.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^products$          products.php        [L]
+
+    # Actual file: product.php  (query string: /product?id=abc)
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^product$           product.php         [L]
+
+    # Actual file: cart.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^cart$              cart.php            [L]
+
+    # Actual file: checkout.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^checkout$          checkout.php        [L]
+
+    # Actual file: order-success.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^order-success$     order-success.php   [L]
+
+    # Actual file: wishlist.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^wishlist$          wishlist.php        [L]
+
+    # Actual file: track-order.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^track-order$       track-order.php     [L]
+
+    # Actual file: track-results.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^track-results$     track-results.php   [L]
+
+    # Actual file: track-status.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^track-status$      track-status.php    [L]
+
+    # Actual file: about.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^about$             about.php           [L]
+
+    # Actual file: contact.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^contact$           contact.php         [L]
+
+    # Actual file: faq.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^faq$               faq.php             [L]
+
+    # Actual file: blogs.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^blogs$             blogs.php           [L]
+
+    # Actual file: login.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^login$             login.php           [L]
+
+    # ── ADMIN PAGES ──────────────────────────────────────────────────────────
+
+    # Actual file: admin/dashboard.php  (bare /admin also works)
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^admin$             admin/dashboard.php [L]
+
+    # Actual file: admin/dashboard.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^admin/dashboard$   admin/dashboard.php [L]
+
+    # Actual file: admin/orders.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^admin/orders$      admin/orders.php    [L]
+
+    # Actual file: admin/products.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^admin/products$    admin/products.php  [L]
+
+    # Actual file: admin/blogs.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^admin/blogs$       admin/blogs.php     [L]
+
+    # Actual file: admin/revenue.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^admin/revenue$     admin/revenue.php   [L]
+
+    # Actual file: admin/reviews.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^admin/reviews$     admin/reviews.php   [L]
+
+    # Actual file: admin/subscribers.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^admin/subscribers$ admin/subscribers.php [L]
+
+    # Actual file: admin/users.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^admin/users$       admin/users.php     [L]
+
+    # Actual file: admin/database.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^admin/database$    admin/database.php  [L]
+
+    # ── ROOT ─────────────────────────────────────────────────────────────────
+    # Bare domain root (/) serves index.php directly.
+    # Comment this out if your host already handles DirectoryIndex.
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^$                  index.php           [L]
+
 </IfModule>
 
 # ── CORS: restrict API to same origin only ───────────────────────────────────
@@ -38,7 +197,7 @@ Options -Indexes
 <IfModule mod_expires.c>
     ExpiresActive On
     ExpiresByType image/jpeg "access plus 1 month"
-    ExpiresByType image/png "access plus 1 month"
-    ExpiresByType text/css "access plus 1 week"
+    ExpiresByType image/png  "access plus 1 month"
+    ExpiresByType text/css   "access plus 1 week"
     ExpiresByType application/javascript "access plus 1 week"
 </IfModule>
