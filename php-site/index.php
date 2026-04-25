@@ -11,23 +11,12 @@ include 'includes/header.php';
 <section id="hero">
   <div id="hero-slides" style="position:relative;overflow:hidden;">
     <!-- Slides rendered by JS -->
-    <div id="hero-loading" class="flex items-center justify-center bg-[#1A0800]" style="height:420px">
+    <div id="hero-loading" class="flex items-center justify-center bg-[#1A0800]" style="height:70vh;min-height:420px">
       <div class="spinner"></div>
     </div>
   </div>
 </section>
 
-<!-- ── Marquee Banner ─────────────────────────────────────────────────────── -->
-<section class="bg-gradient-to-r from-[#3E1200] via-[#5D2A00] to-[#3E1200] py-4 overflow-hidden border-y border-[#F5A800]/20">
-  <div class="marquee-track">
-    <?php
-    $tags = ["🌸 Hand-harvested Kashmiri Saffron","✦ 100% Natural Ingredients","🌿 Cruelty-Free & Vegan","✦ Each strand picked at dawn","🏔️ Grown at 2,200m altitude in Pampore, Kashmir","✦ Rich in Crocin & Safranal antioxidants","🌙 Saffron takes 75,000 flowers for 1 pound","✦ GMP Certified Manufacturing","🌸 Brightens skin in 2–4 weeks","✦ Free shipping above ₹2,000","🌿 No Parabens · No Sulfates · No Synthetics","✦ Dermatologist Tested","🏆 Premium Kashmiri Kesar — Red Gold of India"];
-    $doubled = array_merge($tags, $tags);
-    foreach ($doubled as $t): ?>
-    <span><?= htmlspecialchars($t) ?> <span style="color:rgba(245,168,0,.3);font-size:1.125rem">|</span></span>
-    <?php endforeach; ?>
-  </div>
-</section>
 
 <!-- ── Products Section ───────────────────────────────────────────────────── -->
 <section id="products" class="py-16 md:py-24 bg-[#FFF8EC]">
@@ -129,7 +118,7 @@ function renderHero() {
   container.innerHTML = `
     <div style="position:relative;overflow:hidden">
       <div id="hero-img-wrap" style="position:relative">
-        <img id="hero-img" src="${allProducts[0].images?.[0]||'assets/main.png'}" alt="${allProducts[0].name}" style="width:100%;height:420px;object-fit:cover;object-position:center" />
+        <img id="hero-img" src="${allProducts[0].images?.[0]||'assets/main.png'}" alt="${allProducts[0].name}" style="width:100%;height:70vh;min-height:420px;object-fit:cover;object-position:center" />
         <div class="hero-overlay"></div>
       </div>
       <div class="hero-content">
@@ -216,19 +205,28 @@ function renderProducts() {
       showToast(`${product.name} added to cart!`, 'success');
     });
   });
+
+  // ── Hover: slideshow or video ─────────────────────────────────────────
+  attachCardHover(grid);
 }
 
 function productCard(p) {
   const wishlisted = window._isWishlisted(p.id);
   const stars = [1,2,3,4,5].map(s => `<svg viewBox="0 0 20 20" class="${s<=Math.round(p.rating||4.8)?'star-filled':'star-empty'}" style="width:.875rem;height:.875rem"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>`).join('');
+
+  const imgs = p.images?.length ? p.images : ['assets/main.png'];
+  const hasMultiple = imgs.length > 1;
+
   return `
-    <div class="product-card">
-      <div class="product-card-img">
+    <div class="product-card" data-pid="${p.id}" data-img-count="${imgs.length}">
+      <div class="product-card-img relative">
         <button class="wishlist-btn${wishlisted?' active':''}" data-pid="${p.id}" aria-label="${wishlisted?'Remove from wishlist':'Add to wishlist'}">
           <svg xmlns="http://www.w3.org/2000/svg" fill="${wishlisted?'currentColor':'none'}" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z"/></svg>
         </button>
-        <a href="product.php?id=${p.id}">
-          <img src="${p.images?.[0]||'assets/main.png'}" alt="${p.name}" loading="lazy" />
+        <a href="product.php?id=${p.id}" class="block w-full h-full">
+          ${imgs.map((src, i) => `<img class="product-card-slide absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${i===0?'opacity-100':'opacity-0'}" src="${src}" alt="${p.name}" loading="lazy" />`).join('')}
+          ${hasMultiple ? `<div class="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1 pointer-events-none" id="dots-${p.id}">${imgs.map((_,i)=>`<span class="w-1.5 h-1.5 rounded-full transition-all duration-300 ${i===0?'bg-white w-4':'bg-white/50'}"></span>`).join('')}</div>` : ''}
+          ${p.video ? `<div class="absolute top-2 left-2 bg-black/60 rounded-full px-2 py-0.5 text-white text-[10px] flex items-center gap-1 pointer-events-none"><svg viewBox="0 0 24 24" class="w-3 h-3 fill-white"><path d="M8 5v14l11-7z"/></svg>Video</div>` : ''}
         </a>
       </div>
       <div class="product-card-body">
@@ -240,8 +238,7 @@ function productCard(p) {
         </div>
         <button class="add-to-cart-btn btn btn-primary w-full mt-auto" data-pid="${p.id}">Add to Cart</button>
       </div>
-    </div>
-  `;
+    </div>`;
 }
 
 // ── Reviews ───────────────────────────────────────────────────────────────
@@ -294,7 +291,46 @@ function renderReviewDots() {
 document.getElementById('review-prev')?.addEventListener('click', () => { clearInterval(reviewTimer); advanceReview(-1); reviewTimer = setInterval(()=>advanceReview(1),5000); });
 document.getElementById('review-next')?.addEventListener('click', () => { clearInterval(reviewTimer); advanceReview(1); reviewTimer = setInterval(()=>advanceReview(1),5000); });
 
+// ── Card hover: image slideshow ───────────────────────────────────────────
+function attachCardHover(container) {
+  container.querySelectorAll('.product-card').forEach(card => {
+    const imgCount = parseInt(card.dataset.imgCount || '0');
+    if (imgCount < 2) return; // single image — nothing to slide
+
+    const slides = card.querySelectorAll('.product-card-slide');
+    const pid = card.dataset.pid;
+    const dots = card.querySelectorAll(`#dots-${pid} span`);
+    let timer = null, idx = 0;
+
+    function showSlide(i) {
+      slides.forEach((s, j) => s.style.opacity = j === i ? '1' : '0');
+      dots.forEach((d, j) => {
+        d.style.background = j === i ? 'white' : 'rgba(255,255,255,0.5)';
+        d.style.width = j === i ? '1rem' : '0.375rem';
+      });
+    }
+
+    card.addEventListener('mouseenter', () => {
+      idx = 0;
+      timer = setInterval(() => { idx = (idx + 1) % slides.length; showSlide(idx); }, 900);
+    });
+    card.addEventListener('mouseleave', () => {
+      clearInterval(timer);
+      timer = null;
+      idx = 0;
+      showSlide(0);
+    });
+  });
+}
+
 loadProducts();
+
+// Show session expired message if redirected from admin timeout
+if (new URLSearchParams(window.location.search).get('session') === 'expired') {
+  setTimeout(() => showToast('Your admin session expired. Please sign in again.', 'info', 5000), 500);
+  // Clean URL
+  history.replaceState({}, '', 'index.php');
+}
 </script>
 
 <?php include 'includes/scripts.php'; ?>

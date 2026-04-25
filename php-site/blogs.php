@@ -13,7 +13,7 @@ include 'includes/header.php';
     <div class="absolute -top-32 -right-32 w-[500px] h-[500px] rounded-full bg-[#F5A800]/10 blur-3xl pointer-events-none"></div>
     <div class="container relative py-20 sm:py-28 text-center">
       <p class="badge badge-gold mb-6">Knowledge & Wellness</p>
-      <h1 class="font-heading text-4xl sm:text-5xl md:text-6xl font-bold leading-tight mb-5">
+      <h1 class="font-heading text-3xl sm:text-5xl md:text-6xl font-bold leading-tight mb-5">
         Kesar Kosmetics <span class="text-[#F5A800]">Journal</span>
       </h1>
       <p class="text-base sm:text-lg text-white/70 leading-relaxed max-w-2xl mx-auto">
@@ -26,7 +26,7 @@ include 'includes/header.php';
   <section class="py-14 sm:py-20">
     <div class="container">
       <div id="blogs-loading" class="flex justify-center py-12"><div class="spinner"></div></div>
-      <div id="blogs-grid" class="hidden grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8"></div>
+      <div id="blogs-grid" class="hidden grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8"></div>
     </div>
   </section>
 
@@ -67,7 +67,8 @@ include 'includes/header.php';
 <?php include 'includes/footer.php'; ?>
 
 <script type="module">
-import { db, collection, getDocs, query, orderBy, addDoc, where, serverTimestamp } from './js/firebase-config.js';
+import { db, collection, getDocs, query, addDoc, where, serverTimestamp } from './js/firebase-config.js';
+import { orderBy } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 const staticPosts = [
   { id: 1, title: 'Saffron Cream: A Natural Secret to Radiant, Glowing Skin', excerpt: 'For centuries, saffron — often called "red gold" — has been treasured in skincare rituals. Discover how saffron cream can transform your daily routine.', date: 'April 10, 2025', author: 'Kesar Kosmetics Team', category: 'Beauty', readTime: '7 min read', emoji: '🌸', featured: true, content: [{ type: 'p', text: 'For centuries, saffron has been treasured not only in culinary traditions but also in skincare rituals. Derived from the delicate stigmas of the Crocus sativus flower, saffron is packed with skin-loving properties that promote a healthy, luminous complexion.' }, { type: 'h3', text: 'Why Saffron for Skin?' }, { type: 'p', text: 'Saffron is rich in antioxidants such as crocin and safranal, which help protect the skin from environmental stressors. Its natural compounds support brighter, more even-toned skin.' }, { type: 'h3', text: 'Benefits' }, { type: 'list', items: ['Enhance skin radiance and glow', 'Improve uneven skin tone', 'Provide gentle hydration', 'Support a smoother, softer texture', 'Calm minor irritation and redness'] }] },
@@ -94,11 +95,15 @@ async function loadBlogs() {
   } catch {}
 
   const allPosts = [...dynamicPosts, ...staticPosts];
+  // Store posts in a map so onclick can reference by index — avoids inline JSON injection
+  window._blogPosts = allPosts;
+
   document.getElementById('blogs-loading').classList.add('hidden');
   const grid = document.getElementById('blogs-grid');
   grid.classList.remove('hidden');
-  grid.innerHTML = allPosts.map(post => `
-    <div class="group bg-white rounded-2xl overflow-hidden border border-[#E9E0D2] hover:shadow-xl transition-all hover:-translate-y-1 cursor-pointer flex flex-col" onclick="openBlog(${JSON.stringify(post).replace(/"/g,'&quot;')})">
+  grid.style.display = 'grid';
+  grid.innerHTML = allPosts.map((post, idx) => `
+    <div class="group bg-white rounded-2xl overflow-hidden border border-[#E9E0D2] hover:shadow-xl transition-all hover:-translate-y-1 cursor-pointer flex flex-col" onclick="openBlog(window._blogPosts[${idx}])">
       <div class="w-full h-36 bg-gradient-to-br from-[#FFF3E0] to-[#FFE0B2] flex items-center justify-center text-6xl shrink-0">${post.emoji}</div>
       <div class="p-5 flex flex-col flex-1">
         <div class="flex items-center justify-between mb-3">
@@ -117,15 +122,17 @@ async function loadBlogs() {
 }
 
 window.openBlog = (post) => {
-  document.getElementById('blog-modal-category').textContent = post.category;
+  // Safely escape text content to prevent XSS
+  const esc = (str) => String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  document.getElementById('blog-modal-category').textContent = post.category || '';
   document.getElementById('blog-modal-category').className = `text-xs font-bold px-3 py-1 rounded-full ${catClass(post.category)}`;
-  document.getElementById('blog-modal-emoji').textContent = post.emoji;
-  document.getElementById('blog-modal-title').textContent = post.title;
-  document.getElementById('blog-modal-meta').innerHTML = `<span>${post.author}</span><span>·</span><span>${post.date}</span><span>·</span><span>${post.readTime}</span>`;
+  document.getElementById('blog-modal-emoji').textContent = post.emoji || '✨';
+  document.getElementById('blog-modal-title').textContent = post.title || '';
+  document.getElementById('blog-modal-meta').innerHTML = `<span>${esc(post.author)}</span><span>·</span><span>${esc(post.date)}</span><span>·</span><span>${esc(post.readTime)}</span>`;
   document.getElementById('blog-modal-content').innerHTML = (post.content||[]).map(block => {
-    if (block.type === 'h3') return `<h3 class="font-heading text-xl font-semibold text-[#3E2723] mt-7 mb-2">${block.text}</h3>`;
-    if (block.type === 'list') return `<ul class="space-y-2.5 pl-1">${(block.items||[]).map(item=>`<li class="flex items-start gap-3 text-sm leading-relaxed"><span class="mt-1.5 w-1.5 h-1.5 rounded-full bg-[#D97736] shrink-0"></span>${item}</li>`).join('')}</ul>`;
-    return `<p class="text-sm sm:text-base leading-relaxed">${block.text||''}</p>`;
+    if (block.type === 'h3') return `<h3 class="font-heading text-xl font-semibold text-[#3E2723] mt-7 mb-2">${esc(block.text)}</h3>`;
+    if (block.type === 'list') return `<ul class="space-y-2.5 pl-1">${(block.items||[]).map(item=>`<li class="flex items-start gap-3 text-sm leading-relaxed"><span class="mt-1.5 w-1.5 h-1.5 rounded-full bg-[#D97736] shrink-0"></span>${esc(item)}</li>`).join('')}</ul>`;
+    return `<p class="text-sm sm:text-base leading-relaxed">${esc(block.text||'')}</p>`;
   }).join('');
   document.getElementById('blog-modal').classList.add('open');
 };

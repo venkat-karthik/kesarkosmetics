@@ -14,15 +14,15 @@ include 'includes/header.php';
     <div class="absolute -bottom-20 -left-20 w-[350px] h-[350px] rounded-full bg-[#E8620A]/10 blur-3xl pointer-events-none"></div>
     <div class="container relative py-20 sm:py-28 md:py-36 text-center">
       <p class="badge badge-gold mb-6">Our Story</p>
-      <h1 class="font-heading text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold leading-tight mb-6">
-        Born in the Saffron Fields<br /><span class="text-[#F5A800]">of Kashmir</span>
+      <h1 class="font-heading text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-bold leading-tight mb-6">
+        Born in the Saffron Fields <span class="text-[#F5A800]">of Kashmir</span>
       </h1>
-      <p class="text-base sm:text-lg md:text-xl text-white/70 leading-relaxed max-w-2xl mx-auto mb-10">
+      <p class="text-sm sm:text-lg md:text-xl text-white/70 leading-relaxed max-w-2xl mx-auto mb-8 sm:mb-10">
         Kesar Kosmetics brings you the purest Kashmiri saffron and handcrafted beauty rituals — rooted in centuries of tradition, refined for the modern world.
       </p>
-      <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
-        <a href="products.php" class="btn btn-primary">Explore Our Collection</a>
-        <a href="contact.php" class="inline-flex items-center gap-2 border border-white/30 hover:border-[#F5A800] text-white/80 hover:text-[#F5A800] font-semibold px-8 py-3.5 rounded-full transition-all">Get in Touch</a>
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
+        <a href="products.php" class="btn btn-primary w-full sm:w-auto justify-center">Explore Our Collection</a>
+        <a href="contact.php" class="inline-flex items-center justify-center gap-2 border border-white/30 hover:border-[#F5A800] text-white/80 hover:text-[#F5A800] font-semibold px-8 py-3.5 rounded-full transition-all w-full sm:w-auto">Get in Touch</a>
       </div>
     </div>
   </section>
@@ -94,7 +94,7 @@ include 'includes/header.php';
     <div class="container relative text-center">
       <p class="section-label text-[#F5A800] mb-4">Our Mission</p>
       <h2 class="font-heading text-3xl sm:text-4xl md:text-5xl leading-snug mb-8">
-        To make the world's most precious spice<br /><span class="text-[#F5A800]">accessible to every home</span>
+        To make the world's most precious spice <span class="text-[#F5A800]">accessible to every home</span>
       </h2>
       <p class="text-white/70 text-base sm:text-lg leading-relaxed max-w-2xl mx-auto mb-10">
         We believe luxury shouldn't be a privilege. Kashmiri saffron — once reserved for royalty — deserves a place in every skincare routine, every kitchen, every wellness ritual.
@@ -115,11 +115,11 @@ include 'includes/header.php';
   <section class="py-20 sm:py-28 bg-gradient-to-br from-[#E8620A] to-[#D97736] text-white text-center relative overflow-hidden">
     <div class="container relative">
       <p class="text-xs font-bold uppercase tracking-[.28em] text-white/70 mb-4">Ready to Experience It?</p>
-      <h2 class="font-heading text-3xl sm:text-4xl md:text-5xl font-bold mb-6 leading-snug">Discover the Power of<br />Kashmiri Saffron</h2>
+      <h2 class="font-heading text-3xl sm:text-4xl md:text-5xl font-bold mb-6 leading-snug">Discover the Power of Kashmiri Saffron</h2>
       <p class="text-white/80 text-base sm:text-lg mb-10 leading-relaxed max-w-xl mx-auto">From brightening serums to nourishing creams — every product is a piece of Kashmir, made for you.</p>
-      <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
-        <a href="products.php" class="inline-flex items-center gap-2 bg-white text-[#D97736] font-bold px-8 py-3.5 rounded-full hover:bg-[#FFF8EC] transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5">Shop the Collection</a>
-        <a href="contact.php" class="inline-flex items-center gap-2 border-2 border-white/40 hover:border-white text-white font-semibold px-8 py-3.5 rounded-full transition-all">Talk to Us</a>
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
+        <a href="products.php" class="inline-flex items-center gap-2 bg-white text-[#D97736] font-bold px-8 py-3.5 rounded-full hover:bg-[#FFF8EC] transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 w-full sm:w-auto justify-center">Shop the Collection</a>
+        <a href="contact.php" class="inline-flex items-center gap-2 border-2 border-white/40 hover:border-white text-white font-semibold px-8 py-3.5 rounded-full transition-all w-full sm:w-auto justify-center">Talk to Us</a>
       </div>
     </div>
   </section>

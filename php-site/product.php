@@ -22,6 +22,7 @@ let product = null;
 let allProducts = [];
 let selectedImage = 0;
 let selectedVariant = null;
+let selectedVariantPrice = null; // tracks the currently selected variant's price
 let quantity = 1;
 let currentUser = null;
 
@@ -31,7 +32,9 @@ async function load() {
   try {
     [product, allProducts] = await Promise.all([getProduct(productId), getAllProducts()]);
     if (!product) { window.location.href = 'products.php'; return; }
-    selectedVariant = product.variants?.[0]?.name || null;
+    // Only pre-select a variant if real variants exist
+    selectedVariant = product.variants?.length > 0 ? product.variants[0].name : null;
+    selectedVariantPrice = product.variants?.length > 0 ? (product.variants[0].price || product.price) : null;
     render();
   } catch(e) {
     window.location.href = 'products.php';
@@ -45,8 +48,19 @@ function render() {
   document.title = product.name + ' — Kesar Kosmetics';
 
   const images = product.images?.length ? product.images : ['/assets/main.png'];
+  const videoUrl = product.video || null;
+  // Build YouTube embed URL if video is a YouTube link
+  const ytMatch = videoUrl?.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/);
+  const ytEmbedUrl = ytMatch ? `https://www.youtube.com/embed/${ytMatch[1]}` : null;
   const related = allProducts.filter(p => p.id !== product.id).slice(0, 4);
   const wishlisted = isWishlisted(product.id);
+
+  // Media items: [0] = cover image, [1] = video (if any), [2+] = rest of images
+  const mediaItems = [
+    { type: 'image', src: images[0] },
+    ...(ytEmbedUrl ? [{ type: 'video', embed: ytEmbedUrl }] : []),
+    ...images.slice(1).map(src => ({ type: 'image', src })),
+  ];
 
   content.innerHTML = `
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
@@ -55,12 +69,23 @@ function render() {
         <span class="text-sm font-medium">Back</span>
       </button>
       <div class="grid gap-6 lg:gap-8 lg:grid-cols-[1.1fr_0.9fr]">
-        <!-- Images -->
+        <!-- Images + Video -->
         <section class="space-y-3">
-          <div class="overflow-hidden rounded-2xl md:rounded-3xl bg-white shadow-sm ring-1 ring-[#F5A800]/20">
-            <img id="main-img" src="${images[0]}" alt="${product.name}" class="w-full object-cover" style="height:280px" />
+          <!-- Main display -->
+          <div class="overflow-hidden rounded-2xl md:rounded-3xl bg-white shadow-sm ring-1 ring-[#F5A800]/20" id="main-media-wrap">
+            <img id="main-img" src="${images[0]}" alt="${product.name}" class="w-full object-cover" style="height:clamp(220px,40vw,420px)" />
+            <div id="main-video" class="hidden w-full" style="padding-top:56.25%;position:relative">
+              <iframe id="main-video-iframe" class="absolute inset-0 w-full h-full" frameborder="0" allowfullscreen allow="autoplay; encrypted-media"></iframe>
+            </div>
           </div>
-          ${images.length > 1 ? `<div class="flex gap-2 overflow-x-auto pb-1">${images.map((img,i)=>`<button onclick="selectImage(${i})" class="shrink-0 overflow-hidden rounded-xl border-2 transition-all ${i===0?'border-[#E8620A]':'border-transparent opacity-60 hover:opacity-100'}"><img src="${img}" alt="${product.name} ${i+1}" class="h-20 w-20 object-cover" /></button>`).join('')}</div>` : ''}
+          <!-- Thumbnail strip -->
+          ${mediaItems.length > 1 ? `
+          <div class="flex gap-2 overflow-x-auto pb-1">
+            ${mediaItems.map((item, i) => item.type === 'image'
+              ? `<button onclick="selectMedia(${i})" class="thumb-btn shrink-0 overflow-hidden rounded-xl border-2 transition-all ${i===0?'border-[#E8620A]':'border-transparent opacity-60 hover:opacity-100'}" data-idx="${i}"><img src="${item.src}" alt="${product.name} ${i+1}" class="h-20 w-20 object-cover" /></button>`
+              : `<button onclick="selectMedia(${i})" class="thumb-btn shrink-0 overflow-hidden rounded-xl border-2 transition-all border-transparent opacity-60 hover:opacity-100 relative bg-black" data-idx="${i}" style="width:5rem;height:5rem"><img src="https://img.youtube.com/vi/${ytMatch[1]}/mqdefault.jpg" alt="Video" class="w-full h-full object-cover opacity-70" /><span class="absolute inset-0 flex items-center justify-center"><svg class="w-8 h-8 text-white drop-shadow" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span></button>`
+            ).join('')}
+          </div>` : ''}
           <div class="hidden md:block">
             <div class="rounded-2xl border border-[#F5A800]/25 bg-[#FFF3D6] p-4">
               <div class="grid grid-cols-[130px_1fr_1fr] items-center gap-3">
@@ -87,15 +112,15 @@ function render() {
               <span class="text-sm text-[#8B5E1A]">${(product.reviews||[]).length} reviews</span>
             </div>
             <p class="mt-2 text-sm leading-relaxed text-[#7A3B00]">${product.description||'Authentic product crafted with traditional care.'}</p>
-            <div class="mt-4 flex items-baseline gap-3">
-              <p class="text-2xl sm:text-3xl font-bold text-[#4A1A00]">${window._formatPrice(product.price)}</p>
-              ${product.compare_at_price && product.compare_at_price > product.price ? `<p class="text-base font-medium text-[#B0906A] line-through">${window._formatPrice(product.compare_at_price)}</p><span class="rounded-full bg-[#E8620A] px-2.5 py-0.5 text-xs font-bold text-white">${Math.round(((product.compare_at_price-product.price)/product.compare_at_price)*100)}% OFF</span>` : ''}
+            <div class="mt-4 flex items-baseline gap-3" id="price-display">
+              <p class="text-2xl sm:text-3xl font-bold text-[#4A1A00]" id="current-price">${window._formatPrice(selectedVariantPrice || product.price)}</p>
+              ${product.compare_at_price && product.compare_at_price > product.price ? `<p class="text-base font-medium text-[#B0906A] line-through" id="compare-price">${window._formatPrice(product.compare_at_price)}</p><span class="rounded-full bg-[#E8620A] px-2.5 py-0.5 text-xs font-bold text-white">${Math.round(((product.compare_at_price-product.price)/product.compare_at_price)*100)}% OFF</span>` : ''}
             </div>
             ${product.variants?.length > 0 ? `
             <div class="mt-4">
               <p class="text-sm font-bold text-[#4A1A00] mb-2">Size</p>
-              <div class="grid grid-cols-2 gap-2 sm:max-w-xs" id="variants-grid">
-                ${product.variants.map(v=>`<button onclick="selectVariant('${v.name}')" class="variant-btn rounded-xl border-2 px-3 py-2.5 text-left transition-all ${v.name===selectedVariant?'border-[#E8620A] bg-[#E8620A] text-white':'border-[#F5A800]/30 bg-[#FFF3D6] text-[#4A1A00] hover:border-[#E8620A]'}" data-variant="${v.name}"><div class="font-bold text-sm">${v.name}</div><div class="text-xs mt-0.5 opacity-80">${window._formatPrice(v.price||product.price)}</div></button>`).join('')}
+              <div class="flex flex-wrap gap-2" id="variants-grid">
+                ${product.variants.map(v=>`<button onclick="selectVariant('${v.name}', ${v.price||product.price})" class="variant-btn rounded-xl border-2 px-3 py-2.5 text-left transition-all ${v.name===selectedVariant?'border-[#E8620A] bg-[#E8620A] text-white':'border-[#F5A800]/30 bg-[#FFF3D6] text-[#4A1A00] hover:border-[#E8620A]'}" data-variant="${v.name}" data-price="${v.price||product.price}"><div class="font-bold text-sm">${v.name}</div><div class="text-xs mt-0.5 opacity-80">${window._formatPrice(v.price||product.price)}</div></button>`).join('')}
               </div>
             </div>` : ''}
             <div class="mt-4 rounded-xl bg-[#E8F5E9] p-3 flex items-center gap-2">
@@ -208,17 +233,46 @@ window.submitReview = async () => {
   } catch(e) { showToast('Failed to submit review', 'error'); }
 };
 
-window.selectImage = (idx) => {
-  selectedImage = idx;
-  const images = product.images?.length ? product.images : ['assets/main.png'];
-  document.getElementById('main-img').src = images[idx];
-  document.querySelectorAll('.product-card-img button').forEach((btn,i) => {
-    btn.className = `shrink-0 overflow-hidden rounded-xl border-2 transition-all ${i===idx?'border-[#E8620A]':'border-transparent opacity-60 hover:opacity-100'}`;
+window.selectMedia = (idx) => {
+  const mediaItems = (() => {
+    const imgs = product.images?.length ? product.images : ['assets/main.png'];
+    const ytM = product.video?.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/);
+    const ytEmbed = ytM ? `https://www.youtube.com/embed/${ytM[1]}` : null;
+    return [
+      { type: 'image', src: imgs[0] },
+      ...(ytEmbed ? [{ type: 'video', embed: ytEmbed }] : []),
+      ...imgs.slice(1).map(src => ({ type: 'image', src })),
+    ];
+  })();
+
+  const item = mediaItems[idx];
+  const mainImg = document.getElementById('main-img');
+  const mainVideo = document.getElementById('main-video');
+  const mainVideoIframe = document.getElementById('main-video-iframe');
+
+  if (item.type === 'video') {
+    mainImg.classList.add('hidden');
+    mainVideo.classList.remove('hidden');
+    mainVideoIframe.src = item.embed + '?autoplay=1';
+  } else {
+    mainVideo.classList.add('hidden');
+    mainVideoIframe.src = '';
+    mainImg.classList.remove('hidden');
+    mainImg.src = item.src;
+  }
+
+  document.querySelectorAll('.thumb-btn').forEach((btn, i) => {
+    btn.className = `thumb-btn shrink-0 overflow-hidden rounded-xl border-2 transition-all ${i===idx?'border-[#E8620A]':'border-transparent opacity-60 hover:opacity-100'}${mediaItems[i]?.type==='video'?' relative bg-black':''}`;
   });
 };
 
-window.selectVariant = (name) => {
+window.selectVariant = (name, price) => {
   selectedVariant = name;
+  selectedVariantPrice = price;
+  // Update displayed price
+  const priceEl = document.getElementById('current-price');
+  if (priceEl) priceEl.textContent = window._formatPrice(price);
+  // Update variant button styles
   document.querySelectorAll('.variant-btn').forEach(btn => {
     const active = btn.dataset.variant === name;
     btn.className = `variant-btn rounded-xl border-2 px-3 py-2.5 text-left transition-all ${active?'border-[#E8620A] bg-[#E8620A] text-white':'border-[#F5A800]/30 bg-[#FFF3D6] text-[#4A1A00] hover:border-[#E8620A]'}`;
@@ -235,15 +289,31 @@ window.setQty = (n) => {
 
 window.handleAddToCart = async () => {
   if (!currentUser) { window.location.href = 'login.php?redirect=product.php?id=' + productId; return; }
-  await addToCart(product, quantity, selectedVariant);
-  showToast(product.name + ' added to cart!', 'success');
-  window._openCartDrawer();
+  const btns = document.querySelectorAll('[onclick="handleAddToCart()"]');
+  btns.forEach(b => { b.disabled = true; b.textContent = 'Adding…'; });
+  try {
+    // Use variant price if a variant is selected
+    const productToAdd = selectedVariantPrice
+      ? { ...product, price: selectedVariantPrice }
+      : product;
+    await addToCart(productToAdd, quantity, selectedVariant);
+    showToast(product.name + ' added to cart!', 'success');
+    window._openCartDrawer();
+  } catch { showToast('Failed to add to cart', 'error'); }
+  finally { btns.forEach(b => { b.disabled = false; b.textContent = 'ADD TO CART'; }); }
 };
 
 window.handleBuyNow = async () => {
   if (!currentUser) { window.location.href = 'login.php?redirect=product.php?id=' + productId; return; }
-  await addToCart(product, quantity, selectedVariant);
-  window.location.href = 'checkout.php';
+  const btns = document.querySelectorAll('[onclick="handleBuyNow()"]');
+  btns.forEach(b => { b.disabled = true; b.textContent = 'Please wait…'; });
+  try {
+    const productToAdd = selectedVariantPrice
+      ? { ...product, price: selectedVariantPrice }
+      : product;
+    await addToCart(productToAdd, quantity, selectedVariant);
+    window.location.href = 'checkout.php';
+  } catch { showToast('Failed to proceed', 'error'); btns.forEach(b => { b.disabled = false; b.textContent = 'BUY IT NOW'; }); }
 };
 
 window.handleWishlist = () => {

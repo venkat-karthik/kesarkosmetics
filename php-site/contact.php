@@ -60,10 +60,12 @@ include 'includes/header.php';
           <p class="section-label mb-2">Send a Message</p>
           <h2 class="font-heading text-3xl text-[#3E2723] mb-7">How can we help?</h2>
 
-          <div id="form-success" class="hidden flex flex-col items-center justify-center py-16 text-center">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-16 h-16 text-green-500 mb-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
-            <h3 class="font-heading text-2xl text-[#3E2723] mb-2">Message Sent!</h3>
-            <p class="text-[#6B5B52]">Thank you for reaching out. We'll get back to you within 24 hours.</p>
+          <div id="form-success" class="hidden" style="display:none">
+            <div class="flex flex-col items-center justify-center py-12 text-center">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-16 h-16 text-green-500 mb-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+              <h3 class="font-heading text-2xl text-[#3E2723] mb-2">Message Sent!</h3>
+              <p class="text-[#6B5B52]">Thank you for reaching out. We'll get back to you within 24 hours.</p>
+            </div>
           </div>
 
           <form id="contact-form" class="space-y-5">
@@ -145,7 +147,8 @@ document.getElementById('contact-form').addEventListener('submit', async (e) => 
     });
     if (res.ok) {
       form.classList.add('hidden');
-      document.getElementById('form-success').classList.remove('hidden');
+      const successEl = document.getElementById('form-success');
+      successEl.style.display = 'block';
       showToast("Message sent! We'll get back to you soon.", 'success');
     } else {
       throw new Error('Server error');
@@ -157,7 +160,8 @@ document.getElementById('contact-form').addEventListener('submit', async (e) => 
     window.location.href = `mailto:kesarkosmetics@gmail.com?subject=${subject}&body=${body}`;
     showToast('Your email client has been opened.', 'success');
   } finally {
-    btn.disabled = false; btn.textContent = 'Send Message';
+    btn.disabled = false;
+    btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5"/></svg> Send Message`;
   }
 });
 </script>

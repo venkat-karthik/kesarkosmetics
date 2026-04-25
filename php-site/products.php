@@ -128,19 +128,55 @@ function renderProducts() {
       showToast(`${product.name} added to cart!`, 'success');
     });
   });
+
+  attachCardHover(grid);
+}
+
+function attachCardHover(container) {
+  container.querySelectorAll('.product-card').forEach(card => {
+    const imgCount = parseInt(card.dataset.imgCount || '0');
+    if (imgCount < 2) return;
+
+    const slides = card.querySelectorAll('.product-card-slide');
+    const pid = card.dataset.pid;
+    const dots = card.querySelectorAll(`#dots-${pid} span`);
+    let timer = null, idx = 0;
+
+    function showSlide(i) {
+      slides.forEach((s, j) => s.style.opacity = j === i ? '1' : '0');
+      dots.forEach((d, j) => {
+        d.style.background = j === i ? 'white' : 'rgba(255,255,255,0.5)';
+        d.style.width = j === i ? '1rem' : '0.375rem';
+      });
+    }
+
+    card.addEventListener('mouseenter', () => {
+      idx = 0;
+      timer = setInterval(() => { idx = (idx + 1) % slides.length; showSlide(idx); }, 900);
+    });
+    card.addEventListener('mouseleave', () => {
+      clearInterval(timer); timer = null; idx = 0; showSlide(0);
+    });
+  });
 }
 
 function productCard(p) {
   const wishlisted = window._isWishlisted(p.id);
   const stars = [1,2,3,4,5].map(s=>`<svg viewBox="0 0 20 20" style="width:.875rem;height:.875rem;fill:${s<=Math.round(p.rating||4.8)?'#F5A800':'#E5E7EB'}"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>`).join('');
+
+  const imgs = p.images?.length ? p.images : ['assets/main.png'];
+  const hasMultiple = imgs.length > 1;
+
   return `
-    <div class="product-card">
-      <div class="product-card-img">
+    <div class="product-card" data-pid="${p.id}" data-img-count="${imgs.length}">
+      <div class="product-card-img relative">
         <button class="wishlist-btn${wishlisted?' active':''}" data-pid="${p.id}" aria-label="${wishlisted?'Remove from wishlist':'Add to wishlist'}">
           <svg xmlns="http://www.w3.org/2000/svg" fill="${wishlisted?'currentColor':'none'}" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z"/></svg>
         </button>
-        <a href="product.php?id=${p.id}">
-          <img src="${p.images?.[0]||'assets/main.png'}" alt="${p.name}" loading="lazy" />
+        <a href="product.php?id=${p.id}" class="block w-full h-full">
+          ${imgs.map((src, i) => `<img class="product-card-slide absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${i===0?'opacity-100':'opacity-0'}" src="${src}" alt="${p.name}" loading="lazy" />`).join('')}
+          ${hasMultiple ? `<div class="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1 pointer-events-none" id="dots-${p.id}">${imgs.map((_,i)=>`<span class="w-1.5 h-1.5 rounded-full transition-all duration-300 ${i===0?'bg-white':'bg-white/50'}"></span>`).join('')}</div>` : ''}
+          ${p.video ? `<div class="absolute top-2 left-2 bg-black/60 rounded-full px-2 py-0.5 text-white text-[10px] flex items-center gap-1 pointer-events-none"><svg viewBox="0 0 24 24" class="w-3 h-3 fill-white"><path d="M8 5v14l11-7z"/></svg>Video</div>` : ''}
         </a>
       </div>
       <div class="product-card-body">
