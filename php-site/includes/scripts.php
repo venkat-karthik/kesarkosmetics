@@ -76,6 +76,14 @@ onUserChange(async (user) => {
   }
 });
 
+// Prevent back button access after logout - check on page show
+window.addEventListener('pageshow', function(event) {
+  // If page is loaded from cache (back button) and user logged out
+  if (event.persisted && sessionStorage.getItem('kesar_logged_out') === 'true') {
+    window.location.reload();
+  }
+});
+
 // ── User dropdown ─────────────────────────────────────────────────────────
 const userBtn = document.getElementById('user-btn');
 const userDropdown = document.getElementById('user-dropdown');
@@ -90,7 +98,7 @@ document.addEventListener('click', (e) => {
 async function doLogout() {
   await logout();
   showToast('Logged out successfully', 'success');
-  window.location.href = 'index.php';
+  setTimeout(() => window.location.replace('index.php'), 500);
 }
 document.getElementById('logout-btn')?.addEventListener('click', doLogout);
 document.getElementById('mobile-logout-btn')?.addEventListener('click', doLogout);
@@ -248,39 +256,21 @@ document.querySelectorAll('.policy-link').forEach(btn => {
 document.getElementById('policy-close-btn')?.addEventListener('click', () => policyModal?.classList.remove('open'));
 policyModal?.addEventListener('click', (e) => { if (e.target === policyModal) policyModal.classList.remove('open'); });
 
-// ── Admin login modal ─────────────────────────────────────────────────────
-const adminModal = document.getElementById('admin-modal');
-document.getElementById('admin-footer-btn')?.addEventListener('click', () => adminModal?.classList.add('open'));
-document.getElementById('admin-modal-close')?.addEventListener('click', () => adminModal?.classList.remove('open'));
-adminModal?.addEventListener('click', (e) => { if (e.target === adminModal) adminModal.classList.remove('open'); });
-
-document.getElementById('admin-login-form')?.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const email = document.getElementById('admin-email').value.trim().toLowerCase();
-  const password = document.getElementById('admin-password').value;
-  const errEl = document.getElementById('admin-modal-error');
-  const btn = document.getElementById('admin-login-btn');
-  const ADMIN_EMAILS = ['gsrinadh55@gmail.com', 'kesarkosmetics@gmail.com'];
-  if (!ADMIN_EMAILS.includes(email)) {
-    errEl.textContent = 'Not an admin email.'; errEl.classList.remove('hidden'); return;
-  }
-  btn.textContent = 'Signing in…'; btn.disabled = true;
-  try {
-    const { signInWithEmailAndPassword } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
-    const { auth, db, doc, setDoc, getDoc, serverTimestamp } = await import('./js/firebase-config.js');
-    const cred = await signInWithEmailAndPassword(auth, email, password);
-    const ref = doc(db, 'users', cred.user.uid);
-    const snap = await getDoc(ref);
-    if (!snap.exists()) {
-      await setDoc(ref, { uid: cred.user.uid, name: cred.user.displayName || 'Admin', email, phone: '', role: 'admin', provider: 'email', createdAt: serverTimestamp() });
-    }
-    adminModal?.classList.remove('open');
+// ── Admin footer button — smart auth check ───────────────────────────────
+document.getElementById('admin-footer-btn')?.addEventListener('click', async () => {
+  const { authReady, isAdmin } = await import('./js/firebase-config.js');
+  const user = await authReady;
+  if (!user) {
+    // Not logged in — go to the dedicated admin login page
+    window.location.href = 'login_admin.php';
+  } else if (isAdmin(user.email)) {
+    // Already logged in as admin — go straight to dashboard
     window.location.href = 'admin/dashboard.php';
-  } catch (err) {
-    const msg = err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password'
-      ? 'Invalid email or password.' : err.message || 'Login failed.';
-    errEl.textContent = msg; errEl.classList.remove('hidden');
-  } finally { btn.textContent = 'Login'; btn.disabled = false; }
+  } else {
+    // Logged in as regular user — friendly nudge to shop
+    showToast("Hey! Start exploring our collection today 🌸", 'info', 4000);
+    setTimeout(() => { window.location.href = 'products.php'; }, 1200);
+  }
 });
 
 // ── Expose helpers globally for inline onclick ────────────────────────────

@@ -2,8 +2,18 @@
 // Common <head> block — include at top of every page
 // Usage: include 'includes/head.php'; (adjust path as needed)
 // $pageTitle and $pageDesc can be set before including
+// $requireAuth can be set to true for pages that require authentication (cart, checkout, etc.)
 $pageTitle = $pageTitle ?? 'Kesar Kosmetics';
 $pageDesc  = $pageDesc  ?? 'Authentic Kashmiri saffron skincare and wellness products.';
+$requireAuth = $requireAuth ?? false;
+
+// Add cache control headers for authenticated pages to prevent back button access after logout
+if ($requireAuth) {
+  header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+  header("Cache-Control: post-check=0, pre-check=0", false);
+  header("Pragma: no-cache");
+  header("Expires: Sat, 26 Jul 1997 05:00:00 GMT");
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -50,6 +60,18 @@ $pageDesc  = $pageDesc  ?? 'Authentic Kashmiri saffron skincare and wellness pro
 
   <!-- Lucide icons via CDN -->
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  
+  <?php if ($requireAuth): ?>
+  <script>
+    // Prevent back button access after logout for authenticated pages
+    window.addEventListener('pageshow', function(event) {
+      // If page is loaded from cache (back button), force reload to check auth
+      if (event.persisted) {
+        window.location.reload();
+      }
+    });
+  </script>
+  <?php endif; ?>
 </head>
 <body class="bg-[#FFF8EC] text-[#3E2723]">
 

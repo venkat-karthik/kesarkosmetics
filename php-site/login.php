@@ -8,22 +8,23 @@ include 'includes/head.php';
   <div class="absolute -top-32 -right-32 w-96 h-96 rounded-full bg-[#F5A800]/8 blur-3xl pointer-events-none"></div>
   <div class="absolute -bottom-24 -left-24 w-80 h-80 rounded-full bg-[#E8620A]/8 blur-3xl pointer-events-none"></div>
 
-  <!-- Close button -->
-  <button onclick="history.back()" class="fixed top-5 right-5 p-2.5 bg-white/80 backdrop-blur-sm rounded-2xl shadow-md hover:bg-white transition-all z-50 border border-[#EDE4D8]" aria-label="Close">
+  <!-- Close — always goes home -->
+  <button onclick="window.location.href='index.php'" class="fixed top-5 right-5 p-2.5 bg-white/80 backdrop-blur-sm rounded-2xl shadow-md hover:bg-white transition-all z-50 border border-[#EDE4D8]" aria-label="Go to home">
     <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-[#5D4037]" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
   </button>
 
   <div class="w-full max-w-sm">
     <div class="text-center mb-8">
       <a href="index.php"><img src="assets/main.png" alt="Kesar Kosmetics" class="h-20 mx-auto object-contain drop-shadow-sm" /></a>
-      <h1 class="font-heading text-3xl font-semibold text-[#3E2723] mt-5">Welcome back</h1>
-      <p class="text-[#8A7768] mt-1.5 text-sm">Sign in to continue your journey</p>
+      <h1 class="font-heading text-3xl font-semibold text-[#3E2723] mt-5" id="login-heading">Welcome back</h1>
+      <p class="text-[#8A7768] mt-1.5 text-sm" id="login-subheading">Sign in to continue your journey</p>
     </div>
 
     <div class="bg-white rounded-3xl shadow-[0_8px_40px_rgba(62,39,35,0.1)] border border-[#EDE4D8] p-8">
       <div class="h-0.5 w-16 bg-gradient-to-r from-[#D97736] to-[#F5A800] rounded-full mx-auto mb-8"></div>
 
       <p id="login-error" class="hidden text-red-600 text-sm bg-red-50 rounded-xl px-3 py-2 mb-4"></p>
+      <p id="login-info" class="hidden text-[#5D4037] text-sm bg-[#FFF3E0] rounded-xl px-3 py-2 mb-4"></p>
 
       <button id="google-btn" class="w-full flex items-center justify-center gap-3 border-2 border-[#EDE4D8] hover:border-[#D97736] rounded-2xl py-3.5 text-sm font-semibold text-[#3E2723] hover:bg-[#FFF8F0] transition-all shadow-sm hover:shadow-md">
         <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24">
@@ -47,41 +48,48 @@ include 'includes/head.php';
 <div id="toast-container"></div>
 
 <script type="module">
-import { loginWithGoogle, onUserChange, isAdmin } from './js/firebase-config.js';
+import { loginWithGoogle, onUserChange, isAdmin, authReady } from './js/firebase-config.js';
 
-const urlParams = new URLSearchParams(window.location.search);
-const redirect = urlParams.get('redirect') || 'index.php';
+// Header login — always goes home after sign-in, no admin routing here
+const next = new URLSearchParams(window.location.search).get('next');
+// (next param is ignored on this page — admin flow uses login_admin.php)
 
-// Already logged in
-onUserChange((user) => {
-  if (user) {
-    window.location.href = isAdmin(user.email) ? 'admin/dashboard.php' : redirect;
-  }
+// ── If already logged in, route immediately ───────────────────────────────
+// Use authReady so we wait for Firebase to resolve before deciding
+authReady.then(user => {
+  if (!user) return; // not logged in — show the login page normally
+  routeUser(user, false);
 });
 
+function routeUser(user, showWelcome) {
+  // Header login always goes home regardless of role
+  if (showWelcome) showToast(`Welcome, ${user.name}! 🌸`, 'success');
+  setTimeout(() => { window.location.href = 'index.php'; }, showWelcome ? 600 : 0);
+}
+
+// ── Sign in ───────────────────────────────────────────────────────────────
 document.getElementById('google-btn').addEventListener('click', async () => {
   const btn = document.getElementById('google-btn');
   const btnText = document.getElementById('google-btn-text');
   const errEl = document.getElementById('login-error');
-  btn.disabled = true; btnText.textContent = 'Signing in…';
+  btn.disabled = true;
+  btnText.textContent = 'Signing in…';
   errEl.classList.add('hidden');
+
   try {
     const user = await loginWithGoogle();
-    showToast(`Welcome, ${user.name}!`, 'success');
-    setTimeout(() => {
-      window.location.href = isAdmin(user.email) ? 'admin/dashboard.php' : redirect;
-    }, 500);
+    routeUser(user, true);
   } catch (err) {
     if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
       errEl.textContent = 'Sign-in failed. Please try again.';
       errEl.classList.remove('hidden');
     }
-  } finally {
-    btn.disabled = false; btnText.textContent = 'Continue with Google';
+    btn.disabled = false;
+    btnText.textContent = 'Continue with Google';
   }
 });
 
-window.showToast = function(msg, type='info') {
+window.showToast = function(msg, type = 'info') {
   const c = document.getElementById('toast-container');
   const el = document.createElement('div');
   el.className = `toast ${type}`;

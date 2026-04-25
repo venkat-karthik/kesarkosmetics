@@ -97,28 +97,4 @@
   </div>
 </div>
 
-<!-- ── Admin Login Modal ──────────────────────────────────────────────────── -->
-<div id="admin-modal" class="modal-backdrop" role="dialog" aria-modal="true">
-  <div class="modal" style="max-width:360px">
-    <div class="modal-header">
-      <h2 class="font-heading text-xl font-bold text-[#3E2723]">Admin Access</h2>
-      <button id="admin-modal-close" class="p-2 rounded-full hover:bg-gray-100" aria-label="Close">
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
-      </button>
-    </div>
-    <div class="modal-body">
-      <p id="admin-modal-error" class="text-red-600 text-sm bg-red-50 rounded-xl px-3 py-2 mb-4 hidden"></p>
-      <form id="admin-login-form" class="space-y-4">
-        <div class="form-group">
-          <label class="form-label">Email</label>
-          <input type="email" id="admin-email" class="form-input" placeholder="admin@example.com" required />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Password</label>
-          <input type="password" id="admin-password" class="form-input" placeholder="••••••••" required />
-        </div>
-        <button type="submit" id="admin-login-btn" class="btn btn-primary w-full justify-center">Login</button>
-      </form>
-    </div>
-  </div>
-</div>
+<!-- Admin login modal removed — admin access via login.php?admin=1 -->
