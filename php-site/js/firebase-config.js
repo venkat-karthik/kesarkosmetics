@@ -1,7 +1,7 @@
 // Firebase configuration — same as React app
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc, collection, addDoc, getDocs, query, where, serverTimestamp, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, collection, addDoc, getDocs, query, where, serverTimestamp, updateDoc, deleteDoc, writeBatch, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyA18p6t_il_hFEsE59CWSdUjy7xYQKAU7w",
@@ -65,13 +65,22 @@ export function mapFirebaseUser(fbUser, profile = {}) {
 // ── Auth state ────────────────────────────────────────────────────────────────
 
 let _currentUser = null;
+let _authResolved = false; // true once Firebase has fired onAuthStateChanged at least once
 const _authListeners = [];
+
+// Resolves once Firebase has determined the initial auth state
+let _resolveAuthReady;
+export const authReady = new Promise(resolve => { _resolveAuthReady = resolve; });
 
 export function getCurrentUser() { return _currentUser; }
 
 export function onUserChange(fn) {
   _authListeners.push(fn);
-  fn(_currentUser); // call immediately with current state
+  // Only call immediately if Firebase has already resolved auth state.
+  // If not yet resolved, the listener will be called once onAuthStateChanged fires.
+  if (_authResolved) {
+    fn(_currentUser);
+  }
 }
 
 onAuthStateChanged(auth, async (fbUser) => {
@@ -86,6 +95,8 @@ onAuthStateChanged(auth, async (fbUser) => {
   } else {
     _currentUser = null;
   }
+  _authResolved = true;
+  _resolveAuthReady(_currentUser);
   _authListeners.forEach(fn => fn(_currentUser));
 });
 
@@ -106,4 +117,4 @@ export async function logout() {
 }
 
 // ── Firestore re-exports ──────────────────────────────────────────────────────
-export { doc, setDoc, getDoc, collection, addDoc, getDocs, query, where, serverTimestamp, updateDoc };
+export { doc, setDoc, getDoc, collection, addDoc, getDocs, query, where, serverTimestamp, updateDoc, deleteDoc, writeBatch, orderBy, limit };

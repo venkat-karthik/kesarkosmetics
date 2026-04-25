@@ -40,15 +40,15 @@ async function search() {
   if (!searchQuery) { window.location.href = 'track-order.php'; return; }
 
   try {
-    // Search by orderId
+    // Search by orderId, userEmail, and shipping phone
     const q1 = query(collection(db, 'orders'), where('orderId', '==', searchQuery));
-    // Search by userEmail
     const q2 = query(collection(db, 'orders'), where('userEmail', '==', searchQuery.toLowerCase()));
+    const q3 = query(collection(db, 'orders'), where('shippingAddress.phone', '==', searchQuery));
 
-    const [snap1, snap2] = await Promise.all([getDocs(q1), getDocs(q2)]);
+    const [snap1, snap2, snap3] = await Promise.all([getDocs(q1), getDocs(q2), getDocs(q3)]);
     const seen = new Set();
     const orders = [];
-    [...snap1.docs, ...snap2.docs].forEach(d => {
+    [...snap1.docs, ...snap2.docs, ...snap3.docs].forEach(d => {
       if (!seen.has(d.id)) { seen.add(d.id); orders.push({ id: d.id, ...d.data() }); }
     });
 

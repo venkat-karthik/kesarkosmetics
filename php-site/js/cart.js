@@ -1,8 +1,11 @@
-// Cart logic — localStorage + Firestore sync (mirrors CartContext.js)
+// Cart logic — localStorage + Firestore sync
 import { db, getCurrentUser } from "./firebase-config.js";
 import { doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const LS_KEY = "kesar_cart";
+
+// Tracks in-flight Firestore saves so we never read stale data during a pending write
+let _pendingSave = Promise.resolve();
 
 export function readCart() {
   try { return JSON.parse(localStorage.getItem(LS_KEY) || "[]"); }
@@ -11,6 +14,11 @@ export function readCart() {
 
 function writeCart(items) {
   localStorage.setItem(LS_KEY, JSON.stringify(items));
+}
+
+// Normalise variant: treat empty string the same as null
+function normVariant(v) {
+  return (v === '' || v === undefined) ? null : v;
 }
 
 async function saveToFirestore(uid, items) {
@@ -25,66 +33,104 @@ async function saveToFirestore(uid, items) {
 }
 
 export async function loadCartForUser(uid) {
+  // Wait for any in-flight save to finish before reading Firestore,
+  // so we never pull stale data that was already overwritten.
+  await _pendingSave;
+
   try {
     const snap = await getDoc(doc(db, "carts", uid));
     const local = readCart();
+
     if (snap.exists()) {
       const firestoreItems = snap.data().items || [];
+
       if (local.length > 0) {
+        // Merge: add any local items not already in Firestore cart.
+        // Do NOT overwrite items that exist in Firestore — Firestore is authoritative.
         const merged = [...firestoreItems];
         for (const li of local) {
-          const idx = merged.findIndex(i => i.product_id === li.product_id && i.variant === li.variant);
-          if (idx < 0) merged.push(li);
+          const nv = normVariant(li.variant);
+          const exists = merged.some(
+            i => i.product_id === li.product_id && normVariant(i.variant) === nv
+          );
+          if (!exists) merged.push({ ...li, variant: nv });
         }
         writeCart(merged);
-        await saveToFirestore(uid, merged);
+        _pendingSave = saveToFirestore(uid, merged);
+        await _pendingSave;
         return merged;
       }
+
+      // No local items — just use Firestore as source of truth
       writeCart(firestoreItems);
       return firestoreItems;
     } else {
-      if (local.length > 0) await saveToFirestore(uid, local);
+      // No Firestore cart yet — push local cart up
+      if (local.length > 0) {
+        _pendingSave = saveToFirestore(uid, local);
+        await _pendingSave;
+      }
       return local;
     }
-  } catch { return readCart(); }
+  } catch {
+    return readCart();
+  }
 }
 
 export async function addToCart(product, quantity = 1, variant = null) {
+  const nv = normVariant(variant);
   const pid = product.id || product._id;
   let items = readCart();
-  const idx = items.findIndex(i => i.product_id === pid && i.variant === variant);
+  const idx = items.findIndex(i => i.product_id === pid && normVariant(i.variant) === nv);
   if (idx >= 0) {
     items[idx] = { ...items[idx], quantity: items[idx].quantity + quantity };
   } else {
-    items = [...items, { product_id: pid, product, quantity, variant }];
+    items = [...items, { product_id: pid, product, quantity, variant: nv }];
   }
   writeCart(items);
   window.dispatchEvent(new Event("cart:updated"));
   const user = getCurrentUser();
-  if (user?._id) await saveToFirestore(user._id, items);
+  if (user?._id) {
+    _pendingSave = saveToFirestore(user._id, items);
+    await _pendingSave;
+  }
   return items;
 }
 
 export async function updateQuantity(productId, quantity, variant = null) {
+  const nv = normVariant(variant);
   let items = readCart();
   if (quantity <= 0) {
-    items = items.filter(i => !(i.product_id === productId && i.variant === variant));
+    items = items.filter(i => !(i.product_id === productId && normVariant(i.variant) === nv));
   } else {
-    items = items.map(i => i.product_id === productId && i.variant === variant ? { ...i, quantity } : i);
+    items = items.map(i =>
+      i.product_id === productId && normVariant(i.variant) === nv
+        ? { ...i, quantity }
+        : i
+    );
   }
   writeCart(items);
   window.dispatchEvent(new Event("cart:updated"));
   const user = getCurrentUser();
-  if (user?._id) await saveToFirestore(user._id, items);
+  if (user?._id) {
+    _pendingSave = saveToFirestore(user._id, items);
+    await _pendingSave;
+  }
   return items;
 }
 
 export async function removeFromCart(productId, variant = null) {
-  const items = readCart().filter(i => !(i.product_id === productId && i.variant === variant));
+  const nv = normVariant(variant);
+  const items = readCart().filter(
+    i => !(i.product_id === productId && normVariant(i.variant) === nv)
+  );
   writeCart(items);
   window.dispatchEvent(new Event("cart:updated"));
   const user = getCurrentUser();
-  if (user?._id) await saveToFirestore(user._id, items);
+  if (user?._id) {
+    _pendingSave = saveToFirestore(user._id, items);
+    await _pendingSave;
+  }
   return items;
 }
 
@@ -92,7 +138,10 @@ export async function clearCart() {
   writeCart([]);
   window.dispatchEvent(new Event("cart:updated"));
   const user = getCurrentUser();
-  if (user?._id) await saveToFirestore(user._id, []);
+  if (user?._id) {
+    _pendingSave = saveToFirestore(user._id, []);
+    await _pendingSave;
+  }
 }
 
 export function getCartTotal(items) {

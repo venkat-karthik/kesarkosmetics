@@ -2,6 +2,7 @@
 $pageTitle = 'Cart — Kesar Kosmetics';
 $cssPath = 'css/style.css';
 $currentPage = 'cart.php';
+$requireAuth = true; // Prevent browser caching
 include 'includes/head.php';
 include 'includes/header.php';
 ?>
@@ -50,14 +51,16 @@ include 'includes/header.php';
 <?php include 'includes/footer.php'; ?>
 
 <script type="module">
-import { readCart, getCartTotal, getCartCount, formatPrice, updateQuantity, removeFromCart } from './js/cart.js';
+import { readCart, getCartTotal, getCartCount, formatPrice, updateQuantity, removeFromCart, loadCartForUser } from './js/cart.js';
 import { getCurrentUser, onUserChange } from './js/firebase-config.js';
 
 let currentUser = null;
-onUserChange(u => {
+onUserChange(async u => {
   currentUser = u;
-  if (!u) { window.location.href = 'login.php?redirect=cart.php'; }
-  else renderCart();
+  if (!u) { window.location.href = 'login.php?redirect=cart.php'; return; }
+  // Wait for Firestore cart to load before rendering so we show the correct state
+  await loadCartForUser(u._id);
+  renderCart();
 });
 
 function renderCart() {
@@ -108,11 +111,11 @@ function renderCart() {
 }
 
 window.changeQty = async (pid, qty, variant) => {
-  await updateQuantity(pid, qty, variant||null);
+  await updateQuantity(pid, qty, variant || null);
   renderCart();
 };
 window.removeItem = async (pid, variant) => {
-  await removeFromCart(pid, variant||null);
+  await removeFromCart(pid, variant || null);
   showToast('Item removed from cart', 'success');
   renderCart();
 };

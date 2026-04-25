@@ -33,9 +33,16 @@ const orderId = params.get('orderId');
 
 if (!orderId) { window.location.href = 'track-order.php'; }
 
+async function getProductImage(productId) {
+  if (!productId) return null;
+  try {
+    const snap = await getDoc(doc(db, 'products', productId));
+    return snap.exists() ? (snap.data().images?.[0] || null) : null;
+  } catch { return null; }
+}
+
 async function loadOrder() {
   try {
-    // Search Firestore by orderId field
     const q = query(collection(db, 'orders'), where('orderId', '==', orderId));
     const snap = await getDocs(q);
     if (snap.empty) {
@@ -44,6 +51,13 @@ async function loadOrder() {
       return;
     }
     const order = { id: snap.docs[0].id, ...snap.docs[0].data() };
+
+    // Fetch real product images for all items in parallel
+    const items = Array.isArray(order.items) ? order.items : [];
+    const images = await Promise.all(items.map(item => getProductImage(item.product_id)));
+    // Attach resolved image back onto each item
+    order.items = items.map((item, i) => ({ ...item, _resolvedImage: images[i] || item.image || null }));
+
     renderOrder(order);
   } catch(e) {
     document.getElementById('order-loading').classList.add('hidden');
@@ -107,7 +121,7 @@ function renderOrder(order) {
       <div class="grid gap-3 sm:grid-cols-2">
         ${items.map(item => `
           <div class="rounded-2xl border border-[#E9E0D2] bg-[#FCFAF7] p-3 flex gap-3">
-            <img src="${item.image||'assets/main.png'}" alt="${item.product_name||''}" class="w-16 h-16 object-cover rounded-xl shrink-0" />
+            <img src="${item._resolvedImage||'assets/main.png'}" alt="${item.product_name||''}" class="w-16 h-16 object-cover rounded-xl shrink-0" />
             <div>
               <p class="font-medium text-[#3E2723] text-sm line-clamp-2">${item.product_name||'Product'}</p>
               <p class="text-xs text-[#6B5B52] mt-1">Qty: ${item.quantity||1}</p>

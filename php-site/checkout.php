@@ -2,11 +2,12 @@
 $pageTitle = 'Checkout — Kesar Kosmetics';
 $cssPath = 'css/style.css';
 $loadRazorpay = true;
+$requireAuth = true; // Prevent browser caching
 include 'includes/head.php';
 include 'includes/header.php';
 ?>
 
-<div class="min-h-screen bg-gradient-to-br from-[#FAF7F2] to-[#F5EEE6] py-12">
+<div class="min-h-screen bg-gradient-to-br from-[#FAF7F2] to-[#F5EEE6] py-6 sm:py-12">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
     <!-- Step indicator -->
@@ -30,8 +31,8 @@ include 'includes/header.php';
     <div class="flex flex-col gap-8">
       <!-- Step 1: Shipping -->
       <div id="step-shipping" class="w-full">
-        <form id="shipping-form" class="bg-white p-8 rounded-3xl border-2 border-[#E0D8C8] shadow-lg">
-          <h2 class="font-heading text-3xl font-bold text-[#3E2723] mb-8 flex items-center gap-3">
+        <form id="shipping-form" class="bg-white p-5 sm:p-8 rounded-3xl border-2 border-[#E0D8C8] shadow-lg">
+          <h2 class="font-heading text-2xl sm:text-3xl font-bold text-[#3E2723] mb-6 sm:mb-8 flex items-center gap-3">
             <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-[#D97736]" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 0 0-3.213-9.193 2.056 2.056 0 0 0-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 0 0-10.026 0 1.106 1.106 0 0 0-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"/></svg>
             Shipping Address
           </h2>
@@ -69,13 +70,13 @@ include 'includes/header.php';
           </div>
           <div class="mb-8">
             <p class="mb-3 text-sm font-semibold text-[#3E2723]">Address Type *</p>
-            <div class="grid grid-cols-3 gap-3">
+            <div class="grid grid-cols-3 gap-2 sm:gap-3">
               <?php foreach ([['home','Home','Residential address'],['office','Office','Work location'],['others','Others','Any other address']] as [$val,$label,$sub]): ?>
-              <button type="button" onclick="selectAddressType('<?= $val ?>')" id="addr-<?= $val ?>" class="addr-type-btn flex items-center gap-3 rounded-2xl border-2 border-[#E0D8C8] bg-white px-4 py-4 text-left transition-all hover:border-[#D97736]">
-                <div class="flex h-10 w-10 items-center justify-center rounded-full bg-[#F5EEE6] text-[#3E2723] shrink-0">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/></svg>
+              <button type="button" onclick="selectAddressType('<?= $val ?>')" id="addr-<?= $val ?>" class="addr-type-btn flex flex-col sm:flex-row items-center sm:items-start gap-1 sm:gap-3 rounded-2xl border-2 border-[#E0D8C8] bg-white px-2 sm:px-4 py-3 sm:py-4 text-center sm:text-left transition-all hover:border-[#D97736] min-h-[60px]">
+                <div class="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-[#F5EEE6] text-[#3E2723] shrink-0">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/></svg>
                 </div>
-                <div><p class="font-semibold text-[#1E1E1D] text-sm"><?= $label ?></p><p class="text-xs text-[#6B5B52]"><?= $sub ?></p></div>
+                <div><p class="font-semibold text-[#1E1E1D] text-xs sm:text-sm"><?= $label ?></p><p class="text-[10px] sm:text-xs text-[#6B5B52] hidden sm:block"><?= $sub ?></p></div>
               </button>
               <?php endforeach; ?>
             </div>
@@ -110,8 +111,8 @@ include 'includes/header.php';
 
       <!-- Step 3: Payment -->
       <div id="step-payment" class="hidden w-full">
-        <form id="payment-form" class="bg-white p-8 rounded-3xl border-2 border-[#E0D8C8] shadow-lg">
-          <h2 class="font-heading text-3xl font-bold text-[#3E2723] mb-8 flex items-center gap-3">
+        <form id="payment-form" class="bg-white p-5 sm:p-8 rounded-3xl border-2 border-[#E0D8C8] shadow-lg">
+          <h2 class="font-heading text-2xl sm:text-3xl font-bold text-[#3E2723] mb-6 sm:mb-8 flex items-center gap-3">
             <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-[#D97736]" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Z"/></svg>
             Choose Payment Method
           </h2>
@@ -176,8 +177,7 @@ window.selectAddressType = (type) => {
   selectedAddressType = type;
   document.querySelectorAll('.addr-type-btn').forEach(btn => {
     const isActive = btn.id === 'addr-' + type;
-    btn.className = `addr-type-btn flex items-center gap-3 rounded-2xl border-2 px-4 py-4 text-left transition-all ${isActive?'border-[#D97736] bg-[#FFF4E8] shadow-sm':'border-[#E0D8C8] bg-white hover:border-[#D97736]'}`;
-    btn.querySelector('.flex.h-10').className = `flex h-10 w-10 items-center justify-center rounded-full ${isActive?'bg-[#D97736] text-white':'bg-[#F5EEE6] text-[#3E2723]'} shrink-0`;
+    btn.className = `addr-type-btn flex flex-col sm:flex-row items-center sm:items-start gap-1 sm:gap-3 rounded-2xl border-2 px-2 sm:px-4 py-3 sm:py-4 text-center sm:text-left transition-all min-h-[60px] ${isActive ? 'border-[#D97736] bg-[#FFF4E8] shadow-sm' : 'border-[#E0D8C8] bg-white hover:border-[#D97736]'}`;
   });
   document.getElementById('addr-type-error').classList.add('hidden');
 };
@@ -187,11 +187,13 @@ document.querySelectorAll('.payment-method-label').forEach(label => {
   label.addEventListener('click', () => {
     selectedPayment = label.dataset.method;
     document.querySelectorAll('[id^="pm-"]').forEach(el => {
-      el.className = el.className.replace('ring-2 ring-[#D97736] shadow-lg','');
+      el.classList.remove('ring-2', 'ring-[#D97736]', 'shadow-lg');
     });
-    document.getElementById('pm-' + selectedPayment).className += ' ring-2 ring-[#D97736] shadow-lg';
+    document.getElementById('pm-' + selectedPayment)?.classList.add('ring-2', 'ring-[#D97736]', 'shadow-lg');
   });
 });
+// Set initial active state for COD
+document.getElementById('pm-cod')?.classList.add('ring-2', 'ring-[#D97736]', 'shadow-lg');
 
 // ── Step navigation ───────────────────────────────────────────────────────
 window.goToStep = (step) => {
@@ -297,7 +299,8 @@ document.getElementById('payment-form').addEventListener('submit', async (e) => 
   };
 
   const btn = document.getElementById('buy-btn');
-  btn.disabled = true; btn.textContent = 'Processing…';
+  btn.disabled = true;
+  btn.innerHTML = `<svg class="animate-spin w-4 h-4 mr-2 inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>Processing…`;
 
   const saveToFirestore = async (orderId, status = 'confirmed') => {
     try {

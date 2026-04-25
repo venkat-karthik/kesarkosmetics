@@ -2,15 +2,16 @@
 $pageTitle = 'Order Confirmed — Kesar Kosmetics';
 $cssPath = 'css/style.css';
 include 'includes/head.php';
+include 'includes/header.php';
 ?>
 
-<div class="min-h-screen bg-gradient-to-br from-[#FAF7F2] to-[#F0E8DC] flex items-center justify-center px-4 py-16">
-  <div class="max-w-lg w-full bg-white rounded-3xl border border-[#EDE4D8] shadow-[0_8px_40px_rgba(62,39,35,0.1)] p-10 text-center">
-    <div class="mx-auto w-24 h-24 rounded-full bg-gradient-to-br from-[#FFF3E0] to-[#FFE0B2] flex items-center justify-center mb-6 shadow-inner">
-      <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-[#D97736]" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+<div class="min-h-screen bg-gradient-to-br from-[#FAF7F2] to-[#F0E8DC] flex items-center justify-center px-4 py-10 sm:py-16">
+  <div class="max-w-lg w-full bg-white rounded-3xl border border-[#EDE4D8] shadow-[0_8px_40px_rgba(62,39,35,0.1)] p-6 sm:p-10 text-center">
+    <div class="mx-auto w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gradient-to-br from-[#FFF3E0] to-[#FFE0B2] flex items-center justify-center mb-6 shadow-inner">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 sm:w-12 sm:h-12 text-[#D97736]" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
     </div>
     <div class="h-0.5 w-16 bg-gradient-to-r from-[#D97736] to-[#F5A800] rounded-full mx-auto mb-6"></div>
-    <h1 class="font-heading text-4xl font-semibold text-[#3E2723] mb-2">Order Confirmed! 🎉</h1>
+    <h1 class="font-heading text-3xl sm:text-4xl font-semibold text-[#3E2723] mb-2">Order Confirmed! 🎉</h1>
     <p class="text-[#8A7768] text-sm leading-relaxed">Thank you for your purchase. We're carefully preparing your order.</p>
 
     <div id="order-id-box" class="hidden mt-5 mb-6 bg-[#FAF7F2] rounded-2xl px-5 py-4 border border-[#EDE4D8] w-full">
@@ -38,8 +39,6 @@ include 'includes/head.php';
   </div>
 </div>
 
-<div id="toast-container"></div>
-
 <script>
 const params = new URLSearchParams(window.location.search);
 const orderId = params.get('orderId');
@@ -47,14 +46,9 @@ if (orderId) {
   document.getElementById('order-id-text').textContent = orderId;
   document.getElementById('order-id-box').classList.remove('hidden');
 }
-window.showToast = function(msg, type='info') {
-  const c = document.getElementById('toast-container');
-  const el = document.createElement('div');
-  el.className = `toast ${type}`;
-  el.innerHTML = `<span>${type==='success'?'✓':'ℹ'}</span><span>${msg}</span>`;
-  c.appendChild(el);
-  setTimeout(() => el.remove(), 3000);
-};
 </script>
+
+<?php include 'includes/footer.php'; ?>
+<?php include 'includes/scripts.php'; ?>
 </body>
 </html>

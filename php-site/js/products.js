@@ -8,6 +8,9 @@ import {
 const COL = "products";
 
 function normalize(id, data) {
+  // Filter out placeholder "Default" variants that have no real meaning
+  const rawVariants = Array.isArray(data.variants) ? data.variants : [];
+  const variants = rawVariants.filter(v => v.name && v.name !== 'Default');
   return {
     id,
     name: data.name || "",
@@ -19,7 +22,7 @@ function normalize(id, data) {
     video: data.video || null,
     rating: Number(data.rating || 4.5),
     reviews: Array.isArray(data.reviews) ? data.reviews : [],
-    variants: Array.isArray(data.variants) ? data.variants : [{ name: "Default" }],
+    variants, // empty array = no variants, show nothing
     createdAt: data.createdAt || null,
   };
 }
@@ -91,6 +94,7 @@ export async function updateProduct(productId, data) {
     compare_at_price: data.compare_at_price ? Number(data.compare_at_price) : null,
     category: data.category || "General",
     images: data.images || [],
+    variants: data.variants || [{ name: "Default" }],
   };
   if (data.video !== undefined) patch.video = data.video;
   await updateDoc(ref, patch);

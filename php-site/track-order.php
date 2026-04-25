@@ -59,8 +59,30 @@ include 'includes/header.php';
 <?php include 'includes/footer.php'; ?>
 
 <script type="module">
-import { getCurrentUser, onUserChange, db, collection, query, where, getDocs } from './js/firebase-config.js';
+import { getCurrentUser, onUserChange, db, collection, query, where, getDocs, doc, getDoc } from './js/firebase-config.js';
 import { formatPrice } from './js/cart.js';
+
+// Cache product images to avoid duplicate Firestore reads
+const productImageCache = {};
+
+async function getProductImage(productId) {
+  if (!productId) return null;
+  if (productImageCache[productId] !== undefined) return productImageCache[productId];
+  try {
+    const snap = await getDoc(doc(db, 'products', productId));
+    const img = snap.exists() ? (snap.data().images?.[0] || null) : null;
+    productImageCache[productId] = img;
+    return img;
+  } catch { productImageCache[productId] = null; return null; }
+}
+
+// Resolve images for all items across all orders in one pass
+async function resolveItemImages(orders) {
+  const ids = [...new Set(
+    orders.flatMap(o => (o.items||[]).map(i => i.product_id).filter(Boolean))
+  )];
+  await Promise.all(ids.map(id => getProductImage(id)));
+}
 
 onUserChange(async (user) => {
   if (!user) return;
@@ -86,6 +108,9 @@ onUserChange(async (user) => {
       return;
     }
 
+    // Pre-fetch all product images before rendering
+    await resolveItemImages(orders);
+
     document.getElementById('my-orders-list').classList.remove('hidden');
     document.getElementById('my-orders-list').innerHTML = orders.map(order => {
       const items = Array.isArray(order.items) ? order.items : [];
@@ -105,15 +130,18 @@ onUserChange(async (user) => {
             </div>
           </div>
           <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            ${items.map(item => `
+            ${items.map(item => {
+              const img = productImageCache[item.product_id] || item.image || 'assets/main.png';
+              return `
               <div class="rounded-2xl border border-[#E9E0D2] bg-[#FCFAF7] p-3">
-                <img src="${item.image||'assets/main.png'}" alt="${item.product_name||''}" class="h-36 w-full rounded-xl object-cover" />
+                <img src="${img}" alt="${item.product_name||''}" class="h-36 w-full rounded-xl object-cover" />
                 <p class="mt-3 font-medium text-[#3E2723] line-clamp-2 text-sm">${item.product_name||'Product'}</p>
                 <div class="mt-2 flex items-center justify-between gap-3 text-sm text-[#6B5B52]">
                   <span>Qty: ${item.quantity||1}</span>
                   <span class="font-semibold text-[#3E2723]">${formatPrice(Number(item.price||0)*Number(item.quantity||1))}</span>
                 </div>
-              </div>`).join('')}
+              </div>`;
+            }).join('')}
           </div>
           <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-[#F0E7DA] pt-4">
             <div class="text-sm text-[#6B5B52]">
