@@ -1,9 +1,0 @@
-node_modules/
-.env
-backend/node_modules/
-backend/.env
-frontend/node_modules/
-frontend/.env
-frontend/build/
-.github/workflows/
-serviceAccountKey.json
