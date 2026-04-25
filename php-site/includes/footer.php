@@ -9,7 +9,7 @@
       <!-- Brand -->
       <div>
         <div class="w-28 h-28 mb-4">
-          <img src="assets/main_logo.png" alt="Kesar Kosmetics" class="w-full h-full object-contain" />
+          <img src="assets/main.png" alt="Kesar Kosmetics" class="w-full h-full object-contain" />
         </div>
         <p class="text-sm text-white/60 leading-relaxed mb-4 max-w-xs">
           Authentic, handcrafted essentials for a healthier, sustainable life.

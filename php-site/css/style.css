@@ -62,7 +62,7 @@ body { font-family: 'Inter', sans-serif; background: #FFF8EC; color: #3E2723; mi
 @media(min-width:768px){ .header-inner { height: 4.5rem; } }
 
 .header-logo { display: flex; align-items: center; flex-shrink: 0; }
-.header-logo img { height: 2.5rem; width: auto; object-fit: contain; display: block; flex-shrink: 0; }
+.header-logo img { height: 2.5rem; width: auto; object-fit: contain; display: block; flex-shrink: 0; border-radius: 0.5rem; }
 @media(min-width:768px){ .header-logo img { height: 3rem; } }
 
 .header-nav { display: none; }

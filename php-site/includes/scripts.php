@@ -127,7 +127,7 @@ function renderCartDrawer() {
   }
   body.innerHTML = items.map(item => `
     <div class="flex gap-3 py-3 border-b border-[#F0E8DC]">
-      <img src="${item.product?.images?.[0] || 'assets/main_logo.png'}" alt="${item.product?.name || ''}" class="w-16 h-16 object-cover rounded-xl shrink-0" />
+      <img src="${item.product?.images?.[0] || 'assets/main.png'}" alt="${item.product?.name || ''}" class="w-16 h-16 object-cover rounded-xl shrink-0" />
       <div class="flex-1 min-w-0">
         <p class="font-semibold text-sm text-[#3E2723] line-clamp-2">${item.product?.name || 'Product'}</p>
         <p class="text-xs text-[#8A7768] mt-0.5">${item.variant ? 'Size: '+item.variant : ''}</p>
@@ -177,7 +177,7 @@ document.getElementById('search-input')?.addEventListener('input', (e) => {
     if (results.length === 0) { el.innerHTML = '<p class="text-sm text-[#8A7768] text-center py-4">No products found.</p>'; return; }
     el.innerHTML = results.slice(0, 6).map(p => `
       <a href="product.php?id=${p.id}" class="search-result-item" onclick="document.getElementById('search-overlay').classList.remove('open')">
-        <img src="${p.images?.[0] || 'assets/main_logo.png'}" alt="${p.name}" />
+        <img src="${p.images?.[0] || 'assets/main.png'}" alt="${p.name}" />
         <div>
           <p class="font-semibold text-sm text-[#3E2723]">${p.name}</p>
           <p class="text-xs text-[#8A7768]">${formatPrice(p.price)}</p>

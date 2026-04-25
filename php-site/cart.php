@@ -83,7 +83,7 @@ function renderCart() {
     <div class="rounded-[1.75rem] border-2 border-[#E6DCCB] bg-white p-4 sm:p-5 shadow-sm">
       <div class="flex gap-4">
         <a href="product.php?id=${item.product_id}" class="shrink-0">
-          <img src="${item.product?.images?.[0]||'assets/main_logo.png'}" alt="${item.product?.name||''}" class="h-24 w-24 rounded-xl object-cover sm:h-28 sm:w-28" />
+          <img src="${item.product?.images?.[0]||'assets/main.png'}" alt="${item.product?.name||''}" class="h-24 w-24 rounded-xl object-cover sm:h-28 sm:w-28" />
         </a>
         <div class="flex-1 min-w-0">
           <a href="product.php?id=${item.product_id}" class="font-heading text-lg font-bold text-[#3E2723] hover:text-[#D97736] transition-colors line-clamp-2">${item.product?.name||'Product'}</a>

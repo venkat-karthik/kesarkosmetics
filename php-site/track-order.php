@@ -107,7 +107,7 @@ onUserChange(async (user) => {
           <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             ${items.map(item => `
               <div class="rounded-2xl border border-[#E9E0D2] bg-[#FCFAF7] p-3">
-                <img src="${item.image||'assets/main_logo.png'}" alt="${item.product_name||''}" class="h-36 w-full rounded-xl object-cover" />
+                <img src="${item.image||'assets/main.png'}" alt="${item.product_name||''}" class="h-36 w-full rounded-xl object-cover" />
                 <p class="mt-3 font-medium text-[#3E2723] line-clamp-2 text-sm">${item.product_name||'Product'}</p>
                 <div class="mt-2 flex items-center justify-between gap-3 text-sm text-[#6B5B52]">
                   <span>Qty: ${item.quantity||1}</span>
