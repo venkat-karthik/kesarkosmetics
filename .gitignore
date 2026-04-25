@@ -1,0 +1,10 @@
+# ── The only deployable project is php-site/ ─────────────────────────────
+# Ignore the React frontend and Node backend entirely
+backend/
+frontend/
+node_modules/
+
+# Misc root-level files not needed in repo
+*.log
+.env
+.env.*
