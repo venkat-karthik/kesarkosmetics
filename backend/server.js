@@ -155,8 +155,9 @@ function normalizeOrderRow(row) {
 
 // In-memory store — orders persist in memory while server is running.
 // For full persistence, integrate Firebase Admin SDK.
-async function loadSupabaseState() {
-  // No-op: Supabase removed. Orders are stored in Firestore by the frontend.
+async function initializeBackendState() {
+  // Orders are stored in Firestore by the frontend.
+  // This function is a no-op kept for startup structure.
 }
 
 async function saveUserToStore(user) {
@@ -337,35 +338,23 @@ function formatMoney(value) {
 function buildTrackingSteps(status) {
   const activeStatus = String(status || "pending").toLowerCase();
   const stepKeys = ["pending", "shipped", "in_transit", "delivered"];
-
-  let normalizedTrackingStatus = activeStatus;
-  if (activeStatus === "confirmed" || activeStatus === "processing") {
-    normalizedTrackingStatus = "pending";
-  }
-  if (activeStatus === "out_for_delivery") {
-    normalizedTrackingStatus = "in_transit";
-  }
-  if (activeStatus === "cancelled") {
-    normalizedTrackingStatus = "pending";
-  }
-
-  const activeIndex = Math.max(stepKeys.indexOf(normalizedTrackingStatus), 0);
+  const activeIndex = Math.max(stepKeys.indexOf(activeStatus), 0);
   return [
-    { key: "pending", label: "Order Placed", completed: activeIndex >= 0, active: activeIndex === 0 },
-    { key: "shipped", label: "Shipped", completed: activeIndex >= 1, active: activeIndex === 1 },
-    { key: "in_transit", label: "In Transit", completed: activeIndex >= 2, active: activeIndex === 2 },
-    { key: "delivered", label: "Delivered", completed: activeIndex >= 3, active: activeIndex === 3 },
+    { key: "pending",    label: "Order Placed", completed: activeIndex >= 0, active: activeIndex === 0 },
+    { key: "shipped",    label: "Shipped",       completed: activeIndex >= 1, active: activeIndex === 1 },
+    { key: "in_transit", label: "In Transit",    completed: activeIndex >= 2, active: activeIndex === 2 },
+    { key: "delivered",  label: "Delivered",     completed: activeIndex >= 3, active: activeIndex === 3 },
   ];
 }
 
 function enrichOrderForTracking(order) {
   const items = Array.isArray(order.items)
     ? order.items.map((item) => {
-        const product = getProduct(item.product_id);
+        // If the item already has an image, use it; otherwise fallback to null
         return {
           ...item,
-          product_name: item.product_name || product?.name || "Product",
-          image: product?.images?.[0] || null,
+          product_name: item.product_name || "Product",
+          image: item.image || null,
         };
       })
     : [];
@@ -381,10 +370,7 @@ function normalizeStatus(status) {
   const value = String(status || "").trim().toLowerCase();
   const allowed = new Set([
     "pending",
-    "confirmed",
-    "processing",
     "shipped",
-    "out_for_delivery",
     "in_transit",
     "delivered",
     "cancelled",
@@ -804,7 +790,7 @@ app.use((err, req, res, next) => {
 
 async function startServer() {
   try {
-    await loadSupabaseState();
+    await initializeBackendState();
   } catch (err) {
     console.error("Failed to initialize backend state:", err);
   }
