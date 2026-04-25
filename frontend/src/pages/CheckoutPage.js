@@ -7,7 +7,7 @@ import { Input } from "../components/ui/input";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
 import { useCart } from "../contexts/CartContext";
-import { Truck, Lock, CreditCard, Wallet, Banknote, ReceiptText, Minus, Plus, Trash2, ChevronDown, Home, Building2, Package } from "lucide-react";
+import { Truck, Lock, CreditCard, Wallet, Banknote, Minus, Plus, Trash2, ChevronDown, Home, Building2, Package } from "lucide-react";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebaseClient";
 
@@ -138,6 +138,7 @@ const CheckoutPage = () => {
 				quantity: i.quantity,
 				price: i.product.price,
 				variant: i.variant || null,
+				image: i.product.images?.[0] || null,
 			})),
 			shipping_address: form,
 			payment_method: paymentMethod,
@@ -191,9 +192,7 @@ const CheckoutPage = () => {
 				throw new Error("Razorpay checkout is not available");
 			}
 
-			// Map payment method to Razorpay method hint
-			const methodMap = { online: "card", upi: "upi", bank: "netbanking" };
-
+			// Map payment method to Razorpay method hint (used in prefill)
 			await new Promise((resolve, reject) => {
 				const options = {
 					key: checkoutKey,

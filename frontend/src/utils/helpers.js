@@ -28,16 +28,40 @@ export function formatPrice(price) {
 // Shared tracking step builder — mirrors backend buildTrackingSteps
 export function buildTrackingSteps(status) {
 	const s = String(status || "pending").toLowerCase();
-	let normalized = s;
-	if (s === "confirmed" || s === "processing") normalized = "pending";
-	if (s === "out_for_delivery") normalized = "in_transit";
-	if (s === "cancelled") normalized = "pending";
 	const keys = ["pending", "shipped", "in_transit", "delivered"];
-	const activeIndex = Math.max(keys.indexOf(normalized), 0);
+	const activeIndex = Math.max(keys.indexOf(s), 0);
 	return [
 		{ key: "pending",    label: "Order Placed", completed: activeIndex >= 0, active: activeIndex === 0 },
 		{ key: "shipped",    label: "Shipped",       completed: activeIndex >= 1, active: activeIndex === 1 },
 		{ key: "in_transit", label: "In Transit",    completed: activeIndex >= 2, active: activeIndex === 2 },
 		{ key: "delivered",  label: "Delivered",     completed: activeIndex >= 3, active: activeIndex === 3 },
 	];
+}
+
+// Enrich order items with product images for orders that don't have them stored
+export async function enrichOrderItemsWithImages(items) {
+	if (!Array.isArray(items)) return [];
+	
+	const { getProduct } = await import("./productsDb");
+	
+	const enrichedItems = await Promise.all(
+		items.map(async (item) => {
+			// If item already has an image, return as is
+			if (item.image) return item;
+			
+			// Try to fetch the product to get its image
+			try {
+				const product = await getProduct(item.product_id);
+				return {
+					...item,
+					image: product?.images?.[0] || null,
+				};
+			} catch (error) {
+				console.error(`Failed to fetch product ${item.product_id}:`, error);
+				return item;
+			}
+		})
+	);
+	
+	return enrichedItems;
 }

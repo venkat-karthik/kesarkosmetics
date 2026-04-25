@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { LogOut, Package, TrendingUp, Users, RefreshCw, ChevronDown, ChevronUp, Plus, Trash2, Edit2, Database, AlertTriangle, Star } from "lucide-react";
 import { toast } from "sonner";
@@ -11,24 +11,20 @@ import { db } from "../firebaseClient";
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
 
 const STATUS_OPTIONS = [
-  { value: "pending",          label: "Order Placed" },
-  { value: "confirmed",        label: "Confirmed" },
-  { value: "processing",       label: "Processing" },
-  { value: "shipped",          label: "Shipped" },
-  { value: "out_for_delivery", label: "Out for Delivery" },
-  { value: "delivered",        label: "Delivered" },
-  { value: "cancelled",        label: "Cancelled" },
+  { value: "pending",    label: "Order Placed" },
+  { value: "shipped",    label: "Shipped" },
+  { value: "in_transit", label: "In Transit" },
+  { value: "delivered",  label: "Delivered" },
+  { value: "cancelled",  label: "Cancelled" },
 ];
 
 const STATUS_COLORS = {
-  pending:          "bg-yellow-100 text-yellow-800",
-  confirmed:        "bg-blue-100 text-blue-800",
-  processing:       "bg-purple-100 text-purple-800",
-  shipped:          "bg-indigo-100 text-indigo-800",
-  out_for_delivery: "bg-orange-100 text-orange-800",
-  delivered:        "bg-green-100 text-green-800",
-  cancelled:        "bg-red-100 text-red-800",
-  paid:             "bg-green-100 text-green-800",
+  pending:    "bg-yellow-100 text-yellow-800",
+  shipped:    "bg-indigo-100 text-indigo-800",
+  in_transit: "bg-blue-100 text-blue-800",
+  delivered:  "bg-green-100 text-green-800",
+  cancelled:  "bg-red-100 text-red-800",
+  paid:       "bg-green-100 text-green-800",
 };
 
 const isAdminUser = (email) =>
@@ -70,6 +66,7 @@ const AdminDashboard = () => {
   const [collectionDocs, setCollectionDocs] = useState([]);
   const [collectionLoading, setCollectionLoading] = useState(false);
   const [clearing, setClearing] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -81,6 +78,8 @@ const AdminDashboard = () => {
 
   const fetchAll = async () => {
     setLoading(true);
+    setRefreshing(true);
+    const wasRefreshing = refreshing;
     try {
       const [ordersSnap, usersSnap, blogsSnap, subsSnap] = await Promise.all([
         getDocs(query(collection(db, "orders"), orderBy("createdAt", "desc"))),
@@ -102,11 +101,13 @@ const AdminDashboard = () => {
         { name: "products",    count: null,             icon: "📦" },
         { name: "carts",       count: null,             icon: "🛍️" },
       ]);
+      if (wasRefreshing) toast.success("Dashboard refreshed");
     } catch (err) {
       console.error(err);
       toast.error("Failed to load data");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -136,7 +137,28 @@ const AdminDashboard = () => {
     orders.reduce((acc, o) => { const s = o.status || "pending"; acc[s] = (acc[s] || 0) + 1; return acc; }, {}),
   [orders]);
 
+  const [updatingStatus, setUpdatingStatus] = useState(null); // tracks _docId being updated
+  const headerRef = useRef(null);
+  const [headerHeight, setHeaderHeight] = useState(0);
+
+  // Keep tab-nav top in sync with the actual header height
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      setHeaderHeight(entry.contentRect.height);
+    });
+    ro.observe(el);
+    setHeaderHeight(el.getBoundingClientRect().height);
+    return () => ro.disconnect();
+  }, []);
+
   const handleUpdateStatus = async (order, newStatus) => {
+    if (newStatus === (order.status ?? "pending")) {
+      toast.error("Status is already set to this value");
+      return;
+    }
+    setUpdatingStatus(order._docId);
     try {
       await updateDoc(doc(db, "orders", order._docId), { status: newStatus });
       if (order.orderId) {
@@ -144,8 +166,12 @@ const AdminDashboard = () => {
       }
       setOrders(prev => prev.map(o => o._docId === order._docId ? { ...o, status: newStatus } : o));
       setStatusDrafts(prev => { const n = { ...prev }; delete n[order._docId]; return n; });
-      toast.success("Status updated");
-    } catch { toast.error("Failed to update status"); }
+      toast.success(`Status updated to "${STATUS_OPTIONS.find(s => s.value === newStatus)?.label ?? newStatus}"`);
+    } catch {
+      toast.error("Failed to update status");
+    } finally {
+      setUpdatingStatus(null);
+    }
   };
 
   const handleLogout = async () => { await logout(); navigate("/"); };
@@ -239,7 +265,7 @@ const AdminDashboard = () => {
 
   return (
     <div className="min-h-screen bg-[#FAF7F2]">
-      <header className="bg-[#D97736] text-white sticky top-0 z-40 shadow-lg">
+      <header ref={headerRef} className="bg-[#D97736] text-white sticky top-0 z-40 shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img src="/logo.png" alt="Kesar" className="h-9 w-auto object-contain" />
@@ -249,13 +275,23 @@ const AdminDashboard = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={fetchAll} className="p-2 bg-white/20 hover:bg-white/30 rounded-full transition-colors" title="Refresh"><RefreshCw className="w-4 h-4" /></button>
+            <button
+                onClick={fetchAll}
+                disabled={refreshing}
+                title="Refresh all data"
+                className="p-2 bg-white/20 hover:bg-white/30 disabled:opacity-60 rounded-full transition-colors"
+              >
+                <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
+              </button>
             <button onClick={handleLogout} className="flex items-center gap-2 bg-white/20 hover:bg-white/30 px-4 py-2 rounded-full transition-colors text-sm font-medium"><LogOut className="w-4 h-4" /> Logout</button>
           </div>
         </div>
       </header>
 
-      <div className="bg-white border-b border-[#E0D8C8] sticky top-[65px] z-30">
+      <div
+        className="bg-white border-b border-[#E0D8C8] sticky z-30"
+        style={{ top: headerHeight }}
+      >
         <div className="max-w-7xl mx-auto px-4 flex gap-1 overflow-x-auto [scrollbar-width:none]">
           {tabs.map(tab => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)}
@@ -281,7 +317,7 @@ const AdminDashboard = () => {
               ].map(card => (
                 <div key={card.label} className="bg-white rounded-2xl p-6 border border-[#E0D8C8] shadow-sm">
                   <p className="text-[#5D4037] text-xs font-semibold uppercase tracking-wide mb-2">{card.label}</p>
-                  <p className={`font-heading text-3xl font-bold ${card.color}`}>{card.value}</p>
+                  <p className={`font-mono tabular-nums text-3xl font-bold ${card.color}`}>{card.value}</p>
                 </div>
               ))}
             </div>
@@ -290,7 +326,7 @@ const AdminDashboard = () => {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {STATUS_OPTIONS.map(s => (
                   <div key={s.value} className="rounded-xl border border-[#E0D8C8] p-3 text-center">
-                    <p className="text-2xl font-bold text-[#D97736]">{statusCounts[s.value] || 0}</p>
+                    <p className="font-mono tabular-nums text-2xl font-bold text-[#D97736]">{statusCounts[s.value] || 0}</p>
                     <p className="text-xs text-[#5D4037] mt-1">{s.label}</p>
                   </div>
                 ))}
@@ -363,7 +399,33 @@ const AdminDashboard = () => {
                         <select value={statusDrafts[order._docId] ?? order.status ?? "pending"} onChange={e => setStatusDrafts(prev => ({ ...prev, [order._docId]: e.target.value }))} className="rounded-xl border border-[#D8D0C2] px-3 py-2 text-sm bg-white outline-none focus:border-[#D97736]">
                           {STATUS_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
                         </select>
-                        <button onClick={() => handleUpdateStatus(order, statusDrafts[order._docId] ?? order.status ?? "pending")} className="bg-[#D97736] hover:bg-[#C96626] text-white px-5 py-2 rounded-xl text-sm font-semibold transition-colors">Update Status</button>
+                        {(() => {
+                          const draft = statusDrafts[order._docId] ?? order.status ?? "pending";
+                          const unchanged = draft === (order.status ?? "pending");
+                          const busy = updatingStatus === order._docId;
+                          return (
+                            <button
+                              onClick={() => handleUpdateStatus(order, draft)}
+                              disabled={unchanged || busy}
+                              title={unchanged ? "Change the status first" : ""}
+                              className={`inline-flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold transition-all select-none
+                                ${unchanged
+                                  ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                                  : busy
+                                    ? "bg-[#D97736]/70 text-white cursor-wait"
+                                    : "bg-[#D97736] hover:bg-[#C96626] text-white"
+                                }`}
+                            >
+                              {busy && (
+                                <svg className="animate-spin h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                                </svg>
+                              )}
+                              {busy ? "Updating…" : unchanged ? "No Change" : "Update Status"}
+                            </button>
+                          );
+                        })()}
                         <button onClick={() => handleDeleteDoc("orders", order._docId)} className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-colors flex items-center gap-1"><Trash2 className="w-3.5 h-3.5" /> Delete</button>
                       </div>
                     </div>
@@ -380,7 +442,7 @@ const AdminDashboard = () => {
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {[{ label: "Today", value: revenue.day }, { label: "This Week", value: revenue.week }, { label: "This Month", value: revenue.month }, { label: "All Time", value: revenue.total }].map(r => (
                 <div key={r.label} className="bg-white rounded-2xl p-6 border border-[#E0D8C8] shadow-sm flex items-center justify-between">
-                  <div><p className="text-xs font-semibold uppercase tracking-wide text-[#5D4037] mb-1">{r.label}</p><p className="font-heading text-3xl font-bold text-[#D97736]">{formatPrice(r.value)}</p></div>
+                  <div><p className="text-xs font-semibold uppercase tracking-wide text-[#5D4037] mb-1">{r.label}</p><p className="font-mono tabular-nums text-3xl font-bold text-[#D97736]">{formatPrice(r.value)}</p></div>
                   <TrendingUp className="w-10 h-10 text-[#D97736] opacity-20" />
                 </div>
               ))}
@@ -523,37 +585,134 @@ const AdminDashboard = () => {
         {/* BLOGS */}
         {activeTab === "blogs" && (
           <div className="space-y-6">
+            {/* ── Add / Edit form ── */}
             <div className="bg-white rounded-2xl p-6 border border-[#E0D8C8]">
               <h2 className="font-heading text-xl font-semibold text-[#3E2723] mb-5">{editingBlog ? "Edit Blog" : "Add New Blog"}</h2>
               <form onSubmit={handleSaveBlog} className="space-y-4">
                 <div className="grid sm:grid-cols-2 gap-4">
-                  <div><label className="block text-sm font-medium text-[#3E2723] mb-1">Title *</label><input value={blogForm.title} onChange={e => setBlogForm(p => ({ ...p, title: e.target.value }))} placeholder="Blog title" required className="w-full px-4 py-2.5 border-2 border-[#E0D8C8] rounded-xl text-sm focus:border-[#D97736] focus:outline-none" /></div>
-                  <div><label className="block text-sm font-medium text-[#3E2723] mb-1">Category</label><select value={blogForm.category} onChange={e => setBlogForm(p => ({ ...p, category: e.target.value }))} className="w-full px-4 py-2.5 border-2 border-[#E0D8C8] rounded-xl text-sm focus:border-[#D97736] focus:outline-none bg-white">{["Beauty", "Skincare", "Wellness", "Health", "Nutrition", "Craftsmanship", "Cooking"].map(c => <option key={c}>{c}</option>)}</select></div>
+                  <div>
+                    <label className="block text-sm font-medium text-[#3E2723] mb-1">Title *</label>
+                    <input value={blogForm.title} onChange={e => setBlogForm(p => ({ ...p, title: e.target.value }))} placeholder="Blog title" required className="w-full px-4 py-2.5 border-2 border-[#E0D8C8] rounded-xl text-sm focus:border-[#D97736] focus:outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-[#3E2723] mb-1">Category</label>
+                    <select value={blogForm.category} onChange={e => setBlogForm(p => ({ ...p, category: e.target.value }))} className="w-full px-4 py-2.5 border-2 border-[#E0D8C8] rounded-xl text-sm focus:border-[#D97736] focus:outline-none bg-white">
+                      {["Beauty", "Skincare", "Wellness", "Health", "Nutrition", "Craftsmanship", "Cooking"].map(c => <option key={c}>{c}</option>)}
+                    </select>
+                  </div>
                 </div>
                 <div className="grid sm:grid-cols-2 gap-4">
-                  <div><label className="block text-sm font-medium text-[#3E2723] mb-1">Emoji</label><input value={blogForm.emoji} onChange={e => setBlogForm(p => ({ ...p, emoji: e.target.value }))} placeholder="✨" maxLength={2} className="w-full px-4 py-2.5 border-2 border-[#E0D8C8] rounded-xl text-sm focus:border-[#D97736] focus:outline-none" /></div>
-                  <div><label className="block text-sm font-medium text-[#3E2723] mb-1">Short Excerpt</label><input value={blogForm.excerpt} onChange={e => setBlogForm(p => ({ ...p, excerpt: e.target.value }))} placeholder="Brief description" className="w-full px-4 py-2.5 border-2 border-[#E0D8C8] rounded-xl text-sm focus:border-[#D97736] focus:outline-none" /></div>
+                  <div>
+                    <label className="block text-sm font-medium text-[#3E2723] mb-1">Emoji</label>
+                    <input value={blogForm.emoji} onChange={e => setBlogForm(p => ({ ...p, emoji: e.target.value }))} placeholder="✨" maxLength={2} className="w-full px-4 py-2.5 border-2 border-[#E0D8C8] rounded-xl text-sm focus:border-[#D97736] focus:outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-[#3E2723] mb-1">Short Excerpt</label>
+                    <input value={blogForm.excerpt} onChange={e => setBlogForm(p => ({ ...p, excerpt: e.target.value }))} placeholder="Brief description shown on the blog listing" className="w-full px-4 py-2.5 border-2 border-[#E0D8C8] rounded-xl text-sm focus:border-[#D97736] focus:outline-none" />
+                  </div>
                 </div>
-                <div><label className="block text-sm font-medium text-[#3E2723] mb-1">Content *</label><textarea value={blogForm.content} onChange={e => setBlogForm(p => ({ ...p, content: e.target.value }))} placeholder="Write the full blog content here..." rows={8} required className="w-full px-4 py-3 border-2 border-[#E0D8C8] rounded-xl text-sm focus:border-[#D97736] focus:outline-none resize-none" /></div>
+                <div>
+                  <label className="block text-sm font-medium text-[#3E2723] mb-1">Content *</label>
+                  <textarea value={blogForm.content} onChange={e => setBlogForm(p => ({ ...p, content: e.target.value }))} placeholder="Write the full blog content here…" rows={8} required className="w-full px-4 py-3 border-2 border-[#E0D8C8] rounded-xl text-sm focus:border-[#D97736] focus:outline-none resize-none" />
+                </div>
                 <div className="flex gap-3">
-                  <button type="submit" className="bg-[#D97736] hover:bg-[#C96626] text-white px-6 py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center gap-2"><Plus className="w-4 h-4" /> {editingBlog ? "Update Blog" : "Publish Blog"}</button>
-                  {editingBlog && <button type="button" onClick={() => { setEditingBlog(null); setBlogForm({ title: "", excerpt: "", category: "Beauty", content: "", emoji: "✨" }); }} className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-6 py-2.5 rounded-xl text-sm font-semibold transition-colors">Cancel</button>}
+                  <button type="submit" className="bg-[#D97736] hover:bg-[#C96626] text-white px-6 py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center gap-2">
+                    <Plus className="w-4 h-4" /> {editingBlog ? "Update Blog" : "Publish Blog"}
+                  </button>
+                  {editingBlog && (
+                    <button type="button" onClick={() => { setEditingBlog(null); setBlogForm({ title: "", excerpt: "", category: "Beauty", content: "", emoji: "✨" }); }} className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-6 py-2.5 rounded-xl text-sm font-semibold transition-colors">
+                      Cancel
+                    </button>
+                  )}
                 </div>
               </form>
             </div>
+
+            {/* ── Published blogs (Firestore) ── */}
             <div className="bg-white rounded-2xl p-6 border border-[#E0D8C8]">
-              <h3 className="font-semibold text-[#3E2723] mb-4">Published Blogs ({blogs.length})</h3>
-              {blogs.length === 0 ? <p className="text-[#5D4037] text-sm text-center py-6">No blogs yet.</p> : (
-                <div className="space-y-3">{blogs.map(blog => (
-                  <div key={blog._docId} className="flex items-start justify-between gap-4 rounded-xl border border-[#E0D8C8] p-4 hover:bg-[#FAF7F2]">
-                    <div className="flex items-start gap-3 min-w-0"><span className="text-2xl shrink-0">{blog.emoji || "✨"}</span><div className="min-w-0"><p className="font-semibold text-[#3E2723] text-sm line-clamp-1">{blog.title}</p><p className="text-xs text-[#5D4037] mt-0.5">{blog.category} · {blog.date} · {blog.readTime}</p></div></div>
-                    <div className="flex gap-2 shrink-0">
-                      <button onClick={() => { setEditingBlog(blog); setBlogForm({ title: blog.title, excerpt: blog.excerpt || "", category: blog.category, content: blog.content, emoji: blog.emoji || "✨" }); }} className="p-2 bg-[#EFE9DF] text-[#D97736] rounded-lg hover:bg-[#D97736] hover:text-white transition-colors"><Edit2 className="w-4 h-4" /></button>
-                      <button onClick={() => handleDeleteBlog(blog._docId)} className="p-2 bg-[#EFE9DF] text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-colors"><Trash2 className="w-4 h-4" /></button>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-[#3E2723]">
+                  Published Blogs — Firestore ({blogs.length})
+                </h3>
+                <p className="text-xs text-[#8A7768]">These are blogs you've added via this panel. Edit or delete them here.</p>
+              </div>
+              {blogs.length === 0 ? (
+                <div className="text-center py-10 text-[#8A7768]">
+                  <p className="text-3xl mb-3">📝</p>
+                  <p className="text-sm font-medium text-[#3E2723]">No blogs published yet.</p>
+                  <p className="text-xs mt-1">Use the form above to publish your first blog. It will appear on the Blogs page immediately.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {blogs.map(blog => (
+                    <div key={blog._docId} className="flex items-start justify-between gap-4 rounded-xl border border-[#E0D8C8] p-4 hover:bg-[#FAF7F2] transition-colors">
+                      <div className="flex items-start gap-3 min-w-0">
+                        <span className="text-2xl shrink-0">{blog.emoji || "✨"}</span>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-[#3E2723] text-sm line-clamp-1">{blog.title}</p>
+                          <p className="text-xs text-[#5D4037] mt-0.5">{blog.category} · {blog.date} · {blog.readTime}</p>
+                          {blog.excerpt && <p className="text-xs text-[#8A7768] mt-1 line-clamp-1">{blog.excerpt}</p>}
+                        </div>
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <button
+                          onClick={() => {
+                            setEditingBlog(blog);
+                            setBlogForm({
+                              title:    blog.title    || "",
+                              excerpt:  blog.excerpt  || "",
+                              category: blog.category || "Beauty",
+                              content:  typeof blog.content === "string" ? blog.content : "",
+                              emoji:    blog.emoji    || "✨",
+                            });
+                            window.scrollTo({ top: 0, behavior: "smooth" });
+                          }}
+                          className="p-2 bg-[#EFE9DF] text-[#D97736] rounded-lg hover:bg-[#D97736] hover:text-white transition-colors"
+                          title="Edit"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteBlog(blog._docId)}
+                          className="p-2 bg-[#EFE9DF] text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-colors"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}</div>
+                  ))}
+                </div>
               )}
+            </div>
+
+            {/* ── Static / hardcoded blogs (read-only reference) ── */}
+            <div className="bg-white rounded-2xl p-6 border border-[#E0D8C8]">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-[#3E2723]">Built-in Blogs (7)</h3>
+                <span className="text-xs bg-[#F5EEE6] text-[#8A7768] px-3 py-1 rounded-full">Read-only · hardcoded in source</span>
+              </div>
+              <p className="text-xs text-[#8A7768] mb-4">These blogs are always visible on the Blogs page. To remove or edit them, update the <code className="bg-[#F5EEE6] px-1 rounded">blogPosts</code> array in <code className="bg-[#F5EEE6] px-1 rounded">BlogsPage.js</code>.</p>
+              <div className="space-y-2">
+                {[
+                  { emoji: "🫙", title: "The Power of A2 Ghee: Ancient Wisdom Meets Modern Health",          category: "Health",        date: "March 15, 2025" },
+                  { emoji: "🌸", title: "Saffron Cream: A Natural Secret to Radiant, Glowing Skin",          category: "Beauty",        date: "April 10, 2025" },
+                  { emoji: "🌿", title: "Turmeric: Nature's Golden Healer",                                   category: "Wellness",      date: "March 5, 2025" },
+                  { emoji: "✨", title: "The Art of Handcrafted Natural Products",                            category: "Craftsmanship", date: "February 28, 2025" },
+                  { emoji: "🍯", title: "Jaggery vs Sugar: Why Your Body Prefers the Natural Choice",        category: "Nutrition",     date: "April 5, 2025" },
+                  { emoji: "🫒", title: "Wood Pressed Oils: The Cold-Pressed Difference",                    category: "Cooking",       date: "March 25, 2025" },
+                  { emoji: "🥜", title: "Peanut Butter the Natural Way: No Additives, Pure Goodness",        category: "Nutrition",     date: "March 18, 2025" },
+                ].map((b, i) => (
+                  <div key={i} className="flex items-center gap-3 rounded-xl border border-[#E9E0D2] bg-[#FCFAF7] px-4 py-3">
+                    <span className="text-xl shrink-0">{b.emoji}</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-[#3E2723] line-clamp-1">{b.title}</p>
+                      <p className="text-xs text-[#8A7768]">{b.category} · {b.date}</p>
+                    </div>
+                    <span className="text-xs text-[#8A7768] shrink-0">Built-in</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}
@@ -573,7 +732,7 @@ const AdminDashboard = () => {
                   onClick={() => handleViewCollection(col.name)}>
                   <div className="text-3xl mb-2">{col.icon}</div>
                   <p className="font-semibold text-[#3E2723] text-sm capitalize">{col.name}</p>
-                  <p className="text-2xl font-bold text-[#D97736] mt-1">{col.count ?? "—"}</p>
+                  <p className="font-mono tabular-nums text-2xl font-bold text-[#D97736] mt-1">{col.count ?? "—"}</p>
                   <p className="text-xs text-[#8A7768]">documents</p>
                   {col.count > 0 && (
                     <button onClick={e => { e.stopPropagation(); handleClearCollection(col.name); }} disabled={clearing === col.name}

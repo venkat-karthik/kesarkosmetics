@@ -1,13 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
 import { Facebook, Instagram, Youtube, ChevronDown, X } from "lucide-react";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth, db } from "../firebaseClient";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { ADMIN_EMAILS } from "../contexts/AuthContext";
-
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
 
 const policies = {
 	"refund-policy": {
@@ -54,12 +51,6 @@ const policies = {
 		],
 	},
 };
-
-// Admin credentials — change these to whatever you want
-const ADMIN_CREDS = [
-  { email: "gsrinadh55@gmail.com",      password: "Admin@1234" },
-  { email: "kesarkosmetics@gmail.com",  password: "Admin@1234" },
-];
 
 // Admin login modal — uses Firebase auth
 const AdminLoginModal = ({ onClose }) => {

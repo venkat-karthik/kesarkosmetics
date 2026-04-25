@@ -123,12 +123,12 @@ const CartPage = () => {
 											<div className="min-w-0">
 												<Link
 													to={`/product/${item.product.id}`}
-													className="font-heading text-2xl font-bold text-[#3E2723] hover:text-[#D97736] transition-colors line-clamp-2"
+													className="font-heading text-lg font-bold text-[#3E2723] hover:text-[#D97736] transition-colors line-clamp-2"
 												>
 													{item.product.name}
 												</Link>
-												<p className="mt-1 text-2xl text-[#3E2723]">{formatPrice(item.product.price)}</p>
-												<p className="mt-2 text-xl text-[#5D4037]">
+												<p className="mt-1 text-base font-semibold text-[#3E2723]">{formatPrice(item.product.price)}</p>
+												<p className="mt-1 text-sm text-[#5D4037]">
 													{item.variant ? `Size: ${item.variant}` : `Size: ${item.product.category || "Standard"}`}
 												</p>
 											</div>
@@ -152,8 +152,8 @@ const CartPage = () => {
 											</div>
 
 											<div className="text-left lg:text-right">
-												<p className="text-4xl font-medium text-[#111111]">{formatPrice(item.product.price * item.quantity)}</p>
-												<p className="mt-1 text-xl text-[#5D4037]">{formatPrice(item.product.price)} each</p>
+												<p className="text-xl font-bold text-[#111111]">{formatPrice(item.product.price * item.quantity)}</p>
+												<p className="mt-1 text-sm text-[#5D4037]">{formatPrice(item.product.price)} each</p>
 											</div>
 
 											<div className="flex items-center justify-center lg:justify-end">

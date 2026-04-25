@@ -5,7 +5,7 @@ import axios from "axios";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "../firebaseClient";
 import { toast } from "sonner";
-import { formatPrice } from "../utils/helpers";
+import { formatPrice, buildTrackingSteps, enrichOrderItemsWithImages } from "../utils/helpers";
 import { useAuth } from "../contexts/AuthContext";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
@@ -63,7 +63,7 @@ const TrackOrderPage = () => {
 						product_name: i.product_name,
 						quantity: i.quantity,
 						price: i.price,
-						image: null,
+						image: i.image || null,
 					})),
 					shipping_address: o.shippingAddress || {},
 					payment_method: o.paymentMethod || "cod",
@@ -77,8 +77,16 @@ const TrackOrderPage = () => {
 				// Merge: prefer Firestore, add backend orders not already in Firestore
 				const firestoreIds = new Set(normalizedFirestore.map(o => o.id));
 				const mergedBackend = backendOrders.filter(o => !firestoreIds.has(o.id));
-				const allOrders = [...normalizedFirestore, ...mergedBackend]
+				let allOrders = [...normalizedFirestore, ...mergedBackend]
 					.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+				// Enrich orders with product images for items that don't have them
+				allOrders = await Promise.all(
+					allOrders.map(async (order) => ({
+						...order,
+						items: await enrichOrderItemsWithImages(order.items),
+					}))
+				);
 
 				setOrders(allOrders);
 			} catch (err) {
@@ -104,8 +112,7 @@ const TrackOrderPage = () => {
 
 	const getTrackLink = (order) => {
 		const contact = order.contact_email || order.contact_phone || order.contact_registered_email || order.contact_registered_phone || user?.email || user?.phone || "";
-		const productId = order.items?.[0]?.product_id || "";
-		return `/track-order/status/${order.id}?contact=${encodeURIComponent(contact)}&product=${encodeURIComponent(productId)}`;
+		return `/track-order/status/${order.id}?contact=${encodeURIComponent(contact)}`;
 	};
 
 	return (
@@ -207,14 +214,14 @@ const TrackOrderPage = () => {
 								type="text"
 								value={searchValue}
 								onChange={(event) => setSearchValue(event.target.value)}
-								placeholder="Example: 6ae3... or user@email.com or +91 98xxxxxx"
+								placeholder="Order ID, email, or phone number"
 								required
-								className="h-12 w-full rounded-xl border border-[#D8D0C2] px-4 text-[#2D2D2C] placeholder:text-[#958A7D] outline-none focus:border-[#D97736]"
+								className="h-12 w-full rounded-xl border-2 border-[#E0D8C8] px-4 text-[#2D2D2C] placeholder:text-[#B0A090] outline-none focus:border-[#D97736] transition-colors bg-[#FDFAF7]"
 							/>
 						</div>
 						<button
 							type="submit"
-							className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#111111] px-5 font-semibold text-white transition-colors hover:bg-[#2A2A2A] sm:w-auto"
+							className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#D97736] to-[#E8620A] hover:from-[#C96626] hover:to-[#D97736] px-6 font-bold text-white transition-all hover:shadow-lg hover:-translate-y-0.5 sm:w-auto"
 						>
 							<Search className="h-4 w-4" />
 							Track Order

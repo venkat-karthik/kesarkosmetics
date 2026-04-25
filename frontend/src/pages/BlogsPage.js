@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Calendar, User, ArrowRight, X, Clock } from "lucide-react";
+import { Calendar, User, ArrowRight, X, Clock, BookOpen, Sparkles, Leaf } from "lucide-react";
 import { toast } from "sonner";
 import Footer from "../components/Footer";
 import { collection, getDocs, query, orderBy, addDoc, where, serverTimestamp } from "firebase/firestore";
@@ -147,6 +147,16 @@ const blogPosts = [
 	},
 ];
 
+const CATEGORY_COLOURS = {
+	Health:        "bg-emerald-100 text-emerald-700",
+	Beauty:        "bg-pink-100 text-pink-700",
+	Wellness:      "bg-amber-100 text-amber-700",
+	Craftsmanship: "bg-purple-100 text-purple-700",
+	Nutrition:     "bg-orange-100 text-orange-700",
+	Cooking:       "bg-yellow-100 text-yellow-700",
+};
+const catClass = (cat) => CATEGORY_COLOURS[cat] || "bg-[#F7F1E8] text-[#8B2C6D]";
+
 const BlogModal = ({ post, onClose }) => {
 	if (!post) return null;
 	return (
@@ -154,35 +164,39 @@ const BlogModal = ({ post, onClose }) => {
 			<div className="fixed inset-0 bg-black/60 z-50 backdrop-blur-sm" onClick={onClose} />
 			<div className="fixed inset-0 z-50 flex items-center justify-center p-4">
 				<div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-					<div className="sticky top-0 bg-white flex items-center justify-between p-6 border-b border-[#E0D8C8] rounded-t-3xl z-10">
-						<span className="inline-block bg-[#D97736] text-white text-xs font-bold px-3 py-1 rounded-full">{post.category}</span>
-						<button onClick={onClose} className="p-2 hover:bg-[#EFE9DF] rounded-full transition-colors">
+					<div className="sticky top-0 bg-white flex items-center justify-between px-6 py-4 border-b border-[#E9E0D2] rounded-t-3xl z-10">
+						<span className={`text-xs font-bold px-3 py-1 rounded-full ${catClass(post.category)}`}>{post.category}</span>
+						<button onClick={onClose} className="p-2 hover:bg-[#F5EEE6] rounded-full transition-colors" aria-label="Close">
 							<X className="w-5 h-5 text-[#3E2723]" />
 						</button>
 					</div>
-
 					<div className="p-6 sm:p-8">
-						<div className="text-5xl mb-4 text-center">{post.emoji}</div>
-						<h2 className="font-heading text-2xl sm:text-3xl font-bold text-[#3E2723] mb-3 leading-snug">{post.title}</h2>
-						<div className="flex items-center gap-4 text-xs text-[#6B5B52] mb-6 pb-4 border-b border-[#E0D8C8]">
-							<span className="flex items-center gap-1"><User className="w-3.5 h-3.5" />{post.author}</span>
-							<span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" />{post.date}</span>
-							<span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" />{post.readTime}</span>
+						<div className="w-full h-32 rounded-2xl bg-gradient-to-br from-[#FFF3E0] to-[#FFE0B2] flex items-center justify-center text-7xl mb-6">
+							{post.emoji}
 						</div>
-
+						<h2 className="font-heading text-2xl sm:text-3xl text-[#3E2723] mb-3 leading-snug">{post.title}</h2>
+						<div className="flex flex-wrap items-center gap-4 text-xs text-[#8A7768] mb-6 pb-5 border-b border-[#E9E0D2]">
+							<span className="flex items-center gap-1.5"><User className="w-3.5 h-3.5" />{post.author}</span>
+							<span className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" />{post.date}</span>
+							<span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" />{post.readTime}</span>
+						</div>
 						<div className="space-y-4 text-[#5D4037]">
 							{post.content.map((block, i) => {
-								if (block.type === "h3") return <h3 key={i} className="font-bold text-[#3E2723] text-lg mt-6 mb-2">{block.text}</h3>;
+								if (block.type === "h3") return (
+									<h3 key={i} className="font-heading text-xl font-semibold text-[#3E2723] mt-7 mb-2 flex items-center gap-2">
+										<span className="w-1 h-5 rounded-full bg-[#D97736] shrink-0" />{block.text}
+									</h3>
+								);
 								if (block.type === "list") return (
-									<ul key={i} className="space-y-2 pl-2">
+									<ul key={i} className="space-y-2.5 pl-1">
 										{block.items.map((item, j) => (
-											<li key={j} className="flex items-start gap-2 text-sm leading-relaxed">
-												<span className="text-[#D97736] mt-1 shrink-0">✦</span>{item}
+											<li key={j} className="flex items-start gap-3 text-sm leading-relaxed">
+												<span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-[#D97736] shrink-0" />{item}
 											</li>
 										))}
 									</ul>
 								);
-								return <p key={i} className="text-sm leading-relaxed">{block.text}</p>;
+								return <p key={i} className="text-sm sm:text-base leading-relaxed">{block.text}</p>;
 							})}
 						</div>
 					</div>
@@ -194,6 +208,7 @@ const BlogModal = ({ post, onClose }) => {
 
 const BlogsPage = () => {
 	const [openPost, setOpenPost] = useState(null);
+	const [activeCategory, setActiveCategory] = useState("All");
 	const [dynamicPosts, setDynamicPosts] = useState([]);
 	const [subEmail, setSubEmail] = useState("");
 	const [subLoading, setSubLoading] = useState(false);
@@ -203,7 +218,6 @@ const BlogsPage = () => {
 		if (!subEmail.trim()) return;
 		setSubLoading(true);
 		try {
-			// Check if already subscribed
 			const existing = await getDocs(query(collection(db, "subscribers"), where("email", "==", subEmail.trim().toLowerCase())));
 			if (!existing.empty) {
 				toast.success("You're already subscribed!");
@@ -217,7 +231,7 @@ const BlogsPage = () => {
 			});
 			toast.success("Subscribed! Welcome to the Kesar family 🌸");
 			setSubEmail("");
-		} catch (err) {
+		} catch {
 			toast.error("Could not subscribe. Please try again.");
 		} finally {
 			setSubLoading(false);
@@ -246,105 +260,193 @@ const BlogsPage = () => {
 	}, []);
 
 	const allPosts = [...dynamicPosts, ...blogPosts];
+	const categories = ["All", ...Array.from(new Set(allPosts.map(p => p.category)))];
+	const filteredPosts = activeCategory === "All" ? allPosts : allPosts.filter(p => p.category === activeCategory);
+	const featuredPost = allPosts.find(p => p.featured);
 
 	return (
 		<div className="min-h-screen bg-[#FAF7F2]">
 			{openPost && <BlogModal post={openPost} onClose={() => setOpenPost(null)} />}
 
-			{/* Hero */}
-			<section className="py-16 sm:py-24 md:py-32 bg-gradient-to-b from-[#3E2723] to-[#5D4037] text-white">
-				<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-					<h1 className="font-heading text-4xl sm:text-5xl md:text-6xl font-bold mb-6">Kesar Kosmetics Blog</h1>
-					<p className="text-lg sm:text-xl text-gray-200 leading-relaxed">
-						Insights, tips, and stories about natural beauty, wellness, and handcrafted excellence
+			{/* ── Hero ─────────────────────────────────────── */}
+			<section className="relative overflow-hidden bg-gradient-to-br from-[#2D0F00] via-[#4A1A00] to-[#3E2723] text-white">
+				<div className="absolute -top-32 -right-32 w-[500px] h-[500px] rounded-full bg-[#F5A800]/10 blur-3xl pointer-events-none" />
+				<div className="absolute -bottom-20 -left-20 w-[350px] h-[350px] rounded-full bg-[#E8620A]/10 blur-3xl pointer-events-none" />
+				<div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-20 sm:py-28 text-center">
+					<p className="inline-block text-xs font-bold uppercase tracking-[0.3em] text-[#F5A800] bg-[#F5A800]/10 border border-[#F5A800]/25 rounded-full px-5 py-2 mb-6">
+						Knowledge & Wellness
 					</p>
+					<h1 className="font-heading text-4xl sm:text-5xl md:text-6xl font-bold leading-tight mb-5">
+						Kesar Kosmetics <span className="text-[#F5A800]">Journal</span>
+					</h1>
+					<p className="text-base sm:text-lg text-white/70 leading-relaxed max-w-2xl mx-auto">
+						Insights, rituals, and stories about natural beauty, Kashmiri saffron, and the art of living well.
+					</p>
+					<div className="mt-8 flex flex-wrap items-center justify-center gap-3 text-sm text-white/60">
+						<span className="flex items-center gap-1.5"><BookOpen className="w-4 h-4 text-[#F5A800]" />{allPosts.length} articles</span>
+						<span className="w-1 h-1 rounded-full bg-white/30" />
+						<span className="flex items-center gap-1.5"><Leaf className="w-4 h-4 text-[#F5A800]" />Natural living</span>
+						<span className="w-1 h-1 rounded-full bg-white/30" />
+						<span className="flex items-center gap-1.5"><Sparkles className="w-4 h-4 text-[#F5A800]" />Beauty & wellness</span>
+					</div>
 				</div>
 			</section>
 
-			{/* Featured Post */}
-			{allPosts.filter(p => p.featured).map(post => (
-				<section key={post.id} className="py-12 sm:py-16 bg-white border-b border-[#E0D8C8]">
-					<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-						<p className="text-xs font-bold uppercase tracking-widest text-[#D97736] mb-4">Featured Article</p>
-						<div className="bg-gradient-to-br from-[#FFF8F0] to-[#FAF0E6] rounded-3xl border border-[#E6DCCB] p-8 sm:p-10 shadow-sm">
-							<div className="text-6xl mb-5 text-center">{post.emoji}</div>
-							<span className="inline-block bg-[#D97736] text-white text-xs font-bold px-3 py-1 rounded-full mb-4">{post.category}</span>
-							<h2 className="font-heading text-2xl sm:text-3xl font-bold text-[#3E2723] mb-3 leading-snug">{post.title}</h2>
-							<p className="text-[#5D4037] mb-6 leading-relaxed">{post.excerpt}</p>
-							<div className="flex items-center justify-between flex-wrap gap-4">
-								<div className="flex items-center gap-4 text-xs text-[#6B5B52]">
-									<span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" />{post.date}</span>
-									<span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" />{post.readTime}</span>
+			{/* ── Featured Post ─────────────────────────────── */}
+			{featuredPost && (
+				<section className="py-12 sm:py-16 bg-white border-b border-[#E9E0D2]">
+					<div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+						<p className="text-xs font-bold uppercase tracking-[0.28em] text-[#D97736] mb-5">Featured Article</p>
+						<div
+							className="group cursor-pointer rounded-3xl border-2 border-[#E6DCCB] bg-gradient-to-br from-[#FFF8F0] to-[#FAF0E6] overflow-hidden shadow-sm hover:shadow-xl transition-all hover:-translate-y-1"
+							onClick={() => setOpenPost(featuredPost)}
+						>
+							<div className="grid grid-cols-1 lg:grid-cols-[280px_1fr]">
+								<div className="h-48 lg:h-auto bg-gradient-to-br from-[#FFE0B2] to-[#FFCC80] flex items-center justify-center text-8xl">
+									{featuredPost.emoji}
 								</div>
-								<button
-									onClick={() => setOpenPost(post)}
-									className="bg-[#D97736] hover:bg-[#C96626] text-white font-semibold px-6 py-2.5 rounded-full transition-all flex items-center gap-2 text-sm"
-								>
-									Read Full Article <ArrowRight className="w-4 h-4" />
-								</button>
+								<div className="p-7 sm:p-10 flex flex-col justify-center">
+									<div className="flex flex-wrap items-center gap-3 mb-4">
+										<span className={`text-xs font-bold px-3 py-1 rounded-full ${catClass(featuredPost.category)}`}>{featuredPost.category}</span>
+										<span className="text-xs text-[#8A7768] flex items-center gap-1"><Clock className="w-3 h-3" />{featuredPost.readTime}</span>
+									</div>
+									<h2 className="font-heading text-2xl sm:text-3xl text-[#3E2723] leading-snug mb-3 group-hover:text-[#D97736] transition-colors">
+										{featuredPost.title}
+									</h2>
+									<p className="text-[#6B5B52] text-sm sm:text-base leading-relaxed mb-6 line-clamp-3">{featuredPost.excerpt}</p>
+									<div className="flex items-center justify-between flex-wrap gap-4">
+										<div className="flex items-center gap-3 text-xs text-[#8A7768]">
+											<span className="flex items-center gap-1.5"><User className="w-3.5 h-3.5" />{featuredPost.author}</span>
+											<span className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" />{featuredPost.date}</span>
+										</div>
+										<span className="inline-flex items-center gap-2 bg-[#D97736] hover:bg-[#C96626] text-white text-sm font-semibold px-5 py-2.5 rounded-full transition-colors">
+											Read Article <ArrowRight className="w-4 h-4" />
+										</span>
+									</div>
+								</div>
 							</div>
 						</div>
 					</div>
 				</section>
-			))}
+			)}
 
-			{/* Blog Grid */}
-			<section className="py-16 sm:py-20 md:py-24">
+			{/* ── Category Filter + Grid ────────────────────── */}
+			<section className="py-14 sm:py-20">
 				<div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-					<h2 className="font-heading text-2xl sm:text-3xl font-bold text-[#3E2723] mb-10">All Articles</h2>
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-10">
-						{allPosts.map((post) => (
+					<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-5 mb-10">
+						<div>
+							<p className="text-xs font-bold uppercase tracking-[0.28em] text-[#D97736] mb-1">All Articles</p>
+							<h2 className="font-heading text-3xl text-[#3E2723]">
+								{activeCategory === "All" ? "Everything we've written" : activeCategory}
+							</h2>
+						</div>
+						<div className="flex flex-wrap gap-2">
+							{categories.map(cat => (
+								<button
+									key={cat}
+									onClick={() => setActiveCategory(cat)}
+									className={`text-xs font-semibold px-4 py-2 rounded-full border transition-all ${
+										activeCategory === cat
+											? "bg-[#D97736] border-[#D97736] text-white shadow-sm"
+											: "bg-white border-[#E9E0D2] text-[#6B5B52] hover:border-[#D97736] hover:text-[#D97736]"
+									}`}
+								>
+									{cat}
+								</button>
+							))}
+						</div>
+					</div>
+
+					<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
+						{filteredPosts.map((post) => (
 							<div
 								key={post.id}
-								className="bg-white rounded-2xl overflow-hidden border border-[#E0D8C8] hover:shadow-lg transition-all hover:-translate-y-1 cursor-pointer"
+								className="group bg-white rounded-2xl overflow-hidden border border-[#E9E0D2] hover:shadow-xl transition-all hover:-translate-y-1 cursor-pointer flex flex-col"
 								onClick={() => setOpenPost(post)}
 							>
-								<div className="w-full h-40 sm:h-48 bg-gradient-to-br from-[#F5E6D3] to-[#EDD5B3] flex items-center justify-center text-7xl">
+								<div className="w-full h-36 bg-gradient-to-br from-[#FFF3E0] to-[#FFE0B2] flex items-center justify-center text-6xl shrink-0">
 									{post.emoji}
 								</div>
-								<div className="p-6 sm:p-8">
+								<div className="p-5 flex flex-col flex-1">
 									<div className="flex items-center justify-between mb-3">
-										<span className="inline-block bg-[#D97736] text-white text-xs font-bold px-3 py-1 rounded-full">{post.category}</span>
-										<span className="text-xs text-[#5D4037] flex items-center gap-1"><Clock className="w-3 h-3" />{post.readTime}</span>
+										<span className={`text-xs font-bold px-3 py-1 rounded-full ${catClass(post.category)}`}>{post.category}</span>
+										<span className="text-xs text-[#8A7768] flex items-center gap-1"><Clock className="w-3 h-3" />{post.readTime}</span>
 									</div>
-									<h3 className="font-heading text-lg sm:text-xl font-bold text-[#3E2723] mb-3 leading-snug">{post.title}</h3>
-									<p className="text-[#5D4037] text-sm sm:text-base mb-4 line-clamp-2">{post.excerpt}</p>
-									<div className="flex items-center justify-between pt-4 border-t border-[#E0D8C8]">
-										<div className="flex items-center gap-2 text-xs text-[#5D4037]">
-											<User className="w-4 h-4" />
-											<span>{post.author}</span>
-											<span className="text-[#B0A090]">·</span>
-											<span>{post.date}</span>
-										</div>
-										<span className="text-[#D97736] hover:text-[#C96626] font-semibold flex items-center gap-1 text-sm transition-colors">
-											Read More <ArrowRight className="w-4 h-4" />
+									<h3 className="font-heading text-lg text-[#3E2723] leading-snug mb-2 group-hover:text-[#D97736] transition-colors line-clamp-2">
+										{post.title}
+									</h3>
+									<p className="text-[#6B5B52] text-sm leading-relaxed line-clamp-2 flex-1 mb-4">{post.excerpt}</p>
+									<div className="flex items-center justify-between pt-4 border-t border-[#F0E7DA]">
+										<span className="text-xs text-[#8A7768]">{post.date}</span>
+										<span className="text-[#D97736] text-xs font-semibold flex items-center gap-1 group-hover:gap-2 transition-all">
+											Read more <ArrowRight className="w-3.5 h-3.5" />
 										</span>
 									</div>
 								</div>
 							</div>
 						))}
 					</div>
+
+					{filteredPosts.length === 0 && (
+						<div className="text-center py-16 text-[#8A7768]">
+							<p className="text-4xl mb-4">📭</p>
+							<p className="font-semibold text-[#3E2723]">No articles in this category yet.</p>
+						</div>
+					)}
 				</div>
 			</section>
 
-			{/* Newsletter */}
-			<section className="py-16 sm:py-20 bg-white border-t border-[#E0D8C8]">
-				<div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-					<h2 className="font-heading text-3xl sm:text-4xl font-bold text-[#3E2723] mb-4">Stay Updated</h2>
-					<p className="text-[#5D4037] mb-8 text-lg">Subscribe for wellness tips, product launches, and exclusive offers</p>
-					<form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-3">
+			{/* ── Topics strip ─────────────────────────────── */}
+			<section className="py-12 bg-white border-y border-[#E9E0D2]">
+				<div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+					<p className="text-center text-xs font-bold uppercase tracking-[0.28em] text-[#8A7768] mb-8">Topics We Cover</p>
+					<div className="flex flex-wrap items-center justify-center gap-3">
+						{[
+							{ emoji: "🌸", label: "Kashmiri Saffron" },
+							{ emoji: "🫙", label: "A2 Ghee & Dairy" },
+							{ emoji: "🌿", label: "Ayurvedic Wellness" },
+							{ emoji: "✨", label: "Natural Skincare" },
+							{ emoji: "🍯", label: "Traditional Nutrition" },
+							{ emoji: "🫒", label: "Wood Pressed Oils" },
+							{ emoji: "🥜", label: "Clean Eating" },
+							{ emoji: "🏔️", label: "Kashmir Heritage" },
+						].map(({ emoji, label }) => (
+							<span key={label} className="flex items-center gap-2 bg-[#FAF7F2] border border-[#E9E0D2] rounded-full px-4 py-2 text-sm font-medium text-[#5D4037]">
+								{emoji} {label}
+							</span>
+						))}
+					</div>
+				</div>
+			</section>
+
+			{/* ── Newsletter ────────────────────────────────── */}
+			<section className="py-20 sm:py-28 bg-gradient-to-br from-[#2D0F00] via-[#4A1A00] to-[#3E2723] text-white relative overflow-hidden">
+				<div className="absolute -top-20 -right-20 w-72 h-72 rounded-full bg-[#F5A800]/10 blur-3xl pointer-events-none" />
+				<div className="absolute -bottom-20 -left-20 w-72 h-72 rounded-full bg-[#E8620A]/10 blur-3xl pointer-events-none" />
+				<div className="relative max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+					<p className="text-xs font-bold uppercase tracking-[0.28em] text-[#F5A800] mb-4">Stay in the Loop</p>
+					<h2 className="font-heading text-3xl sm:text-4xl font-bold mb-4">Get wellness tips in your inbox</h2>
+					<p className="text-white/70 text-base mb-8 leading-relaxed">
+						Subscribe for new articles, product launches, seasonal rituals, and exclusive offers — delivered straight to you.
+					</p>
+					<form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
 						<input
 							type="email"
 							value={subEmail}
 							onChange={e => setSubEmail(e.target.value)}
-							placeholder="Enter your email"
+							placeholder="your@email.com"
 							required
-							className="flex-1 px-4 py-3 border border-[#E0D8C8] rounded-full focus:outline-none focus:ring-2 focus:ring-[#D97736]"
+							className="flex-1 px-5 py-3 rounded-full bg-white/10 border border-white/20 text-white placeholder:text-white/40 focus:outline-none focus:border-[#F5A800] transition-colors"
 						/>
-						<button type="submit" disabled={subLoading} className="bg-[#D97736] hover:bg-[#C96626] disabled:opacity-60 text-white font-bold px-8 py-3 rounded-full transition-colors">
-							{subLoading ? "Subscribing..." : "Subscribe"}
+						<button
+							type="submit"
+							disabled={subLoading}
+							className="bg-[#F5A800] hover:bg-[#E8620A] disabled:opacity-60 text-[#2D0F00] font-bold px-7 py-3 rounded-full transition-colors shrink-0"
+						>
+							{subLoading ? "Subscribing…" : "Subscribe"}
 						</button>
 					</form>
+					<p className="mt-4 text-xs text-white/40">No spam, ever. Unsubscribe anytime.</p>
 				</div>
 			</section>
 

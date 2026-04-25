@@ -1,10 +1,9 @@
-﻿import React, { useEffect, useMemo, useState, useRef } from "react";
+﻿import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import {
 ArrowLeft,
 ChevronLeft,
 ChevronRight,
-ChevronDown,
 Minus,
 Plus,
 Check,
@@ -19,7 +18,6 @@ Sun,
 Moon,
 Droplets,
 } from "lucide-react";
-import axios from "axios";
 import { formatPrice } from "../utils/helpers";
 import useSupabaseUser from "../hooks/useSupabaseUser";
 import { useCart } from "../contexts/CartContext";
@@ -29,8 +27,6 @@ import CartSuccessModal from "../components/CartSuccessModal";
 import CartOptionsModal from "../components/CartOptionsModal";
 import LoginRequiredModal from "../components/LoginRequiredModal";
 import { toast } from "sonner";
-
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
 
 // Falling saffron threads animation
 const SaffronFalling = () => {
@@ -102,7 +98,7 @@ const saffronKeyNotes = [
 const ProductDetailPage = () => {
 const { id } = useParams();
 const navigate = useNavigate();
-const { user, loading: userLoading } = useSupabaseUser();
+const { user } = useSupabaseUser();
 const { addToCart: addToCartCtx } = useCart();
 
 const [product, setProduct] = useState(null);
@@ -335,8 +331,15 @@ return (
 <p className="mt-2 text-sm leading-relaxed text-[#7A3B00]">{product.description || "Authentic product crafted with traditional care."}</p>
 <div className="mt-4 flex items-baseline gap-3">
 <p className="text-2xl sm:text-3xl font-bold text-[#4A1A00]">{formatPrice(product.price)}</p>
-<p className="text-base font-medium text-[#B0906A] line-through">₹ 1,000</p>
-<span className="rounded-full bg-[#E8620A] px-2.5 py-0.5 text-xs font-bold text-white">17% OFF</span>
+{product.compare_at_price && product.compare_at_price > product.price && (() => {
+  const discount = Math.round(((product.compare_at_price - product.price) / product.compare_at_price) * 100);
+  return (
+    <>
+      <p className="text-base font-medium text-[#B0906A] line-through">{formatPrice(product.compare_at_price)}</p>
+      <span className="rounded-full bg-[#E8620A] px-2.5 py-0.5 text-xs font-bold text-white">{discount}% OFF</span>
+    </>
+  );
+})()}
 </div>
 <p className="mt-1 text-xs text-[#8B5E1A]">MRP inclusive of all taxes</p>
 <div className="mt-4">

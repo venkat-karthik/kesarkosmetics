@@ -42,7 +42,9 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#FAF7F2] via-[#F5EEE6] to-[#EDE4D8] flex items-center justify-center px-4 py-10">
+    <div className="min-h-screen bg-gradient-to-br from-[#FAF7F2] via-[#F5EEE6] to-[#EDE4D8] flex items-center justify-center px-4 py-10 relative overflow-hidden">
+      <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full bg-[#F5A800]/8 blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-24 -left-24 w-80 h-80 rounded-full bg-[#E8620A]/8 blur-3xl pointer-events-none" />
       {/* Close button */}
       <button
         onClick={() => navigate(-1)}

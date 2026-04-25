@@ -37,12 +37,17 @@ export function CartProvider({ children }) {
     }
   }, []);
 
-  // Load from Firestore when user logs in
+  // Clear local cart on logout so guest items don't re-merge on next login
   useEffect(() => {
     if (!user?._id) {
-      setItems(readLocal());
-      return;
+      writeLocal([]);
+      setItems([]);
     }
+  }, [user?._id]);
+
+  // Load from Firestore when user logs in
+  useEffect(() => {
+    if (!user?._id) return;
     const load = async () => {
       setLoading(true);
       try {
@@ -50,17 +55,25 @@ export function CartProvider({ children }) {
         const local = readLocal();
         if (snap.exists()) {
           const firestoreItems = snap.data().items || [];
-          // Merge local + firestore (local takes priority for qty)
-          const merged = [...firestoreItems];
-          for (const localItem of local) {
-            const idx = merged.findIndex(i => i.product_id === localItem.product_id && i.variant === localItem.variant);
-            if (idx >= 0) merged[idx].quantity += localItem.quantity;
-            else merged.push(localItem);
+          if (local.length > 0) {
+            // Merge guest cart into Firestore cart (only items not already present)
+            const merged = [...firestoreItems];
+            for (const localItem of local) {
+              const idx = merged.findIndex(i => i.product_id === localItem.product_id && i.variant === localItem.variant);
+              if (idx < 0) {
+                // Only add items that don't exist in Firestore — don't add quantities
+                merged.push(localItem);
+              }
+            }
+            setItems(merged);
+            writeLocal(merged);
+            await saveToFirestore(user._id, merged);
+          } else {
+            setItems(firestoreItems);
+            writeLocal(firestoreItems);
           }
-          setItems(merged);
-          writeLocal(merged);
-          if (local.length > 0) await saveToFirestore(user._id, merged);
         } else {
+          // No Firestore cart yet — use local guest cart as starting point
           setItems(local);
           if (local.length > 0) await saveToFirestore(user._id, local);
         }

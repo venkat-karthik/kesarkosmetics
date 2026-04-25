@@ -4,7 +4,7 @@ import { ChevronRight, PackageSearch } from "lucide-react";
 import axios from "axios";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../firebaseClient";
-import { formatPrice, buildTrackingSteps } from "../utils/helpers";
+import { formatPrice, buildTrackingSteps, enrichOrderItemsWithImages } from "../utils/helpers";
 import { toast } from "sonner";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
@@ -20,7 +20,7 @@ function normalizeFirestoreOrder(doc) {
 			product_name: i.product_name,
 			quantity: i.quantity,
 			price: i.price,
-			image: null,
+			image: i.image || null,
 		})),
 		shipping_address: o.shippingAddress || {},
 		payment_method: o.paymentMethod || "cod",
@@ -91,7 +91,16 @@ const TrackOrderResultsPage = () => {
 			}
 
 			results.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-			setOrders(results);
+			
+			// Enrich results with product images for items that don't have them
+			const enrichedResults = await Promise.all(
+				results.map(async (order) => ({
+					...order,
+					items: await enrichOrderItemsWithImages(order.items),
+				}))
+			);
+			
+			setOrders(enrichedResults);
 			setLoading(false);
 		};
 

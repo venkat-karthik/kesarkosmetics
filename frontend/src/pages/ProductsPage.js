@@ -264,16 +264,20 @@ const ProductsPage = () => {
       />
 
       {/* Page Header */}
-      <section className="bg-gradient-to-r from-[#3E1A00] via-[#5D2A00] to-[#3E1A00] py-12 md:py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h1 className="font-heading text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-4">
-              Our Products
-            </h1>
-            <p className="text-lg text-white/80 max-w-2xl mx-auto">
-              Discover our handcrafted collection of natural products, made with devotion and care.
-            </p>
-          </div>
+      <section className="relative overflow-hidden bg-gradient-to-br from-[#2D0F00] via-[#4A1A00] to-[#3E2723] py-14 md:py-20">
+        <div className="absolute -top-24 -right-24 w-80 h-80 rounded-full bg-[#F5A800]/10 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-16 -left-16 w-64 h-64 rounded-full bg-[#E8620A]/10 blur-3xl pointer-events-none" />
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <p className="inline-block text-xs font-bold uppercase tracking-[0.3em] text-[#F5A800] bg-[#F5A800]/10 border border-[#F5A800]/25 rounded-full px-5 py-2 mb-5">
+            Handcrafted with Care
+          </p>
+          <h1 className="font-heading text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-4">
+            Our Products
+          </h1>
+          <p className="text-base sm:text-lg text-white/75 max-w-2xl mx-auto leading-relaxed">
+            Discover our collection of natural products, made with devotion and the finest Kashmiri saffron.
+          </p>
+          <div className="mt-6 mx-auto w-16 h-0.5 bg-gradient-to-r from-[#E8620A] to-[#F5A800] rounded-full" />
         </div>
       </section>
 
@@ -316,12 +320,16 @@ const ProductsPage = () => {
           {error && <p className="text-red-600 text-center mb-6">{error}</p>}
 
           {productsLoading ? (
-            <div className="text-center text-[#7A3B00] py-12">
-              <p>Loading products...</p>
+            <div className="text-center py-20">
+              <div className="inline-flex flex-col items-center gap-3 text-[#7A3B00]">
+                <div className="w-10 h-10 border-4 border-[#F5A800]/30 border-t-[#E8620A] rounded-full animate-spin" />
+                <p className="text-sm font-medium">Loading products…</p>
+              </div>
             </div>
           ) : products.length === 0 ? (
-            <div className="text-center text-[#7A3B00] py-12">
-              <p>No products found. Check back soon!</p>
+            <div className="text-center py-20 text-[#7A3B00]">
+              <p className="text-lg font-medium">No products found.</p>
+              <p className="text-sm mt-1 text-[#A07850]">Check back soon!</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
@@ -332,7 +340,7 @@ const ProductsPage = () => {
                 return (
                   <div
                     key={productId}
-                    className="group flex flex-col bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
+                    className="group flex flex-col bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5"
                     style={{ animationDelay: `${i * 60}ms` }}
                     onMouseEnter={() => startProductHoverScroll(productId, product.images?.length || 0)}
                     onMouseLeave={() => stopProductHoverScroll(productId)}
@@ -364,10 +372,7 @@ const ProductsPage = () => {
                                 key={`${productId}-${activeImageIndex}`}
                                 src={product.images?.[activeImageIndex] || product.images?.[0]}
                                 alt={product.name}
-                                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-108"
-                                style={{ transform: "scale(1)", transition: "transform 0.7s ease" }}
-                                onMouseEnter={e => e.currentTarget.style.transform = "scale(1.06)"}
-                                onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
+                                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                               />
                             );
                           })()}
@@ -393,8 +398,8 @@ const ProductsPage = () => {
 
                       <div className="flex items-center justify-center gap-2 mb-4">
                         <span className="text-xl font-bold text-[#4A1A00]">{formatPrice(product.price)}</span>
-                        {product.oldPrice && (
-                          <span className="text-sm text-gray-400 line-through">{formatPrice(product.oldPrice)}</span>
+                        {product.compare_at_price && product.compare_at_price > product.price && (
+                          <span className="text-sm text-gray-400 line-through">{formatPrice(product.compare_at_price)}</span>
                         )}
                       </div>
 

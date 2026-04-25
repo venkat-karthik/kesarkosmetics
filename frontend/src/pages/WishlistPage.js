@@ -53,7 +53,7 @@ const WishlistPage = () => {
 					{wishlistItems.map((product) => {
 						const productId = getProductId(product);
 						return (
-							<div key={productId} className="rounded-2xl border-2 border-[#E6DCCB] bg-white p-4 shadow-sm">
+							<div key={productId} className="rounded-2xl border-2 border-[#E6DCCB] bg-white p-4 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300">
 								<Link to={`/product/${productId}`}>
 									<div className="overflow-hidden rounded-xl">
 										<img
@@ -68,14 +68,14 @@ const WishlistPage = () => {
 								<div className="mt-4 flex gap-2">
 									<Button
 										onClick={() => navigate(`/product/${productId}`)}
-										className="flex-1 rounded-full bg-[#2F6B5A] text-white hover:bg-[#245446]"
+										className="flex-1 rounded-full bg-gradient-to-r from-[#E8620A] to-[#F5A800] hover:from-[#C8380A] hover:to-[#E8620A] text-white font-bold shadow-sm hover:shadow-md transition-all"
 									>
 										<ShoppingBag className="w-4 h-4 mr-2" />
 										View product
 									</Button>
 									<Button
 										onClick={() => removeFromWishlist(productId)}
-										className="rounded-full bg-[#8B2C6D] border border-[#8B2C6D] text-white hover:bg-[#742456] hover:border-[#742456]"
+										className="rounded-full bg-white border-2 border-[#E9E0D2] text-[#B2443E] hover:bg-[#FFF0EE] hover:border-[#B2443E] transition-all"
 									>
 										<Trash2 className="w-4 h-4" />
 									</Button>
