@@ -58,12 +58,12 @@ body { font-family: 'Inter', sans-serif; background: #FFF8EC; color: #3E2723; mi
   border-bottom: 1px solid #F0E8DC;
   box-shadow: 0 2px 20px rgba(0,0,0,.06);
 }
-.header-inner { display: flex; align-items: center; justify-content: space-between; gap: 1rem; height: 4rem; }
-@media(min-width:768px){ .header-inner { height: 4.5rem; } }
+.header-inner { display: flex; align-items: center; justify-content: space-between; gap: 1rem; height: 4.5rem; }
+@media(min-width:768px){ .header-inner { height: 5rem; } }
 
-.header-logo { display: flex; align-items: center; flex-shrink: 0; }
-.header-logo img { height: 2.5rem; width: auto; object-fit: contain; display: block; flex-shrink: 0; border-radius: 0.5rem; }
-@media(min-width:768px){ .header-logo img { height: 3rem; } }
+.header-logo { display: flex; align-items: center; flex-shrink: 0; padding-left: 0.5rem; }
+.header-logo img { height: 3.25rem; width: auto; object-fit: contain; display: block; flex-shrink: 0; border-radius: 0.5rem; }
+@media(min-width:768px){ .header-logo img { height: 3.75rem; } }
 
 .header-nav { display: none; }
 @media(min-width:768px){ .header-nav { display: flex; align-items: center; gap: 1.5rem; } }
@@ -193,9 +193,7 @@ body { font-family: 'Inter', sans-serif; background: #FFF8EC; color: #3E2723; mi
 /* ── Reviews section ─────────────────────────────────────────────────────── */
 #reviews-section { background: linear-gradient(135deg, #1A0800 0%, #2D0F00 45%, #1A0800 100%); padding: 5rem 0; position: relative; }
 .review-card { background: rgba(245,168,0,.06); border: 1px solid rgba(245,168,0,.18); border-radius: 1rem; padding: 3rem 2rem; text-align: center; position: relative; overflow: hidden; }
-.review-card::before, .review-card::after { content: ''; position: absolute; left: 0; right: 0; height: 2px; background: linear-gradient(to right, transparent, #F5A800, transparent); }
-.review-card::before { top: 0; }
-.review-card::after { bottom: 0; }
+.review-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(to right, transparent, #F5A800, transparent); }
 
 /* ── Footer ──────────────────────────────────────────────────────────────── */
 footer { background: linear-gradient(to bottom, #3A1200, #1A0800); }
@@ -321,8 +319,8 @@ footer a:hover { color: #F5A800; }
   .container { padding: 0 .875rem; }
 
   /* Header — tighter on small screens */
-  .header-inner { height: 3.5rem; gap: .5rem; }
-  .header-logo img { height: 2rem; }
+  .header-inner { height: 4rem; gap: .5rem; }
+  .header-logo img { height: 2.75rem; }
   .icon-btn { padding: .5rem; }
   .icon-btn svg { width: 1rem; height: 1rem; }
 
