@@ -6,9 +6,11 @@
  */
 
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
+
+require_once __DIR__ . '/../config.php';
+require_once __DIR__ . '/_security.php';
+
+set_cors_headers();
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
@@ -21,19 +23,24 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-// Load config
-require_once __DIR__ . '/../config.php';
+// Rate limit: 5 contact submissions per IP per 10 minutes
+rate_limit('contact_' . get_client_ip(), 5, 600);
 
 $body = json_decode(file_get_contents('php://input'), true);
 if (!$body) {
     $body = $_POST;
 }
 
-$name    = trim($body['name']    ?? '');
-$email   = trim($body['email']   ?? '');
-$phone   = trim($body['phone']   ?? '');
-$subject = trim($body['subject'] ?? '');
-$message = trim($body['message'] ?? '');
+// Sanitize all inputs — prevent header injection
+$name    = sanitize_string($body['name']    ?? '', 100);
+$email   = sanitize_email($body['email']    ?? '');
+$phone   = sanitize_string($body['phone']   ?? '', 20);
+$subject = sanitize_string($body['subject'] ?? '', 200);
+$message = sanitize_string($body['message'] ?? '', 5000);
+
+// Strip newlines from name/email/subject to prevent header injection
+$name    = preg_replace('/[\r\n\t]/', ' ', $name);
+$subject = preg_replace('/[\r\n\t]/', ' ', $subject);
 
 if (!$name || !$email || !$message) {
     http_response_code(400);
@@ -47,34 +54,22 @@ if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
     exit;
 }
 
-$to      = ADMIN_EMAIL;
-$subject = $subject ?: "Contact Form: $name";
-$headers = [
-    'From'         => "Kesar Kosmetics <" . SMTP_FROM . ">",
-    'Reply-To'     => "$name <$email>",
-    'Content-Type' => 'text/html; charset=UTF-8',
-    'MIME-Version' => '1.0',
-];
+$to         = ADMIN_EMAIL;
+$mailSubject = $subject ?: "Contact Form: $name";
 
 $htmlBody = "
 <div style='font-family:Arial,sans-serif;color:#3E2723;line-height:1.6;max-width:600px'>
   <h2 style='color:#D97736'>New Contact Form Message</h2>
-  <p><strong>Name:</strong> " . htmlspecialchars($name) . "</p>
-  <p><strong>Email:</strong> " . htmlspecialchars($email) . "</p>
-  <p><strong>Phone:</strong> " . htmlspecialchars($phone ?: 'N/A') . "</p>
-  <p><strong>Subject:</strong> " . htmlspecialchars($subject) . "</p>
+  <p><strong>Name:</strong> " . htmlspecialchars($name, ENT_QUOTES, 'UTF-8') . "</p>
+  <p><strong>Email:</strong> " . htmlspecialchars($email, ENT_QUOTES, 'UTF-8') . "</p>
+  <p><strong>Phone:</strong> " . htmlspecialchars($phone ?: 'N/A', ENT_QUOTES, 'UTF-8') . "</p>
+  <p><strong>Subject:</strong> " . htmlspecialchars($mailSubject, ENT_QUOTES, 'UTF-8') . "</p>
   <hr style='border:1px solid #E0D8C8'/>
   <p><strong>Message:</strong></p>
-  <p>" . nl2br(htmlspecialchars($message)) . "</p>
+  <p>" . nl2br(htmlspecialchars($message, ENT_QUOTES, 'UTF-8')) . "</p>
 </div>
 ";
 
-$headerStr = '';
-foreach ($headers as $k => $v) {
-    $headerStr .= "$k: $v\r\n";
-}
-
-// Try PHPMailer if available, otherwise fall back to mail()
 $sent = false;
 
 if (file_exists(__DIR__ . '/../vendor/autoload.php')) {
@@ -86,13 +81,15 @@ if (file_exists(__DIR__ . '/../vendor/autoload.php')) {
         $mail->SMTPAuth   = true;
         $mail->Username   = SMTP_USER;
         $mail->Password   = SMTP_PASS;
-        $mail->SMTPSecure = SMTP_SECURE ? PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS : PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->SMTPSecure = SMTP_SECURE
+            ? PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS
+            : PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
         $mail->Port       = SMTP_PORT;
         $mail->setFrom(SMTP_FROM, 'Kesar Kosmetics');
         $mail->addAddress($to);
-        $mail->addReplyTo($email, $name);
+        $mail->addReplyTo($email, $name); // PHPMailer handles this safely
         $mail->isHTML(true);
-        $mail->Subject = $subject;
+        $mail->Subject = $mailSubject;
         $mail->Body    = $htmlBody;
         $mail->send();
         $sent = true;
@@ -102,8 +99,13 @@ if (file_exists(__DIR__ . '/../vendor/autoload.php')) {
 }
 
 if (!$sent) {
-    // Fallback to PHP mail()
-    $sent = mail($to, $subject, $htmlBody, $headerStr);
+    // Fallback: PHP mail() — use only safe header values
+    $safeFrom    = filter_var(SMTP_FROM, FILTER_SANITIZE_EMAIL);
+    $headerStr   = "From: Kesar Kosmetics <{$safeFrom}>\r\n"
+                 . "Content-Type: text/html; charset=UTF-8\r\n"
+                 . "MIME-Version: 1.0\r\n";
+    // Do NOT add Reply-To via mail() headers — too risky for injection
+    $sent = @mail($to, $mailSubject, $htmlBody, $headerStr);
 }
 
 if ($sent) {

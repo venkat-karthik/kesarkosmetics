@@ -1,8 +1,8 @@
 # Large files
 assets/logo.png
 
-# Sensitive config (copy config.php and fill in credentials)
-# config.php  ← uncomment this if you want to exclude credentials
+# Sensitive config — NEVER commit real credentials
+config.php
 
 # Local data
 data/orders.json

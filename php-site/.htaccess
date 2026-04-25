@@ -3,41 +3,38 @@
 
 Options -Indexes
 
-# Security headers
+# ── Security headers ──────────────────────────────────────────────────────────
 <IfModule mod_headers.c>
     Header always set X-Content-Type-Options "nosniff"
     Header always set X-Frame-Options "SAMEORIGIN"
     Header always set X-XSS-Protection "1; mode=block"
     Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+    # Strict-Transport-Security (enable once HTTPS is confirmed)
+    # Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
 </IfModule>
 
-# Protect sensitive files
-<FilesMatch "(config\.php|\.env|orders\.json)$">
+# ── Protect sensitive files ───────────────────────────────────────────────────
+<FilesMatch "(config\.php|\.env|composer\.lock|composer\.json)$">
     Order allow,deny
     Deny from all
 </FilesMatch>
 
-# Protect data directory
+# ── Block direct access to data directory ────────────────────────────────────
 <IfModule mod_rewrite.c>
     RewriteEngine On
     RewriteRule ^data/ - [F,L]
 </IfModule>
 
-# Enable CORS for API endpoints
-<FilesMatch "\.php$">
-    <IfModule mod_headers.c>
-        Header set Access-Control-Allow-Origin "*"
-        Header set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
-        Header set Access-Control-Allow-Headers "Content-Type, X-User-Id, X-User-Email"
-    </IfModule>
-</FilesMatch>
+# ── CORS: restrict API to same origin only ───────────────────────────────────
+# (API endpoints set their own CORS headers — do NOT set wildcard here)
 
-# Gzip compression
+# ── Gzip compression ─────────────────────────────────────────────────────────
 <IfModule mod_deflate.c>
     AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json
 </IfModule>
 
-# Cache static assets
+# ── Cache static assets ───────────────────────────────────────────────────────
 <IfModule mod_expires.c>
     ExpiresActive On
     ExpiresByType image/jpeg "access plus 1 month"
