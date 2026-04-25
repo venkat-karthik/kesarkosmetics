@@ -9,7 +9,7 @@ include '../includes/head.php';
   <!-- Sidebar -->
   <aside class="admin-sidebar hidden md:flex flex-col">
     <div class="px-6 py-5 border-b border-white/10">
-      <img src="../assets/logo.jpeg" alt="Kesar Kosmetics" class="h-10 object-contain" />
+      <img src="../assets/main_logo.png" alt="Kesar Kosmetics" class="h-10 object-contain" />
     </div>
     <nav class="flex-1 py-4">
       <a href="dashboard.php" class="active">

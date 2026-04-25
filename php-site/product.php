@@ -44,7 +44,7 @@ function render() {
   content.classList.remove('hidden');
   document.title = product.name + ' — Kesar Kosmetics';
 
-  const images = product.images?.length ? product.images : ['/assets/logo.jpeg'];
+  const images = product.images?.length ? product.images : ['/assets/main_logo.png'];
   const related = allProducts.filter(p => p.id !== product.id).slice(0, 4);
   const wishlisted = isWishlisted(product.id);
 
@@ -138,7 +138,7 @@ function render() {
         <div class="grid gap-3 grid-cols-2 lg:grid-cols-4">
           ${related.map(item=>`
           <a href="product.php?id=${item.id}" class="group rounded-xl border border-[#F5A800]/20 bg-[#FFF8EC] p-2.5 transition-all hover:border-[#E8620A]/40 hover:shadow-md hover:-translate-y-0.5">
-            <div class="overflow-hidden rounded-lg"><img src="${item.images?.[0]||'assets/logo.jpeg'}" alt="${item.name}" class="h-32 w-full object-cover transition-transform duration-500 group-hover:scale-105" /></div>
+            <div class="overflow-hidden rounded-lg"><img src="${item.images?.[0]||'assets/main_logo.png'}" alt="${item.name}" class="h-32 w-full object-cover transition-transform duration-500 group-hover:scale-105" /></div>
             <h3 class="mt-2 text-xs font-bold text-[#4A1A00] line-clamp-2 group-hover:text-[#E8620A] transition-colors leading-snug">${item.name}</h3>
             <p class="mt-1 text-xs font-bold text-[#E8620A]">${window._formatPrice(item.price)}</p>
           </a>`).join('')}
@@ -210,7 +210,7 @@ window.submitReview = async () => {
 
 window.selectImage = (idx) => {
   selectedImage = idx;
-  const images = product.images?.length ? product.images : ['assets/logo.jpeg'];
+  const images = product.images?.length ? product.images : ['assets/main_logo.png'];
   document.getElementById('main-img').src = images[idx];
   document.querySelectorAll('.product-card-img button').forEach((btn,i) => {
     btn.className = `shrink-0 overflow-hidden rounded-xl border-2 transition-all ${i===idx?'border-[#E8620A]':'border-transparent opacity-60 hover:opacity-100'}`;

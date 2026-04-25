@@ -107,7 +107,7 @@ function renderOrder(order) {
       <div class="grid gap-3 sm:grid-cols-2">
         ${items.map(item => `
           <div class="rounded-2xl border border-[#E9E0D2] bg-[#FCFAF7] p-3 flex gap-3">
-            <img src="${item.image||'assets/logo.jpeg'}" alt="${item.product_name||''}" class="w-16 h-16 object-cover rounded-xl shrink-0" />
+            <img src="${item.image||'assets/main_logo.png'}" alt="${item.product_name||''}" class="w-16 h-16 object-cover rounded-xl shrink-0" />
             <div>
               <p class="font-medium text-[#3E2723] text-sm line-clamp-2">${item.product_name||'Product'}</p>
               <p class="text-xs text-[#6B5B52] mt-1">Qty: ${item.quantity||1}</p>

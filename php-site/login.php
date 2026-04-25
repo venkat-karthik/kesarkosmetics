@@ -15,7 +15,7 @@ include 'includes/head.php';
 
   <div class="w-full max-w-sm">
     <div class="text-center mb-8">
-      <a href="index.php"><img src="assets/logo.jpeg" alt="Kesar Kosmetics" class="h-20 mx-auto object-contain drop-shadow-sm" /></a>
+      <a href="index.php"><img src="assets/main_logo.png" alt="Kesar Kosmetics" class="h-20 mx-auto object-contain drop-shadow-sm" /></a>
       <h1 class="font-heading text-3xl font-semibold text-[#3E2723] mt-5">Welcome back</h1>
       <p class="text-[#8A7768] mt-1.5 text-sm">Sign in to continue your journey</p>
     </div>
