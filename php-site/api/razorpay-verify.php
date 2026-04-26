@@ -33,10 +33,10 @@ if (!$rzpOrderId || !$rzpPaymentId || !$rzpSignature) {
     exit;
 }
 
-// Validate format — Razorpay IDs are alphanumeric with underscores
+// Validate format — Razorpay IDs are alphanumeric with underscores, signature is 64-char hex
 if (!preg_match('/^[a-zA-Z0-9_]+$/', $rzpOrderId) ||
     !preg_match('/^[a-zA-Z0-9_]+$/', $rzpPaymentId) ||
-    !preg_match('/^[a-fA-F0-9]+$/', $rzpSignature)) {
+    !preg_match('/^[a-fA-F0-9]{64}$/', $rzpSignature)) {
     http_response_code(400);
     echo json_encode(['error' => 'Invalid Razorpay field format']);
     exit;

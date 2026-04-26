@@ -35,15 +35,17 @@ if ($total > 500000) { http_response_code(400); echo json_encode(['error'=>'Orde
 $orderId     = generateUUID();
 $amountPaise = (int)round($total * 100);
 
-// ── Demo mode ─────────────────────────────────────────────────────────────────
+// ── Live key detection ────────────────────────────────────────────────────────
 $razKeyId     = RAZORPAY_KEY_ID;
 $razKeySecret = RAZORPAY_KEY_SECRET;
 $isReal = $razKeyId
-    && strpos($razKeyId, 'rzp_') === 0
-    && strlen($razKeyId) > 20
-    && strpos($razKeyId, 'placeholder') === false;
+    && (strpos($razKeyId, 'rzp_live_') === 0 || strpos($razKeyId, 'rzp_test_') === 0)
+    && strlen($razKeyId) >= 20
+    && $razKeySecret
+    && strlen($razKeySecret) >= 16;
 
 if (!$isReal) {
+    // No valid keys configured — return demo mode response
     $demoRazorpayOrderId = 'demo_order_' . $orderId;
     $order = buildOrder($orderId, $userId, $userEmail, $userName, $userPhone, $body, $total, $currency, $amountPaise, $demoRazorpayOrderId, true);
     saveOrderLocal($order);
