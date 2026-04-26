@@ -4,7 +4,13 @@ assets/logo.png
 # Sensitive config — NEVER commit real credentials
 config.php
 
-# Local data
+# Razorpay keys and any credential files in data/
+data/karthik-rzp-key.csv
+data/*.csv
+data/*.key
+data/*.env
+
+# Local data (runtime files)
 data/orders.json
 
 # OS files
