@@ -57,6 +57,12 @@ if ($requireAuth) {
   <!-- Custom CSS -->
   <link rel="stylesheet" href="<?= $cssPath ?? 'css/style.css' ?>" />
 
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" sizes="32x32"   href="/assets/favicon.png" />
+  <link rel="icon" type="image/png" sizes="16x16"   href="/assets/favicon.png" />
+  <link rel="apple-touch-icon"      sizes="180x180" href="/assets/favicon.png" />
+  <link rel="shortcut icon"         type="image/png" href="/assets/favicon.png" />
+
   <!-- Razorpay (loaded on checkout page only) -->
   <?php if (!empty($loadRazorpay)): ?>
   <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
