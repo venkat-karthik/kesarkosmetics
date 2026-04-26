@@ -58,11 +58,13 @@ export async function loadCartForUser(uid) {
         writeCart(merged);
         _pendingSave = saveToFirestore(uid, merged);
         await _pendingSave;
+        window.dispatchEvent(new Event("cart:updated"));
         return merged;
       }
 
       // No local items — just use Firestore as source of truth
       writeCart(firestoreItems);
+      window.dispatchEvent(new Event("cart:updated"));
       return firestoreItems;
     } else {
       // No Firestore cart yet — push local cart up
@@ -89,10 +91,12 @@ export async function addToCart(product, quantity = 1, variant = null) {
   }
   writeCart(items);
   window.dispatchEvent(new Event("cart:updated"));
+  // Fire-and-forget Firestore save — don't block the UI waiting for network
   const user = getCurrentUser();
   if (user?._id) {
     _pendingSave = saveToFirestore(user._id, items);
-    await _pendingSave;
+    // intentionally not awaited here — caller gets instant response
+    _pendingSave.catch(e => console.error("Cart sync error:", e));
   }
   return items;
 }

@@ -51,15 +51,14 @@ include 'includes/header.php';
 <?php include 'includes/footer.php'; ?>
 
 <script type="module">
-import { readCart, getCartTotal, getCartCount, formatPrice, updateQuantity, removeFromCart, loadCartForUser } from './js/cart.js';
-import { getCurrentUser, onUserChange } from './js/firebase-config.js';
+import { readCart, getCartTotal, getCartCount, formatPrice, updateQuantity, removeFromCart } from './js/cart.js';
+import { onUserChange } from './js/firebase-config.js';
 
 let currentUser = null;
-onUserChange(async u => {
+onUserChange(u => {
   currentUser = u;
   if (!u) { window.location.href = 'login.php?redirect=cart.php'; return; }
-  // Wait for Firestore cart to load before rendering so we show the correct state
-  await loadCartForUser(u._id);
+  // Render immediately from localStorage — scripts.php already handles Firestore sync
   renderCart();
 });
 

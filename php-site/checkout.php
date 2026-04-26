@@ -171,6 +171,14 @@ onUserChange(u => {
   document.getElementById('f-phone').value = u.phone || '';
 });
 
+// If cart becomes empty while on this page (e.g. deleted from another tab), redirect away
+window.addEventListener('cart:updated', () => {
+  if (readCart().length === 0) {
+    showToast('Your cart is empty.', 'info');
+    setTimeout(() => { window.location.href = 'cart.php'; }, 1000);
+  }
+});
+
 // ── Address type selection ────────────────────────────────────────────────
 let selectedAddressType = '';
 window.selectAddressType = (type) => {
@@ -217,22 +225,92 @@ window.goToStep = (step) => {
 // ── Shipping form submit ──────────────────────────────────────────────────
 document.getElementById('shipping-form').addEventListener('submit', (e) => {
   e.preventDefault();
+
+  // ── Validation ──────────────────────────────────────────────────────────
+  const name    = document.getElementById('f-name').value.trim();
+  const phone   = document.getElementById('f-phone').value.trim();
+  const address = document.getElementById('f-address').value.trim();
+  const city    = document.getElementById('f-city').value.trim();
+  const state   = document.getElementById('f-state').value;
+  const pincode = document.getElementById('f-pincode').value.trim();
+  const country = document.getElementById('f-country').value;
+
+  // Name: at least 2 chars, letters and spaces only
+  if (!name || name.length < 2) {
+    showFieldError('f-name', 'Please enter your full name (at least 2 characters).');
+    return;
+  }
+  clearFieldError('f-name');
+
+  // Phone: 10 digits for India, allow optional +91 prefix, spaces/dashes stripped
+  const phoneDigits = phone.replace(/[\s\-\+]/g, '').replace(/^91/, '');
+  if (!phoneDigits || !/^\d{10}$/.test(phoneDigits)) {
+    showFieldError('f-phone', 'Enter a valid 10-digit phone number.');
+    return;
+  }
+  clearFieldError('f-phone');
+
+  // Address: at least 5 chars
+  if (!address || address.length < 5) {
+    showFieldError('f-address', 'Please enter a complete street address.');
+    return;
+  }
+  clearFieldError('f-address');
+
+  // City
+  if (!city || city.length < 2) {
+    showFieldError('f-city', 'Please enter your city.');
+    return;
+  }
+  clearFieldError('f-city');
+
+  // State
+  if (!state) {
+    showFieldError('f-state', 'Please select your state.');
+    return;
+  }
+  clearFieldError('f-state');
+
+  // Pincode: 6 digits for India, flexible for international
+  const isIndia = country === 'India';
+  if (isIndia && !/^\d{6}$/.test(pincode)) {
+    showFieldError('f-pincode', 'Enter a valid 6-digit pincode.');
+    return;
+  } else if (!isIndia && pincode.length < 3) {
+    showFieldError('f-pincode', 'Please enter a valid postal code.');
+    return;
+  }
+  clearFieldError('f-pincode');
+
+  // Address type
   if (!selectedAddressType) {
     document.getElementById('addr-type-error').classList.remove('hidden');
     return;
   }
-  shippingForm = {
-    name: document.getElementById('f-name').value.trim(),
-    phone: document.getElementById('f-phone').value.trim(),
-    address: document.getElementById('f-address').value.trim(),
-    city: document.getElementById('f-city').value.trim(),
-    country: document.getElementById('f-country').value,
-    state: document.getElementById('f-state').value,
-    pincode: document.getElementById('f-pincode').value.trim(),
-    addressType: selectedAddressType,
-  };
+  document.getElementById('addr-type-error').classList.add('hidden');
+
+  shippingForm = { name, phone: phoneDigits, address, city, country, state, pincode, addressType: selectedAddressType };
   goToStep('review');
 });
+
+function showFieldError(fieldId, msg) {
+  const field = document.getElementById(fieldId);
+  field.classList.add('border-red-400');
+  let err = field.parentElement.querySelector('.field-error');
+  if (!err) {
+    err = document.createElement('p');
+    err.className = 'field-error text-xs text-red-600 mt-1';
+    field.parentElement.appendChild(err);
+  }
+  err.textContent = msg;
+  field.focus();
+}
+
+function clearFieldError(fieldId) {
+  const field = document.getElementById(fieldId);
+  field.classList.remove('border-red-400');
+  field.parentElement.querySelector('.field-error')?.remove();
+}
 
 // ── Render review step ────────────────────────────────────────────────────
 function renderReview() {
@@ -273,8 +351,20 @@ document.getElementById('payment-form').addEventListener('submit', async (e) => 
   e.preventDefault();
   if (!currentUser) { window.location.href = 'login.php?redirect=checkout.php'; return; }
 
+  // Re-check cart at submit time — catches items deleted while on the page
   const items = readCart();
+  if (items.length === 0) {
+    showToast('Your cart is empty. Add items before checking out.', 'error');
+    setTimeout(() => { window.location.href = 'cart.php'; }, 1500);
+    return;
+  }
+
   const subtotal = getCartTotal(items);
+  if (subtotal <= 0) {
+    showToast('Cart total is invalid. Please check your items.', 'error');
+    setTimeout(() => { window.location.href = 'cart.php'; }, 1500);
+    return;
+  }
   const shipping = subtotal >= 2000 ? 0 : 100;
   const tax = subtotal * TAX_RATE;
   const grandTotal = subtotal + shipping + tax;
@@ -322,12 +412,15 @@ document.getElementById('payment-form').addEventListener('submit', async (e) => 
         body: JSON.stringify(payload),
       });
       const data = await res.json();
+      if (!res.ok || !data.id) {
+        throw new Error(data.error || 'Order creation failed');
+      }
       await saveToFirestore(data.id, 'confirmed');
       await clearCart();
       showToast('Order placed successfully!', 'success');
-      window.location.href = 'order-success.php?orderId=' + data.id;
+      window.location.href = 'order-success.php?orderId=' + encodeURIComponent(data.id);
     } else {
-      // Razorpay
+      // All online methods (card, upi, netbanking) go through Razorpay
       const res = await fetch('api/razorpay-create.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -339,13 +432,20 @@ document.getElementById('payment-form').addEventListener('submit', async (e) => 
         showToast('Demo payment successful!', 'success');
         await saveToFirestore(data.order.id, 'paid');
         await clearCart();
-        window.location.href = 'order-success.php?orderId=' + data.order.id;
+        window.location.href = 'order-success.php?orderId=' + encodeURIComponent(data.order.id);
         return;
       }
 
       if (!data.razorpay?.key_id || !window.Razorpay) {
         throw new Error('Razorpay not available');
       }
+
+      // Map our method names to Razorpay's method config
+      const rzpMethodConfig = {
+        online: { card: 1 },
+        upi:    { upi: 1 },
+        bank:   { netbanking: 1 },
+      };
 
       await new Promise((resolve, reject) => {
         const rzp = new window.Razorpay({
@@ -357,6 +457,9 @@ document.getElementById('payment-form').addEventListener('submit', async (e) => 
           order_id: data.razorpay.order_id,
           prefill: { name: shippingForm.name, email: currentUser.email, contact: shippingForm.phone },
           theme: { color: '#D97736' },
+          // Pre-select the tab the user already chose
+          config: { display: { hide: [], sequence: [], preferences: { show_default_blocks: true } } },
+          method: rzpMethodConfig[selectedPayment] || {},
           handler: async (response) => {
             try {
               const vRes = await fetch('api/razorpay-verify.php', {
@@ -374,7 +477,7 @@ document.getElementById('payment-form').addEventListener('submit', async (e) => 
               showToast('Payment verified!', 'success');
               await saveToFirestore(vData.id || data.order.id, 'paid');
               await clearCart();
-              window.location.href = 'order-success.php?orderId=' + (vData.id || data.order.id);
+              window.location.href = 'order-success.php?orderId=' + encodeURIComponent(vData.id || data.order.id);
               resolve();
             } catch(err) { showToast('Payment verification failed', 'error'); reject(err); }
           },
