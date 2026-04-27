@@ -151,7 +151,7 @@ include 'includes/header.php';
 <?php include 'includes/footer.php'; ?>
 
 <script type="module">
-import { readCart, getCartTotal, clearCart, formatPrice } from './js/cart.js';
+import { readCart, getCartTotal, clearCart, formatPrice, getGstLabel } from './js/cart.js';
 import { getCurrentUser, onUserChange, db, collection, addDoc, serverTimestamp } from './js/firebase-config.js';
 
 const BACKEND_URL = 'api';
@@ -159,7 +159,7 @@ let currentUser = null;
 let shippingForm = {};
 let selectedPayment = 'cod';
 let discountApplied = 0;
-const TAX_RATE = 0.12;
+// Prices are GST-inclusive; no additional tax line needed
 
 onUserChange(u => {
   currentUser = u;
@@ -317,8 +317,7 @@ function renderReview() {
   const items = readCart();
   const subtotal = getCartTotal(items);
   const shipping = subtotal >= 2000 ? 0 : 100;
-  const tax = subtotal * TAX_RATE;
-  const total = subtotal + shipping + tax;
+  const total = subtotal + shipping;
 
   document.getElementById('review-address').innerHTML = Object.entries({
     Name: shippingForm.name, Phone: shippingForm.phone,
@@ -332,6 +331,7 @@ function renderReview() {
       <img src="${item.product?.images?.[0]||'assets/main.png'}" alt="${item.product?.name||''}" class="w-16 h-16 object-cover rounded-xl shrink-0" />
       <div class="flex-1">
         <p class="font-semibold text-[#3E2723]">${item.product?.name||'Product'}</p>
+        <p class="text-xs text-[#A07850]">${getGstLabel(item.product?.name||'')}</p>
         <p class="text-sm text-[#5D4037]">Qty: ${item.quantity} × ${formatPrice(item.product?.price||0)}</p>
         <p class="font-bold text-[#3E2723]">${formatPrice((item.product?.price||0)*item.quantity)}</p>
       </div>
@@ -339,8 +339,7 @@ function renderReview() {
   `).join('');
 
   document.getElementById('review-totals').innerHTML = `
-    <div class="flex justify-between"><span>Subtotal</span><span class="font-medium">${formatPrice(subtotal)}</span></div>
-    <div class="flex justify-between"><span>Tax (12% GST)</span><span class="font-medium">${formatPrice(tax)}</span></div>
+    <div class="flex justify-between"><span>Subtotal (incl. GST)</span><span class="font-medium">${formatPrice(subtotal)}</span></div>
     <div class="flex justify-between"><span>Shipping</span><span class="font-medium">${shipping===0?'<span class="text-green-600">FREE</span>':formatPrice(shipping)}</span></div>
     <div class="flex justify-between pt-3 border-t-2 border-[#D97736] text-lg font-bold text-[#3E2723]"><span>Total</span><span class="text-[#D97736]">${formatPrice(total)}</span></div>
   `;
@@ -366,8 +365,7 @@ document.getElementById('payment-form').addEventListener('submit', async (e) => 
     return;
   }
   const shipping = subtotal >= 2000 ? 0 : 100;
-  const tax = subtotal * TAX_RATE;
-  const grandTotal = subtotal + shipping + tax;
+  const grandTotal = subtotal + shipping;
 
   const payload = {
     items: items.map(i => ({
@@ -398,7 +396,7 @@ document.getElementById('payment-form').addEventListener('submit', async (e) => 
         orderId, userId: currentUser._id, userEmail: currentUser.email,
         userName: currentUser.name, items: payload.items,
         shippingAddress: shippingForm, paymentMethod: selectedPayment,
-        subtotal, discount: discountApplied, shipping, tax, total: grandTotal,
+        subtotal, discount: discountApplied, shipping, total: grandTotal,
         status, createdAt: serverTimestamp(),
       });
     } catch(err) { console.error('Firestore save error:', err); }

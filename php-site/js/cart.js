@@ -152,6 +152,19 @@ export function getCartTotal(items) {
   return items.reduce((sum, i) => sum + (i.product?.price || 0) * i.quantity, 0);
 }
 
+// GST rates by product name keyword
+export function getGstRate(productName = '') {
+  const name = productName.toLowerCase();
+  if (name.includes('cream')) return 0.18;
+  if (name.includes('strand') || name.includes('saffron strand') || name.includes('kesar strand')) return 0.05;
+  return 0.18; // default
+}
+
+export function getGstLabel(productName = '') {
+  const rate = getGstRate(productName);
+  return `Incl. ${rate * 100}% GST`;
+}
+
 export function getCartCount(items) {
   return items.reduce((sum, i) => sum + i.quantity, 0);
 }

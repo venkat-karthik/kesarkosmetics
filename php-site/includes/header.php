@@ -135,6 +135,10 @@ $navLinks = [
       <p class="text-center text-[#8A7768] py-8">Your cart is empty.</p>
     </div>
     <div class="cart-drawer-footer">
+      <div id="cart-free-shipping-bar" class="mb-3 p-2.5 rounded-xl bg-[#FFF8EC] border border-[#F5A800]/30 text-xs text-[#7A3B00]">
+        Add <span class="font-bold text-[#D97736]">₹2,000</span> for <span class="font-bold text-green-700">FREE shipping</span> 🚚
+        <div class="mt-1.5 h-2 rounded-full bg-[#F5EEE6] overflow-hidden"><div class="h-full rounded-full bg-[#D97736]" style="width:0%"></div></div>
+      </div>
       <div class="flex justify-between mb-3 text-sm font-semibold text-[#3E2723]">
         <span>Total</span>
         <span id="cart-drawer-total">₹0</span>

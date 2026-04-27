@@ -11,7 +11,7 @@ include 'includes/header.php';
 <script type="module">
 import { getProduct, getAllProducts, addReview } from './js/products.js';
 import { getCurrentUser, onUserChange } from './js/firebase-config.js';
-import { addToCart } from './js/cart.js';
+import { addToCart, getGstLabel } from './js/cart.js';
 import { toggleWishlist, isWishlisted } from './js/wishlist.js';
 
 const urlParams = new URLSearchParams(window.location.search);
@@ -112,9 +112,10 @@ function render() {
               <span class="text-sm text-[#8B5E1A]">${(product.reviews||[]).length} reviews</span>
             </div>
             <p class="mt-2 text-sm leading-relaxed text-[#7A3B00]">${product.description||'Authentic product crafted with traditional care.'}</p>
-            <div class="mt-4 flex items-baseline gap-3" id="price-display">
+            <div class="mt-4 flex items-baseline gap-3 flex-wrap" id="price-display">
               <p class="text-2xl sm:text-3xl font-bold text-[#4A1A00]" id="current-price">${window._formatPrice(selectedVariantPrice || product.price)}</p>
               ${product.compare_at_price && product.compare_at_price > product.price ? `<p class="text-base font-medium text-[#B0906A] line-through" id="compare-price">${window._formatPrice(product.compare_at_price)}</p><span class="rounded-full bg-[#E8620A] px-2.5 py-0.5 text-xs font-bold text-white">${Math.round(((product.compare_at_price-product.price)/product.compare_at_price)*100)}% OFF</span>` : ''}
+              <span class="text-xs text-[#A07850] font-medium w-full" id="gst-label">${getGstLabel(product.name)}</span>
             </div>
             ${product.variants?.length > 0 ? `
             <div class="mt-4">
@@ -272,6 +273,9 @@ window.selectVariant = (name, price) => {
   // Update displayed price
   const priceEl = document.getElementById('current-price');
   if (priceEl) priceEl.textContent = window._formatPrice(price);
+  // Update GST label based on variant name
+  const gstEl = document.getElementById('gst-label');
+  if (gstEl) gstEl.textContent = getGstLabel(name || product.name);
   // Update variant button styles
   document.querySelectorAll('.variant-btn').forEach(btn => {
     const active = btn.dataset.variant === name;

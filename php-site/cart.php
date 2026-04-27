@@ -40,6 +40,10 @@ include 'includes/header.php';
                 <span class="font-semibold text-[#3E2723]">Calculated at checkout</span>
               </div>
             </div>
+            <div id="cart-page-shipping-bar" class="mt-4 p-3 rounded-xl bg-[#FFF8EC] border border-[#F5A800]/30 text-xs text-[#7A3B00]">
+              <p id="cart-page-shipping-text">Add <span class="font-bold text-[#D97736]">₹2,000</span> for <span class="font-bold text-green-700">FREE shipping</span> 🚚</p>
+              <div class="mt-1.5 h-2 rounded-full bg-[#F5EEE6] overflow-hidden"><div id="cart-page-shipping-fill" class="h-full rounded-full bg-[#D97736] transition-all duration-500" style="width:0%"></div></div>
+            </div>
             <a href="checkout.php" id="checkout-btn" class="btn btn-primary mt-6 w-full justify-center">Proceed to Checkout</a>
           </div>
         </div>
@@ -51,7 +55,7 @@ include 'includes/header.php';
 <?php include 'includes/footer.php'; ?>
 
 <script type="module">
-import { readCart, getCartTotal, getCartCount, formatPrice, updateQuantity, removeFromCart } from './js/cart.js';
+import { readCart, getCartTotal, getCartCount, formatPrice, updateQuantity, removeFromCart, getGstLabel } from './js/cart.js';
 import { onUserChange } from './js/firebase-config.js';
 
 let currentUser = null;
@@ -90,6 +94,7 @@ function renderCart() {
         <div class="flex-1 min-w-0">
           <a href="product.php?id=${item.product_id}" class="font-heading text-lg font-bold text-[#3E2723] hover:text-[#D97736] transition-colors line-clamp-2">${item.product?.name||'Product'}</a>
           <p class="mt-1 text-base font-semibold text-[#3E2723]">${formatPrice(item.product?.price||0)}</p>
+          <p class="text-[11px] text-[#A07850]">${getGstLabel(item.product?.name||'')}</p>
           <p class="mt-1 text-sm text-[#5D4037]">${item.variant?'Size: '+item.variant:'Size: Standard'}</p>
           <div class="mt-3 flex items-center justify-between flex-wrap gap-3">
             <div class="flex items-center gap-2 border border-[#7A7A7A] rounded-xl px-2.5 py-1.5">
@@ -107,6 +112,18 @@ function renderCart() {
       </div>
     </div>
   `).join('');
+
+  // Update free shipping bar
+  const pct = Math.min(100, (total / 2000) * 100);
+  const remaining = 2000 - total;
+  const fill = document.getElementById('cart-page-shipping-fill');
+  const text = document.getElementById('cart-page-shipping-text');
+  if (fill) fill.style.width = pct + '%';
+  if (text) {
+    text.innerHTML = total >= 2000
+      ? `🎉 <span class="font-bold text-green-700">You've unlocked FREE shipping!</span>`
+      : `Add <span class="font-bold text-[#D97736]">${formatPrice(remaining)}</span> more for <span class="font-bold text-green-700">FREE shipping</span> 🚚`;
+  }
 }
 
 window.changeQty = async (pid, qty, variant) => {

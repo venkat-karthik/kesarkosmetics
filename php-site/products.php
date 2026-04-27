@@ -52,6 +52,7 @@ include 'includes/header.php';
 <script type="module">
 import { getAllProducts } from './js/products.js';
 import { getCurrentUser } from './js/firebase-config.js';
+import { getGstLabel } from './js/cart.js';
 
 const urlParams = new URLSearchParams(window.location.search);
 const activeCategory = urlParams.get('category') || null;
@@ -186,6 +187,7 @@ function productCard(p) {
           ${window._formatPrice(p.price)}
           ${p.compare_at_price&&p.compare_at_price>p.price?`<span class="product-card-old-price">${window._formatPrice(p.compare_at_price)}</span>`:''}
         </div>
+        <p class="text-[10px] text-[#A07850] mt-0.5 text-center">${getGstLabel(p.name)}</p>
         <button class="add-to-cart-btn btn btn-primary w-full mt-auto" data-pid="${p.id}">Add to Cart</button>
       </div>
     </div>

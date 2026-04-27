@@ -1,7 +1,7 @@
 <!-- ── Shared JS (loaded at bottom of every page) ─────────────────────────── -->
 <script type="module">
 import { loginWithGoogle, logout, onUserChange, getCurrentUser, isAdmin, db } from './js/firebase-config.js';
-import { readCart, getCartCount, getCartTotal, formatPrice, loadCartForUser, addToCart, removeFromCart, updateQuantity } from './js/cart.js';
+import { readCart, getCartCount, getCartTotal, formatPrice, loadCartForUser, addToCart, removeFromCart, updateQuantity, getGstLabel } from './js/cart.js';
 import { getWishlist, isWishlisted, addToWishlist, removeFromWishlist, toggleWishlist } from './js/wishlist.js';
 import { searchProducts } from './js/products.js';
 
@@ -116,6 +116,9 @@ function openCartDrawer() {
   if (!user) { window.location.href = 'login.php?redirect=cart.php'; return; }
   renderCartDrawer();
   cartDrawer?.classList.add('open');
+  // Sync bar state on open without triggering celebration for already-unlocked carts
+  const total = getCartTotal(readCart());
+  _prevFreeShippingUnlocked = total >= FREE_SHIPPING_THRESHOLD;
 }
 function closeCartDrawer() { cartDrawer?.classList.remove('open'); }
 document.getElementById('cart-btn')?.addEventListener('click', openCartDrawer);
@@ -131,6 +134,7 @@ function renderCartDrawer() {
   if (items.length === 0) {
     body.innerHTML = '<p class="text-center text-[#8A7768] py-8">Your cart is empty.</p>';
     if (totalEl) totalEl.textContent = '₹0';
+    updateFreeShippingBar(0);
     return;
   }
   body.innerHTML = items.map(item => `
@@ -139,6 +143,7 @@ function renderCartDrawer() {
       <div class="flex-1 min-w-0">
         <p class="font-semibold text-sm text-[#3E2723] line-clamp-2">${item.product?.name || 'Product'}</p>
         <p class="text-xs text-[#8A7768] mt-0.5">${item.variant ? 'Size: '+item.variant : ''}</p>
+        <p class="text-[10px] text-[#A07850] mt-0.5">${getGstLabel(item.product?.name || '')}</p>
         <div class="flex items-center justify-between mt-2">
           <div class="flex items-center gap-2 border border-[#E0D8C8] rounded-lg px-2 py-1">
             <button onclick="window._cartQty('${item.product_id}',${item.quantity-1},'${item.variant||''}')" class="text-[#3E2723] font-bold">−</button>
@@ -153,7 +158,105 @@ function renderCartDrawer() {
       </button>
     </div>
   `).join('');
-  if (totalEl) totalEl.textContent = formatPrice(getCartTotal(items));
+  const total = getCartTotal(items);
+  if (totalEl) totalEl.textContent = formatPrice(total);
+  updateFreeShippingBar(total);
+}
+
+const FREE_SHIPPING_THRESHOLD = 2000;
+let _prevFreeShippingUnlocked = false;
+
+function updateFreeShippingBar(total) {
+  const bar = document.getElementById('cart-free-shipping-bar');
+  if (!bar) return;
+  const pct = Math.min(100, (total / FREE_SHIPPING_THRESHOLD) * 100);
+  const remaining = FREE_SHIPPING_THRESHOLD - total;
+  const unlocked = total >= FREE_SHIPPING_THRESHOLD;
+
+  bar.innerHTML = unlocked
+    ? `<p class="text-xs font-semibold text-green-700 text-center">🎉 You've unlocked FREE shipping!</p>
+       <div class="mt-1.5 h-2 rounded-full bg-green-100 overflow-hidden"><div class="h-full rounded-full bg-green-500 transition-all duration-500" style="width:100%"></div></div>`
+    : `<p class="text-xs text-[#7A3B00]">Add <span class="font-bold text-[#D97736]">${formatPrice(remaining)}</span> more for <span class="font-bold text-green-700">FREE shipping</span> 🚚</p>
+       <div class="mt-1.5 h-2 rounded-full bg-[#F5EEE6] overflow-hidden"><div class="h-full rounded-full bg-[#D97736] transition-all duration-500" style="width:${pct}%"></div></div>`;
+
+  // Trigger celebration only when crossing the threshold for the first time
+  if (unlocked && !_prevFreeShippingUnlocked) {
+    triggerFreeShippingCelebration();
+  }
+  _prevFreeShippingUnlocked = unlocked;
+}
+
+function triggerFreeShippingCelebration() {
+  // Remove any existing overlay
+  document.getElementById('free-shipping-celebration')?.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'free-shipping-celebration';
+  overlay.style.cssText = `
+    position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;
+    background:rgba(0,0,0,0.45);backdrop-filter:blur(4px);animation:fsOverlayIn .3s ease;
+  `;
+  overlay.innerHTML = `
+    <div style="
+      background:linear-gradient(135deg,#fff8ec,#fff3d6);
+      border:2px solid #F5A800;border-radius:2rem;padding:2.5rem 2rem;
+      text-align:center;max-width:340px;width:90%;
+      box-shadow:0 20px 60px rgba(0,0,0,.25);
+      animation:fsBounceIn .5s cubic-bezier(.34,1.56,.64,1);
+      position:relative;overflow:hidden;
+    ">
+      <div id="fs-confetti-wrap" style="position:absolute;inset:0;pointer-events:none;overflow:hidden;"></div>
+      <div style="font-size:3.5rem;line-height:1;margin-bottom:.75rem;">🎉</div>
+      <h2 style="font-size:1.5rem;font-weight:800;color:#3E2723;margin-bottom:.5rem;">You Unlocked Free Shipping!</h2>
+      <p style="color:#7A3B00;font-size:.9rem;margin-bottom:1.5rem;">Your order qualifies for <strong>FREE delivery</strong> across India 🚚✨</p>
+      <button id="fs-close-btn" style="
+        background:#D97736;color:white;border:none;border-radius:1rem;
+        padding:.65rem 2rem;font-weight:700;font-size:.95rem;cursor:pointer;
+        transition:background .2s;
+      ">Awesome!</button>
+    </div>
+  `;
+
+  // Inject keyframes once
+  if (!document.getElementById('fs-keyframes')) {
+    const style = document.createElement('style');
+    style.id = 'fs-keyframes';
+    style.textContent = `
+      @keyframes fsOverlayIn { from { opacity:0 } to { opacity:1 } }
+      @keyframes fsBounceIn { from { transform:scale(.6);opacity:0 } to { transform:scale(1);opacity:1 } }
+      @keyframes fsConfettiFall {
+        0%   { transform:translateY(-10px) rotate(0deg); opacity:1; }
+        100% { transform:translateY(320px) rotate(720deg); opacity:0; }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  document.body.appendChild(overlay);
+
+  // Spawn confetti pieces
+  const wrap = overlay.querySelector('#fs-confetti-wrap');
+  const colors = ['#F5A800','#E8620A','#D97736','#4CAF50','#2196F3','#E91E63','#9C27B0'];
+  for (let i = 0; i < 40; i++) {
+    const piece = document.createElement('div');
+    const size = 6 + Math.random() * 8;
+    piece.style.cssText = `
+      position:absolute;
+      left:${Math.random()*100}%;
+      top:${-10 - Math.random()*20}px;
+      width:${size}px;height:${size}px;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+      border-radius:${Math.random()>.5?'50%':'2px'};
+      animation:fsConfettiFall ${1.2+Math.random()*1.5}s ${Math.random()*.8}s ease-in forwards;
+    `;
+    wrap.appendChild(piece);
+  }
+
+  // Close handlers
+  const close = () => { overlay.style.opacity='0'; overlay.style.transition='opacity .3s'; setTimeout(()=>overlay.remove(),300); };
+  overlay.querySelector('#fs-close-btn').addEventListener('click', close);
+  overlay.addEventListener('click', (e) => { if (e.target===overlay) close(); });
+  setTimeout(close, 6000);
 }
 
 window._cartQty = async (pid, qty, variant) => {
@@ -279,4 +382,5 @@ window._toggleWishlist = toggleWishlist;
 window._isWishlisted = isWishlisted;
 window._formatPrice = formatPrice;
 window._openCartDrawer = openCartDrawer;
+window._getGstLabel = getGstLabel;
 </script>
