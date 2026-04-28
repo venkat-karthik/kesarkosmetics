@@ -163,7 +163,7 @@ function renderCartDrawer() {
   updateFreeShippingBar(total);
 }
 
-const FREE_SHIPPING_THRESHOLD = 2000;
+const FREE_SHIPPING_THRESHOLD = 0;
 let _prevFreeShippingUnlocked = false;
 
 function updateFreeShippingBar(total) {
@@ -334,7 +334,7 @@ const policies = {
     sections: [
       { h: 'Processing Time', p: 'Orders are processed within 1–2 business days after payment confirmation.' },
       { h: 'Delivery Time', p: 'Standard delivery takes 4–7 business days across India.' },
-      { h: 'Free Shipping', p: 'We offer free standard shipping on all orders above ₹2,000.' },
+      { h: 'Free Shipping', p: 'We offer free standard shipping on all orders.' },
       { h: 'Tracking', p: 'Once your order is shipped, you will receive a tracking number via email.' },
     ]
   }
