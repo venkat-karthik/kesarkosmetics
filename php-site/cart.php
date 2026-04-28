@@ -114,11 +114,17 @@ function renderCart() {
   `).join('');
 
   // Update free shipping bar
+  const total = getCartTotal(items);
+  const threshold = 2000;
+  const remaining = Math.max(0, threshold - total);
+  const pct = Math.min(100, (total / threshold) * 100);
   const fill = document.getElementById('cart-page-shipping-fill');
   const text = document.getElementById('cart-page-shipping-text');
-  if (fill) fill.style.width = '100%';
+  if (fill) fill.style.width = pct + '%';
   if (text) {
-    text.innerHTML = `🎉 <span class="font-bold text-green-700">You've unlocked FREE shipping!</span>`;
+    text.innerHTML = remaining > 0
+      ? `Add <span class="font-bold text-[#D97736]">₹${remaining.toLocaleString('en-IN')}</span> more for <span class="font-bold text-green-700">FREE shipping</span> 🚚`
+      : `🎉 <span class="font-bold text-green-700">You've unlocked FREE shipping!</span>`;
   }
 }
 

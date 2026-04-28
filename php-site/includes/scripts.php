@@ -163,7 +163,7 @@ function renderCartDrawer() {
   updateFreeShippingBar(total);
 }
 
-const FREE_SHIPPING_THRESHOLD = 0;
+const FREE_SHIPPING_THRESHOLD = 2000;
 let _prevFreeShippingUnlocked = false;
 
 function updateFreeShippingBar(total) {
