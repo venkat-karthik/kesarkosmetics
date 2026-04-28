@@ -82,7 +82,6 @@ if ($method === 'POST') {
         'created_at'       => date('c'),
     ];
 
-    saveOrderLocal($order);
     sendOrderEmail($order);
 
     echo json_encode($order);
@@ -106,13 +105,6 @@ function generateUUID() {
         mt_rand(0,0x0fff)|0x4000, mt_rand(0,0x3fff)|0x8000,
         mt_rand(0,0xffff), mt_rand(0,0xffff), mt_rand(0,0xffff)
     );
-}
-
-function saveOrderLocal($order) {
-    $file = __DIR__ . '/../data/orders.json';
-    $orders = safe_read_json($file);
-    $orders[] = $order;
-    safe_write_json($file, $orders);
 }
 
 function sendOrderEmail($order) {
