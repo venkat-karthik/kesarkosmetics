@@ -48,7 +48,6 @@ if (!$isReal) {
     // No valid keys configured — return demo mode response
     $demoRazorpayOrderId = 'demo_order_' . $orderId;
     $order = buildOrder($orderId, $userId, $userEmail, $userName, $userPhone, $body, $total, $currency, $amountPaise, $demoRazorpayOrderId, true);
-    saveOrderLocal($order);
     echo json_encode([
         'order' => $order,
         'demo'  => true,
@@ -92,7 +91,6 @@ if ($httpCode !== 200) {
 
 $rzpOrder = json_decode($response, true);
 $order = buildOrder($orderId, $userId, $userEmail, $userName, $userPhone, $body, $total, $currency, $amountPaise, $rzpOrder['id'], false);
-saveOrderLocal($order);
 
 echo json_encode([
     'order'    => $order,

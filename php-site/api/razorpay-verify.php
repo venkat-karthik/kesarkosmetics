@@ -61,34 +61,9 @@ if (!$isDemoOrder) {
     }
 }
 
-// Find and update order in local store
-$file = __DIR__ . '/../data/orders.json';
-$orders = safe_read_json($file);
-
-$found = false;
-$updatedOrder = null;
-
-foreach ($orders as &$order) {
-    if (($order['razorpay_order_id'] ?? '') === $rzpOrderId) {
-        $order['payment_status']      = 'captured';
-        $order['status']              = 'confirmed';
-        $order['razorpay_payment_id'] = $rzpPaymentId;
-        $order['razorpay_signature']  = $rzpSignature;
-        $found = true;
-        $updatedOrder = $order;
-        break;
-    }
-}
-unset($order);
-
-if ($found) {
-    safe_write_json($file, $orders);
-}
-
-// Return success regardless of whether local order was found
-// (Firestore is the source of truth — frontend saves there)
+// Return success — Firestore is the source of truth, JS saves there directly
 echo json_encode([
-    'id'                  => $updatedOrder['id'] ?? $rzpOrderId,
+    'id'                  => $rzpOrderId,
     'status'              => 'confirmed',
     'payment_status'      => 'captured',
     'razorpay_payment_id' => $rzpPaymentId,
