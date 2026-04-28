@@ -6,6 +6,7 @@ config.php
 
 # Razorpay keys and any credential files in data/
 data/karthik-rzp-key.csv
+data/rzp-key.csv
 data/*.csv
 data/*.key
 data/*.env
