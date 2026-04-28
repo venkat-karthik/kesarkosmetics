@@ -15,7 +15,7 @@ $faqs = [
   ]],
   ['Orders & Shipping', [
     ['How long does delivery take?', 'Standard delivery across India takes 4–7 business days. Express delivery (2–3 business days) is available at checkout for an additional charge.'],
-    ['Do you offer free shipping?', 'Yes! We offer free standard shipping on all orders above ₹2,000. Orders below this amount are subject to a flat shipping fee of ₹100.'],
+    ['Do you offer free shipping?', 'Yes! We offer free standard shipping on all orders. No minimum purchase required.'],
     ['Can I track my order?', 'Absolutely. Once your order is shipped, you\'ll receive a tracking ID via email. You can also track your order anytime on our Track Order page.'],
     ['Do you ship internationally?', 'Yes, we ship to select international destinations including the UAE, USA, UK, Canada, Singapore, Malaysia, and Saudi Arabia.'],
   ]],

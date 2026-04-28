@@ -316,7 +316,7 @@ function clearFieldError(fieldId) {
 function renderReview() {
   const items = readCart();
   const subtotal = getCartTotal(items);
-  const shipping = subtotal >= 2000 ? 0 : 100;
+  const shipping = 0;
   const total = subtotal + shipping;
 
   document.getElementById('review-address').innerHTML = Object.entries({
@@ -364,7 +364,7 @@ document.getElementById('payment-form').addEventListener('submit', async (e) => 
     setTimeout(() => { window.location.href = 'cart.php'; }, 1500);
     return;
   }
-  const shipping = subtotal >= 2000 ? 0 : 100;
+  const shipping = 0;
   const grandTotal = subtotal + shipping;
 
   const payload = {
