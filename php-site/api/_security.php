@@ -13,9 +13,20 @@ function set_cors_headers() {
         'http://127.0.0.1',
     ];
 
-    // Add production domain if configured
+    // Add production domain if configured (both www and non-www)
     if (defined('SITE_URL') && SITE_URL && SITE_URL !== 'https://yourdomain.com') {
-        $allowed_origins[] = rtrim(SITE_URL, '/');
+        $base = rtrim(SITE_URL, '/');
+        $allowed_origins[] = $base;
+        // Also allow www. variant
+        if (strpos($base, '://www.') === false) {
+            $allowed_origins[] = str_replace('://', '://www.', $base);
+        } else {
+            $allowed_origins[] = str_replace('://www.', '://', $base);
+        }
+        // Also allow https if http was configured and vice versa
+        if (strpos($base, 'https://') === 0) {
+            $allowed_origins[] = str_replace('https://', 'http://', $base);
+        }
     }
 
     $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
