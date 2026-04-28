@@ -114,15 +114,11 @@ function renderCart() {
   `).join('');
 
   // Update free shipping bar
-  const pct = Math.min(100, (total / 2000) * 100);
-  const remaining = 2000 - total;
   const fill = document.getElementById('cart-page-shipping-fill');
   const text = document.getElementById('cart-page-shipping-text');
-  if (fill) fill.style.width = pct + '%';
+  if (fill) fill.style.width = '100%';
   if (text) {
-    text.innerHTML = total >= 2000
-      ? `🎉 <span class="font-bold text-green-700">You've unlocked FREE shipping!</span>`
-      : `Add <span class="font-bold text-[#D97736]">${formatPrice(remaining)}</span> more for <span class="font-bold text-green-700">FREE shipping</span> 🚚`;
+    text.innerHTML = `🎉 <span class="font-bold text-green-700">You've unlocked FREE shipping!</span>`;
   }
 }
 
