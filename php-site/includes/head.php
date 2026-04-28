@@ -1,13 +1,8 @@
 <?php
-// Common <head> block — include at top of every page
-// Usage: include 'includes/head.php'; (adjust path as needed)
-// $pageTitle and $pageDesc can be set before including
-// $requireAuth can be set to true for pages that require authentication (cart, checkout, etc.)
-$pageTitle = $pageTitle ?? 'Kesar Kosmetics';
-$pageDesc  = $pageDesc  ?? 'Authentic Kashmiri saffron skincare and wellness products.';
+$pageTitle   = $pageTitle   ?? 'Kesar Kosmetics';
+$pageDesc    = $pageDesc    ?? 'Authentic Kashmiri saffron skincare and wellness products.';
 $requireAuth = $requireAuth ?? false;
 
-// Add cache control headers for authenticated pages to prevent back button access after logout
 if ($requireAuth) {
   header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
   header("Cache-Control: post-check=0, pre-check=0", false);
@@ -18,10 +13,6 @@ if ($requireAuth) {
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- Google tag (gtag.js) -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-BWJJHYGDQ3"></script>
-  <script>window.dataLayer = window.dataLayer || [];function gtag(){dataLayer.push(arguments);}gtag('js', new Date());gtag('config', 'G-BWJJHYGDQ3');</script>
-
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#3E2723" />
@@ -31,15 +22,29 @@ if ($requireAuth) {
   <title><?= htmlspecialchars($pageTitle) ?></title>
   <meta name="description" content="<?= htmlspecialchars($pageDesc) ?>" />
 
-  <!-- Fonts -->
+  <!-- Favicon -->
+  <link rel="icon"             type="image/png" sizes="32x32"   href="/assets/favicon.png" />
+  <link rel="apple-touch-icon"                  sizes="180x180" href="/assets/favicon.png" />
+  <link rel="shortcut icon"    type="image/png"                 href="/assets/favicon.png" />
+
+  <!-- Preconnect to external origins so DNS+TLS is resolved before they're needed -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://cdn.tailwindcss.com" />
+  <link rel="preconnect" href="https://firestore.googleapis.com" />
+  <link rel="preconnect" href="https://identitytoolkit.googleapis.com" />
+  <link rel="preconnect" href="https://www.googletagmanager.com" />
 
-  <!-- Tailwind CDN (utility classes used inline) -->
-  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Fonts — display=swap prevents render-blocking -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet" /></noscript>
+
+  <!-- Custom CSS — loaded first, before Tailwind, so it renders immediately -->
+  <link rel="stylesheet" href="<?= $cssPath ?? 'css/style.css' ?>" />
+
+  <!-- Tailwind CDN — loaded synchronously so classes apply on first paint -->
   <script>
-    tailwind.config = {
+    window._tailwindConfig = {
       theme: {
         extend: {
           fontFamily: { heading: ['"Playfair Display"', 'serif'] },
@@ -51,42 +56,26 @@ if ($requireAuth) {
           }
         }
       }
-    }
+    };
   </script>
+  <script src="https://cdn.tailwindcss.com" onload="if(window.tailwind&&window._tailwindConfig)tailwind.config=window._tailwindConfig;"></script>
 
-  <!-- Custom CSS -->
-  <link rel="stylesheet" href="<?= $cssPath ?? 'css/style.css' ?>" />
-
-  <!-- Favicon -->
-  <link rel="icon" type="image/png" sizes="32x32"   href="/assets/favicon.png" />
-  <link rel="icon" type="image/png" sizes="16x16"   href="/assets/favicon.png" />
-  <link rel="apple-touch-icon"      sizes="180x180" href="/assets/favicon.png" />
-  <link rel="shortcut icon"         type="image/png" href="/assets/favicon.png" />
-
-  <!-- Razorpay (loaded on checkout page only) -->
+  <!-- Razorpay — only on checkout, preloaded so it's ready when user clicks Buy Now -->
   <?php if (!empty($loadRazorpay)): ?>
-  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+  <script src="https://checkout.razorpay.com/v1/checkout.js" defer></script>
   <?php endif; ?>
 
-  <!-- Lucide icons via CDN -->
-  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-  
+  <!-- Google Analytics — async, non-blocking -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-BWJJHYGDQ3"></script>
+  <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-BWJJHYGDQ3');</script>
+
   <?php if ($requireAuth): ?>
   <script>
-    // Prevent back button access after logout for authenticated pages
-    window.addEventListener('pageshow', function(event) {
-      // If page is loaded from cache (back button), force reload to check auth
-      if (event.persisted) {
-        window.location.reload();
-      }
-    });
+    window.addEventListener('pageshow', function(e) { if (e.persisted) window.location.reload(); });
   </script>
   <?php endif; ?>
 </head>
 <body class="bg-[#FFF8EC] text-[#3E2723]">
 
-<!-- Toast container -->
 <div id="toast-container"></div>
-
-<!-- Falling particles -->
 <div id="falling-particles" aria-hidden="true"></div>
