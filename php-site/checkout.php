@@ -163,24 +163,388 @@ include 'includes/header.php';
 
 <script type="module">
 import { readCart, getCartTotal, clearCart, formatPrice, getGstLabel } from './js/cart.js';
-import { getCurrentUser, onUserChange, db, collection, addDoc, serverTimestamp } from './js/firebase-config.js';
+import { getCurrentUser, onUserChange, authReady, db, collection, addDoc, serverTimestamp } from './js/firebase-config.js';
 
-const BACKEND_URL = 'api';
 let currentUser = null;
 let shippingForm = {};
 let selectedPayment = 'cod';
 let discountApplied = 0;
-// Prices are GST-inclusive; no additional tax line needed
 
-onUserChange(u => {
-  currentUser = u;
+const COD_CHARGE = 50;
+
+// ── Auth guard + autofill ─────────────────────────────────────────────────
+// Use authReady (resolves once) instead of onUserChange (fires multiple times)
+authReady.then(u => {
   if (!u) { window.location.href = 'login.php?redirect=checkout.php'; return; }
+  currentUser = u;
   const items = readCart();
   if (items.length === 0) { window.location.href = 'cart.php'; return; }
-  // Pre-fill name/phone
-  document.getElementById('f-name').value = u.name || '';
-  document.getElementById('f-phone').value = u.phone || '';
+  // Autofill name and phone from user profile
+  const nameEl = document.getElementById('f-name');
+  const phoneEl = document.getElementById('f-phone');
+  if (nameEl && !nameEl.value) nameEl.value = u.name || '';
+  if (phoneEl && !phoneEl.value) phoneEl.value = u.phone || '';
 });
+
+// Keep currentUser in sync if auth state changes (e.g. token refresh)
+onUserChange(u => { currentUser = u; });
+
+// If cart becomes empty while on this page, redirect away
+window.addEventListener('cart:updated', () => {
+  if (readCart().length === 0) {
+    showToast('Your cart is empty.', 'info');
+    setTimeout(() => { window.location.href = 'cart.php'; }, 1000);
+  }
+});
+
+// ── Address type selection ────────────────────────────────────────────────
+let selectedAddressType = '';
+window.selectAddressType = (type) => {
+  selectedAddressType = type;
+  document.querySelectorAll('.addr-type-btn').forEach(btn => {
+    const isActive = btn.id === 'addr-' + type;
+    btn.className = `addr-type-btn flex flex-col sm:flex-row items-center sm:items-start gap-1 sm:gap-3 rounded-2xl border-2 px-2 sm:px-4 py-3 sm:py-4 text-center sm:text-left transition-all min-h-[60px] ${isActive ? 'border-[#D97736] bg-[#FFF4E8] shadow-sm' : 'border-[#E0D8C8] bg-white hover:border-[#D97736]'}`;
+  });
+  document.getElementById('addr-type-error').classList.add('hidden');
+};
+
+// ── Payment method selection ──────────────────────────────────────────────
+document.querySelectorAll('.payment-method-label').forEach(label => {
+  label.addEventListener('click', () => {
+    selectedPayment = label.dataset.method;
+    document.querySelectorAll('[id^="pm-"]').forEach(el => {
+      el.classList.remove('ring-2', 'ring-[#D97736]', 'shadow-lg');
+    });
+    document.getElementById('pm-' + selectedPayment)?.classList.add('ring-2', 'ring-[#D97736]', 'shadow-lg');
+    // Show coupon only for COD
+    const couponSection = document.getElementById('coupon-section');
+    if (selectedPayment === 'cod') {
+      couponSection.classList.remove('hidden');
+    } else {
+      couponSection.classList.add('hidden');
+      discountApplied = 0;
+      document.getElementById('coupon-input').value = '';
+      document.getElementById('coupon-message').classList.add('hidden');
+    }
+    // Re-render review totals if on review step
+    if (!document.getElementById('step-review').classList.contains('hidden')) renderReview();
+  });
+});
+document.getElementById('pm-cod')?.classList.add('ring-2', 'ring-[#D97736]', 'shadow-lg');
+document.getElementById('coupon-section').classList.remove('hidden');
+
+// ── Step navigation ───────────────────────────────────────────────────────
+window.goToStep = (step) => {
+  ['shipping','review','payment'].forEach(s => {
+    document.getElementById('step-' + s).classList.toggle('hidden', s !== step);
+  });
+  const steps = ['shipping','review','payment'];
+  const idx = steps.indexOf(step);
+  steps.forEach((s, i) => {
+    const numEl   = document.getElementById('step-num-'   + (i+1));
+    const labelEl = document.getElementById('step-label-' + (i+1));
+    const lineEl  = document.getElementById('step-line-'  + (i+1));
+    if (numEl)   numEl.className   = `step-num${i<=idx?' active':''}`;
+    if (labelEl) labelEl.className = `step-label${i<=idx?' active':''}`;
+    if (lineEl)  lineEl.className  = `step-line${i<idx?' active':''}`;
+  });
+  if (step === 'review') renderReview();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+
+// ── Shipping form submit + validation ─────────────────────────────────────
+document.getElementById('shipping-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+
+  const name    = document.getElementById('f-name').value.trim();
+  const phone   = document.getElementById('f-phone').value.trim();
+  const address = document.getElementById('f-address').value.trim();
+  const city    = document.getElementById('f-city').value.trim();
+  const state   = document.getElementById('f-state').value;
+  const pincode = document.getElementById('f-pincode').value.trim();
+  const country = document.getElementById('f-country').value;
+  const isIndia = country === 'India';
+
+  if (!name || name.length < 2) { showFieldError('f-name', 'Please enter your full name (at least 2 characters).'); return; }
+  clearFieldError('f-name');
+
+  const phoneDigits = phone.replace(/[\s\-\+]/g, '');
+  if (isIndia) {
+    const cleanPhone = phoneDigits.replace(/^91/, '');
+    if (!cleanPhone || !/^\d{10}$/.test(cleanPhone)) { showFieldError('f-phone', 'Enter a valid 10-digit phone number.'); return; }
+  } else {
+    if (!phoneDigits || !/^\d{7,}$/.test(phoneDigits)) { showFieldError('f-phone', 'Enter a valid phone number.'); return; }
+  }
+  clearFieldError('f-phone');
+
+  if (!address || address.length < 5) { showFieldError('f-address', 'Please enter a complete street address.'); return; }
+  clearFieldError('f-address');
+
+  if (!city || city.length < 2) { showFieldError('f-city', 'Please enter your city.'); return; }
+  clearFieldError('f-city');
+
+  if (!state) { showFieldError('f-state', 'Please select your state.'); return; }
+  clearFieldError('f-state');
+
+  if (isIndia && !/^\d{6}$/.test(pincode)) { showFieldError('f-pincode', 'Enter a valid 6-digit pincode.'); return; }
+  else if (!isIndia && pincode.length < 3) { showFieldError('f-pincode', 'Please enter a valid postal code.'); return; }
+  clearFieldError('f-pincode');
+
+  if (!selectedAddressType) { document.getElementById('addr-type-error').classList.remove('hidden'); return; }
+  document.getElementById('addr-type-error').classList.add('hidden');
+
+  shippingForm = { name, phone: phoneDigits, address, city, country, state, pincode, addressType: selectedAddressType };
+  goToStep('review');
+});
+
+function showFieldError(fieldId, msg) {
+  const field = document.getElementById(fieldId);
+  field.classList.add('border-red-400');
+  let err = field.parentElement.querySelector('.field-error');
+  if (!err) { err = document.createElement('p'); err.className = 'field-error text-xs text-red-600 mt-1'; field.parentElement.appendChild(err); }
+  err.textContent = msg;
+  field.focus();
+}
+function clearFieldError(fieldId) {
+  const field = document.getElementById(fieldId);
+  field.classList.remove('border-red-400');
+  field.parentElement.querySelector('.field-error')?.remove();
+}
+
+// ── Render review step ────────────────────────────────────────────────────
+function renderReview() {
+  const items    = readCart();
+  const subtotal = getCartTotal(items);
+  const codCharge    = selectedPayment === 'cod' ? COD_CHARGE : 0;
+  const discountAmt  = selectedPayment === 'cod' ? discountApplied : 0;
+  const total    = subtotal + codCharge - discountAmt;
+
+  document.getElementById('review-address').innerHTML = Object.entries({
+    Name: shippingForm.name, Phone: shippingForm.phone,
+    Address: shippingForm.address, City: shippingForm.city,
+    Country: shippingForm.country, State: shippingForm.state,
+    'Address Type': shippingForm.addressType, Pincode: shippingForm.pincode,
+  }).map(([k,v]) => `<p><span class="font-medium">${k}:</span> ${v||'—'}</p>`).join('');
+
+  document.getElementById('review-items').innerHTML = items.map(item => `
+    <div class="flex gap-3 p-3 rounded-xl border border-[#E9E0D2] bg-[#FCFAF7]">
+      <img src="${item.product?.images?.[0]||'assets/main.png'}" alt="${item.product?.name||''}" class="w-16 h-16 object-cover rounded-xl shrink-0" />
+      <div class="flex-1">
+        <p class="font-semibold text-[#3E2723]">${item.product?.name||'Product'}</p>
+        <p class="text-xs text-[#A07850]">${getGstLabel(item.product?.name||'')}</p>
+        <p class="text-sm text-[#5D4037]">Qty: ${item.quantity} × ${formatPrice(item.product?.price||0)}</p>
+        <p class="font-bold text-[#3E2723]">${formatPrice((item.product?.price||0)*item.quantity)}</p>
+      </div>
+    </div>`).join('');
+
+  document.getElementById('review-totals').innerHTML = `
+    <div class="flex justify-between"><span>Subtotal (incl. GST)</span><span class="font-medium">${formatPrice(subtotal)}</span></div>
+    <div class="flex justify-between"><span>Shipping</span><span class="font-medium text-green-600">FREE</span></div>
+    ${codCharge > 0 ? `<div class="flex justify-between text-red-600"><span>COD Charge</span><span class="font-medium">+${formatPrice(codCharge)}</span></div>` : ''}
+    ${discountAmt > 0 ? `<div class="flex justify-between text-green-600"><span>Discount Applied</span><span class="font-medium">-${formatPrice(discountAmt)}</span></div>` : ''}
+    <div class="flex justify-between pt-3 border-t-2 border-[#D97736] text-lg font-bold text-[#3E2723]"><span>Total</span><span class="text-[#D97736]">${formatPrice(total)}</span></div>`;
+}
+
+// ── Coupon validation ─────────────────────────────────────────────────────
+const VALID_COUPONS = { 'KESAR10': 0.10, 'SAVE20': 0.20, 'SUMMER5': 0.05 };
+
+window.applyCoupon = () => {
+  const code  = document.getElementById('coupon-input').value.trim().toUpperCase();
+  const msgEl = document.getElementById('coupon-message');
+  if (!code) { msgEl.classList.add('hidden'); return; }
+  if (!VALID_COUPONS[code]) {
+    msgEl.classList.remove('hidden');
+    msgEl.className = 'mt-2 text-sm font-medium text-red-600';
+    msgEl.textContent = '❌ Invalid coupon code';
+    discountApplied = 0;
+    return;
+  }
+  const subtotal = getCartTotal(readCart());
+  discountApplied = Math.round(subtotal * VALID_COUPONS[code]);
+  msgEl.classList.remove('hidden');
+  msgEl.className = 'mt-2 text-sm font-medium text-green-600';
+  msgEl.textContent = `✓ Coupon applied! You save ${formatPrice(discountApplied)}`;
+  if (!document.getElementById('step-review').classList.contains('hidden')) renderReview();
+};
+
+// ── COD confirmation dialog ───────────────────────────────────────────────
+function showCodConfirmation(total, codCharge) {
+  return new Promise((resolve) => {
+    document.getElementById('cod-confirm-dialog')?.remove();
+    const dialog = document.createElement('div');
+    dialog.id = 'cod-confirm-dialog';
+    dialog.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);padding:1rem;';
+    dialog.innerHTML = `
+      <div style="background:#fff;border-radius:1.5rem;padding:2rem;max-width:380px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.25);text-align:center;">
+        <div style="font-size:2.5rem;margin-bottom:.75rem;">🚚</div>
+        <h3 style="font-size:1.25rem;font-weight:700;color:#3E2723;margin-bottom:.5rem;">Cash on Delivery</h3>
+        <p style="color:#5D4037;font-size:.9rem;margin-bottom:1rem;line-height:1.5;">
+          A <strong style="color:#E8620A;">₹${codCharge} COD handling charge</strong> has been added to your order.
+        </p>
+        <div style="background:#FFF8EC;border:1px solid #F5A800;border-radius:.75rem;padding:.875rem;margin-bottom:1.5rem;">
+          <p style="font-size:.8rem;color:#7A3B00;margin:0;">Order Total: <strong style="font-size:1rem;color:#3E2723;">${formatPrice(total)}</strong></p>
+          <p style="font-size:.75rem;color:#A07850;margin:.25rem 0 0;">Includes ₹${codCharge} COD charge</p>
+        </div>
+        <p style="font-size:.8rem;color:#8A7768;margin-bottom:1.5rem;">Pay online to avoid this charge.</p>
+        <div style="display:flex;gap:.75rem;">
+          <button id="cod-cancel-btn" style="flex:1;padding:.75rem;border-radius:.75rem;border:2px solid #E0D8C8;background:#fff;color:#5D4037;font-weight:600;cursor:pointer;font-size:.875rem;">Cancel</button>
+          <button id="cod-confirm-btn" style="flex:1;padding:.75rem;border-radius:.75rem;border:none;background:linear-gradient(to right,#E8620A,#F5A800);color:#fff;font-weight:700;cursor:pointer;font-size:.875rem;">Yes, Proceed</button>
+        </div>
+      </div>`;
+    document.body.appendChild(dialog);
+    dialog.querySelector('#cod-confirm-btn').addEventListener('click', () => { dialog.remove(); resolve(true); });
+    dialog.querySelector('#cod-cancel-btn').addEventListener('click', () => { dialog.remove(); resolve(false); });
+    dialog.addEventListener('click', (e) => { if (e.target === dialog) { dialog.remove(); resolve(false); } });
+  });
+}
+
+// ── Payment form submit ───────────────────────────────────────────────────
+document.getElementById('payment-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (!currentUser) { window.location.href = 'login.php?redirect=checkout.php'; return; }
+
+  const items = readCart();
+  if (items.length === 0) {
+    showToast('Your cart is empty. Add items before checking out.', 'error');
+    setTimeout(() => { window.location.href = 'cart.php'; }, 1500);
+    return;
+  }
+  const subtotal = getCartTotal(items);
+  if (subtotal <= 0) {
+    showToast('Cart total is invalid. Please check your items.', 'error');
+    setTimeout(() => { window.location.href = 'cart.php'; }, 1500);
+    return;
+  }
+
+  const codCharge  = selectedPayment === 'cod' ? COD_CHARGE : 0;
+  const discount   = selectedPayment === 'cod' ? discountApplied : 0;
+  const grandTotal = subtotal + codCharge - discount;
+
+  const btn = document.getElementById('buy-btn');
+  btn.disabled = true;
+  btn.innerHTML = `<svg class="animate-spin w-4 h-4 mr-2 inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>Processing…`;
+
+  // COD confirmation dialog — shown after button is disabled so UX is clear
+  if (selectedPayment === 'cod') {
+    const confirmed = await showCodConfirmation(grandTotal, codCharge);
+    if (!confirmed) { btn.disabled = false; btn.textContent = 'Buy Now'; return; }
+  }
+
+  const payload = {
+    items: items.map(i => ({
+      product_id:   i.product_id,
+      product_name: i.product?.name || 'Product',
+      quantity:     i.quantity,
+      price:        i.product?.price || 0,
+      variant:      i.variant || null,
+      image:        i.product?.images?.[0] || null,
+    })),
+    shipping_address: shippingForm,
+    payment_method:   selectedPayment,
+    total:            grandTotal,
+    discount:         discount,
+    user_id:          currentUser._id,
+    user_email:       currentUser.email,
+    user_name:        currentUser.name,
+    user_phone:       currentUser.phone || shippingForm.phone,
+  };
+
+  const saveToFirestore = async (orderId, status = 'confirmed') => {
+    try {
+      await addDoc(collection(db, 'orders'), {
+        orderId,
+        userId:          currentUser._id,
+        userEmail:       currentUser.email,
+        userName:        currentUser.name,
+        items:           payload.items,
+        shippingAddress: shippingForm,
+        paymentMethod:   selectedPayment,
+        subtotal,
+        discount:        discountApplied,
+        shipping:        0,
+        codCharge:       selectedPayment === 'cod' ? COD_CHARGE : 0,
+        total:           grandTotal,
+        status,
+        createdAt:       serverTimestamp(),
+      });
+    } catch(err) { console.error('Firestore save error:', err); }
+  };
+
+  try {
+    if (selectedPayment === 'cod') {
+      const res  = await fetch('api/orders.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const data = await res.json();
+      if (!res.ok || !data.id) throw new Error(data.error || 'Order creation failed');
+      await saveToFirestore(data.id, 'confirmed');
+      await clearCart();
+      showToast('Order placed successfully!', 'success');
+      window.location.href = 'order-success.php?orderId=' + encodeURIComponent(data.id);
+
+    } else {
+      // Card / UPI / Net Banking — all go through Razorpay
+      const res  = await fetch('api/razorpay-create.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to create payment order');
+
+      if (data.demo) {
+        showToast('Demo payment successful!', 'success');
+        await saveToFirestore(data.order.id, 'paid');
+        await clearCart();
+        window.location.href = 'order-success.php?orderId=' + encodeURIComponent(data.order.id);
+        return;
+      }
+
+      if (!data.razorpay?.key_id || !window.Razorpay) throw new Error('Razorpay not available.');
+
+      const rzpMethodConfig = { online: { card: 1 }, upi: { upi: 1 }, bank: { netbanking: 1 } };
+
+      await new Promise((resolve, reject) => {
+        const rzp = new window.Razorpay({
+          key:          data.razorpay.key_id,
+          amount:       data.razorpay.amount,
+          currency:     data.razorpay.currency,
+          name:         'Kesar Kosmetics',
+          description:  'Order payment',
+          order_id:     data.razorpay.order_id,
+          prefill:      { name: shippingForm.name, email: currentUser.email, contact: shippingForm.phone },
+          theme:        { color: '#D97736' },
+          method:       rzpMethodConfig[selectedPayment] || {},
+          handler: async (response) => {
+            try {
+              const vRes  = await fetch('api/razorpay-verify.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  razorpay_order_id:   response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature:  response.razorpay_signature,
+                  user_id:             currentUser._id,
+                  user_email:          currentUser.email,
+                }),
+              });
+              const vData = await vRes.json();
+              if (!vRes.ok) throw new Error(vData.error || 'Payment verification failed');
+              showToast('Payment verified!', 'success');
+              await saveToFirestore(vData.id || data.order.id, 'paid');
+              await clearCart();
+              window.location.href = 'order-success.php?orderId=' + encodeURIComponent(vData.id || data.order.id);
+              resolve();
+            } catch(err) { showToast('Payment verification failed: ' + err.message, 'error'); reject(err); }
+          },
+          modal: { ondismiss: () => { showToast('Payment cancelled', 'info'); reject(new Error('cancelled')); } },
+        });
+        rzp.on('payment.failed', (r) => { const msg = r?.error?.description || 'Payment failed'; showToast(msg, 'error'); reject(new Error(msg)); });
+        rzp.open();
+      });
+    }
+  } catch(err) {
+    console.error('Order error:', err);
+    if (err.message !== 'cancelled' && err.message !== 'failed') showToast('Could not place order. Please try again.', 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Buy Now';
+  }
+});
+</script>
 
 // If cart becomes empty while on this page (e.g. deleted from another tab), redirect away
 window.addEventListener('cart:updated', () => {
@@ -213,460 +577,6 @@ document.querySelectorAll('.payment-method-label').forEach(label => {
     // Show/hide coupon section based on payment method
     const couponSection = document.getElementById('coupon-section');
     if (selectedPayment === 'cod') {
-      couponSection.classList.remove('hidden');
-    } else {
-      couponSection.classList.add('hidden');
-      // Reset coupon if switching away from COD
-      discountApplied = 0;
-      document.getElementById('coupon-input').value = '';
-      document.getElementById('coupon-message').classList.add('hidden');
-    }
-    
-    // Re-render review to update COD charge if on review step
-    if (!document.getElementById('step-review').classList.contains('hidden')) {
-      renderReview();
-    }
-  });
-});
-// Set initial active state for COD
-document.getElementById('pm-cod')?.classList.add('ring-2', 'ring-[#D97736]', 'shadow-lg');
-// Show coupon section initially (COD is default)
-document.getElementById('coupon-section').classList.remove('hidden');
-
-// ── Step navigation ───────────────────────────────────────────────────────
-window.goToStep = (step) => {
-  ['shipping','review','payment'].forEach(s => {
-    document.getElementById('step-' + s).classList.toggle('hidden', s !== step);
-  });
-  const steps = ['shipping','review','payment'];
-  const idx = steps.indexOf(step);
-  steps.forEach((s, i) => {
-    const numEl = document.getElementById('step-num-' + (i+1));
-    const labelEl = document.getElementById('step-label-' + (i+1));
-    const lineEl = document.getElementById('step-line-' + (i+1));
-    if (numEl) numEl.className = `step-num${i<=idx?' active':''}`;
-    if (labelEl) labelEl.className = `step-label${i<=idx?' active':''}`;
-    if (lineEl) lineEl.className = `step-line${i<idx?' active':''}`;
-  });
-  if (step === 'review') renderReview();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-};
-
-// ── Shipping form submit ──────────────────────────────────────────────────
-document.getElementById('shipping-form').addEventListener('submit', (e) => {
-  e.preventDefault();
-
-  // ── Validation ──────────────────────────────────────────────────────────
-  const name    = document.getElementById('f-name').value.trim();
-  const phone   = document.getElementById('f-phone').value.trim();
-  const address = document.getElementById('f-address').value.trim();
-  const city    = document.getElementById('f-city').value.trim();
-  const state   = document.getElementById('f-state').value;
-  const pincode = document.getElementById('f-pincode').value.trim();
-  const country = document.getElementById('f-country').value;
-
-  // Name: at least 2 chars, letters and spaces only
-  if (!name || name.length < 2) {
-    showFieldError('f-name', 'Please enter your full name (at least 2 characters).');
-    return;
-  }
-  clearFieldError('f-name');
-
-  // Phone: validate based on country
-  const phoneDigits = phone.replace(/[\s\-\+]/g, '');
-  const isIndia = country === 'India';
-  
-  if (isIndia) {
-    // India: 10 digits, optionally prefixed with 91
-    const cleanPhone = phoneDigits.replace(/^91/, '');
-    if (!cleanPhone || !/^\d{10}$/.test(cleanPhone)) {
-      showFieldError('f-phone', 'Enter a valid 10-digit phone number.');
-      return;
-    }
-  } else {
-    // International: at least 7 digits
-    if (!phoneDigits || !/^\d{7,}$/.test(phoneDigits)) {
-      showFieldError('f-phone', 'Enter a valid phone number.');
-      return;
-    }
-  }
-  clearFieldError('f-phone');
-
-  // Address: at least 5 chars
-  if (!address || address.length < 5) {
-    showFieldError('f-address', 'Please enter a complete street address.');
-    return;
-  }
-  clearFieldError('f-address');
-
-  // City
-  if (!city || city.length < 2) {
-    showFieldError('f-city', 'Please enter your city.');
-    return;
-  }
-  clearFieldError('f-city');
-
-  // State
-  if (!state) {
-    showFieldError('f-state', 'Please select your state.');
-    return;
-  }
-  clearFieldError('f-state');
-
-  // Pincode: 6 digits for India, flexible for international
-  if (isIndia && !/^\d{6}$/.test(pincode)) {
-    showFieldError('f-pincode', 'Enter a valid 6-digit pincode.');
-    return;
-  } else if (!isIndia && pincode.length < 3) {
-    showFieldError('f-pincode', 'Please enter a valid postal code.');
-    return;
-  }
-  clearFieldError('f-pincode');
-
-  // Address type
-  if (!selectedAddressType) {
-    document.getElementById('addr-type-error').classList.remove('hidden');
-    return;
-  }
-  document.getElementById('addr-type-error').classList.add('hidden');
-
-  shippingForm = { name, phone: phoneDigits, address, city, country, state, pincode, addressType: selectedAddressType };
-  goToStep('review');
-});
-
-function showFieldError(fieldId, msg) {
-  const field = document.getElementById(fieldId);
-  field.classList.add('border-red-400');
-  let err = field.parentElement.querySelector('.field-error');
-  if (!err) {
-    err = document.createElement('p');
-    err.className = 'field-error text-xs text-red-600 mt-1';
-    field.parentElement.appendChild(err);
-  }
-  err.textContent = msg;
-  field.focus();
-}
-
-function clearFieldError(fieldId) {
-  const field = document.getElementById(fieldId);
-  field.classList.remove('border-red-400');
-  field.parentElement.querySelector('.field-error')?.remove();
-}
-
-// ── Render review step ────────────────────────────────────────────────────
-const COD_CHARGE = 50;
-
-function renderReview() {
-  const items = readCart();
-  const subtotal = getCartTotal(items);
-  const shipping = 0;
-  const codCharge = selectedPayment === 'cod' ? COD_CHARGE : 0;
-  const discountAmount = selectedPayment === 'cod' ? discountApplied : 0;
-  const total = subtotal + shipping + codCharge - discountAmount;
-
-  document.getElementById('review-address').innerHTML = Object.entries({
-    Name: shippingForm.name, Phone: shippingForm.phone,
-    Address: shippingForm.address, City: shippingForm.city,
-    Country: shippingForm.country, State: shippingForm.state,
-    'Address Type': shippingForm.addressType, Pincode: shippingForm.pincode,
-  }).map(([k,v]) => `<p><span class="font-medium">${k}:</span> ${v||'—'}</p>`).join('');
-
-  document.getElementById('review-items').innerHTML = items.map(item => `
-    <div class="flex gap-3 p-3 rounded-xl border border-[#E9E0D2] bg-[#FCFAF7]">
-      <img src="${item.product?.images?.[0]||'assets/main.png'}" alt="${item.product?.name||''}" class="w-16 h-16 object-cover rounded-xl shrink-0" />
-      <div class="flex-1">
-        <p class="font-semibold text-[#3E2723]">${item.product?.name||'Product'}</p>
-        <p class="text-xs text-[#A07850]">${getGstLabel(item.product?.name||'')}</p>
-        <p class="text-sm text-[#5D4037]">Qty: ${item.quantity} × ${formatPrice(item.product?.price||0)}</p>
-        <p class="font-bold text-[#3E2723]">${formatPrice((item.product?.price||0)*item.quantity)}</p>
-      </div>
-    </div>
-  `).join('');
-
-  let totalsHtml = `
-    <div class="flex justify-between"><span>Subtotal (incl. GST)</span><span class="font-medium">${formatPrice(subtotal)}</span></div>
-    <div class="flex justify-between"><span>Shipping</span><span class="font-medium text-green-600">FREE</span></div>
-    ${codCharge > 0 ? `<div class="flex justify-between text-red-600"><span>COD Charge</span><span class="font-medium">+${formatPrice(codCharge)}</span></div>` : ''}
-    ${discountAmount > 0 ? `<div class="flex justify-between text-green-600"><span>Discount Applied</span><span class="font-medium">-${formatPrice(discountAmount)}</span></div>` : ''}
-    <div class="flex justify-between pt-3 border-t-2 border-[#D97736] text-lg font-bold text-[#3E2723]"><span>Total</span><span class="text-[#D97736]">${formatPrice(total)}</span></div>
-  `;
-
-  document.getElementById('review-totals').innerHTML = totalsHtml;
-}
-
-// ── Coupon validation ────────────────────────────────────────────────────
-const VALID_COUPONS = {
-  'KESAR10': 0.10,  // 10% off
-  'SAVE20': 0.20,   // 20% off
-  'SUMMER5': 0.05,  // 5% off
-};
-
-window.applyCoupon = () => {
-  if (selectedPayment !== 'cod') {
-    showToast('Coupons are only available for Cash on Delivery', 'error');
-    return;
-  }
-
-  const code = document.getElementById('coupon-input').value.trim().toUpperCase();
-  const msgEl = document.getElementById('coupon-message');
-
-  if (!code) {
-    msgEl.classList.add('hidden');
-    return;
-  }
-
-  if (!VALID_COUPONS[code]) {
-    msgEl.classList.remove('hidden');
-    msgEl.className = 'mt-2 text-sm font-medium text-red-600';
-    msgEl.textContent = '❌ Invalid coupon code';
-    discountApplied = 0;
-    return;
-  }
-
-  const items = readCart();
-  const subtotal = getCartTotal(items);
-  const discountPercent = VALID_COUPONS[code];
-  discountApplied = Math.round(subtotal * discountPercent);
-
-  msgEl.classList.remove('hidden');
-  msgEl.className = 'mt-2 text-sm font-medium text-green-600';
-  msgEl.textContent = `✓ Coupon applied! You save ${formatPrice(discountApplied)}`;
-
-  // Re-render review if visible
-  if (!document.getElementById('step-review').classList.contains('hidden')) {
-    renderReview();
-  }
-};
-
-// ── COD confirmation dialog ───────────────────────────────────────────────
-function showCodConfirmation(total, codCharge) {
-  return new Promise((resolve) => {
-    // Remove any existing dialog
-    document.getElementById('cod-confirm-dialog')?.remove();
-
-    const dialog = document.createElement('div');
-    dialog.id = 'cod-confirm-dialog';
-    dialog.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);padding:1rem;';
-    dialog.innerHTML = `
-      <div style="background:#fff;border-radius:1.5rem;padding:2rem;max-width:380px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.25);text-align:center;">
-        <div style="font-size:2.5rem;margin-bottom:.75rem;">🚚</div>
-        <h3 style="font-size:1.25rem;font-weight:700;color:#3E2723;margin-bottom:.5rem;">Cash on Delivery</h3>
-        <p style="color:#5D4037;font-size:.9rem;margin-bottom:1rem;line-height:1.5;">
-          A <strong style="color:#E8620A;">₹${codCharge} COD handling charge</strong> has been added to your order.
-        </p>
-        <div style="background:#FFF8EC;border:1px solid #F5A800;border-radius:.75rem;padding:.875rem;margin-bottom:1.5rem;">
-          <p style="font-size:.8rem;color:#7A3B00;margin:0;">Order Total: <strong style="font-size:1rem;color:#3E2723;">${formatPrice(total)}</strong></p>
-          <p style="font-size:.75rem;color:#A07850;margin:.25rem 0 0;">Includes ₹${codCharge} COD charge</p>
-        </div>
-        <p style="font-size:.8rem;color:#8A7768;margin-bottom:1.5rem;">Pay online to avoid this charge.</p>
-        <div style="display:flex;gap:.75rem;">
-          <button id="cod-cancel-btn" style="flex:1;padding:.75rem;border-radius:.75rem;border:2px solid #E0D8C8;background:#fff;color:#5D4037;font-weight:600;cursor:pointer;font-size:.875rem;">Cancel</button>
-          <button id="cod-confirm-btn" style="flex:1;padding:.75rem;border-radius:.75rem;border:none;background:linear-gradient(to right,#E8620A,#F5A800);color:#fff;font-weight:700;cursor:pointer;font-size:.875rem;">Yes, Proceed</button>
-        </div>
-      </div>
-    `;
-
-    document.body.appendChild(dialog);
-
-    dialog.querySelector('#cod-confirm-btn').addEventListener('click', () => {
-      dialog.remove();
-      resolve(true);
-    });
-    dialog.querySelector('#cod-cancel-btn').addEventListener('click', () => {
-      dialog.remove();
-      resolve(false);
-    });
-    dialog.addEventListener('click', (e) => {
-      if (e.target === dialog) { dialog.remove(); resolve(false); }
-    });
-  });
-}
-
-// ── Payment form submit ───────────────────────────────────────────────────
-document.getElementById('payment-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  if (!currentUser) { window.location.href = 'login.php?redirect=checkout.php'; return; }
-
-  // Re-check cart at submit time — catches items deleted while on the page
-  const items = readCart();
-  if (items.length === 0) {
-    showToast('Your cart is empty. Add items before checking out.', 'error');
-    setTimeout(() => { window.location.href = 'cart.php'; }, 1500);
-    return;
-  }
-
-  const subtotal = getCartTotal(items);
-  if (subtotal <= 0) {
-    showToast('Cart total is invalid. Please check your items.', 'error');
-    setTimeout(() => { window.location.href = 'cart.php'; }, 1500);
-    return;
-  }
-  const shipping = 0;
-  const codCharge = selectedPayment === 'cod' ? COD_CHARGE : 0;
-  const discount = selectedPayment === 'cod' ? discountApplied : 0;
-  const grandTotal = subtotal + shipping + codCharge - discount;
-
-  const btn = document.getElementById('buy-btn');
-  btn.disabled = true;
-  btn.innerHTML = `<svg class="animate-spin w-4 h-4 mr-2 inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>Processing…`;
-
-  // COD confirmation dialog
-  if (selectedPayment === 'cod') {
-    const confirmed = await showCodConfirmation(grandTotal, codCharge);
-    if (!confirmed) {
-      btn.disabled = false;
-      btn.textContent = 'Buy Now';
-      return;
-    }
-  }
-    items: items.map(i => ({
-      product_id: i.product_id,
-      product_name: i.product?.name || 'Product',
-      quantity: i.quantity,
-      price: i.product?.price || 0,
-      variant: i.variant || null,
-      image: i.product?.images?.[0] || null,
-    })),
-    shipping_address: shippingForm,
-    payment_method: selectedPayment,
-    total: grandTotal,
-    discount: discount,
-    user_id: currentUser._id,
-    user_email: currentUser.email,
-    user_name: currentUser.name,
-    user_phone: currentUser.phone || shippingForm.phone,
-  };
-
-  const saveToFirestore = async (orderId, status = 'confirmed') => {
-    try {
-      await addDoc(collection(db, 'orders'), {
-        orderId, userId: currentUser._id, userEmail: currentUser.email,
-        userName: currentUser.name, items: payload.items,
-        shippingAddress: shippingForm, paymentMethod: selectedPayment,
-        subtotal, discount: discountApplied, shipping,
-        codCharge: selectedPayment === 'cod' ? COD_CHARGE : 0,
-        total: grandTotal,
-        status, createdAt: serverTimestamp(),
-      });
-    } catch(err) { console.error('Firestore save error:', err); }
-  };
-
-  try {
-    if (selectedPayment === 'cod') {
-      const res = await fetch('api/orders.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.id) {
-        throw new Error(data.error || 'Order creation failed');
-      }
-      await saveToFirestore(data.id, 'confirmed');
-      await clearCart();
-      showToast('Order placed successfully!', 'success');
-      window.location.href = 'order-success.php?orderId=' + encodeURIComponent(data.id);
-    } else {
-      // All online methods (card, upi, netbanking) go through Razorpay
-      const res = await fetch('api/razorpay-create.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to create payment order');
-      }
-
-      if (data.demo) {
-        showToast('Demo payment successful!', 'success');
-        await saveToFirestore(data.order.id, 'paid');
-        await clearCart();
-        window.location.href = 'order-success.php?orderId=' + encodeURIComponent(data.order.id);
-        return;
-      }
-
-      if (!data.razorpay?.key_id || !window.Razorpay) {
-        throw new Error('Razorpay not available. Please check your configuration.');
-      }
-
-      await new Promise((resolve, reject) => {
-        // Map our method names to Razorpay's method config
-        const rzpMethodConfig = {
-          online: { card: 1 },
-          upi:    { upi: 1 },
-          bank:   { netbanking: 1 },
-        };
-
-        const rzp = new window.Razorpay({
-          key: data.razorpay.key_id,
-          amount: data.razorpay.amount,
-          currency: data.razorpay.currency,
-          name: 'Kesar Kosmetics',
-          description: 'Order payment',
-          order_id: data.razorpay.order_id,
-          prefill: { 
-            name: shippingForm.name, 
-            email: currentUser.email, 
-            contact: shippingForm.phone 
-          },
-          theme: { color: '#D97736' },
-          method: rzpMethodConfig[selectedPayment] || {},
-          handler: async (response) => {
-            try {
-              const vRes = await fetch('api/razorpay-verify.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  razorpay_order_id: response.razorpay_order_id,
-                  razorpay_payment_id: response.razorpay_payment_id,
-                  razorpay_signature: response.razorpay_signature,
-                  user_id: currentUser._id,
-                  user_email: currentUser.email,
-                }),
-              });
-              const vData = await vRes.json();
-              if (!vRes.ok) {
-                throw new Error(vData.error || 'Payment verification failed');
-              }
-              showToast('Payment verified successfully!', 'success');
-              await saveToFirestore(vData.id || data.order.id, 'paid');
-              await clearCart();
-              window.location.href = 'order-success.php?orderId=' + encodeURIComponent(vData.id || data.order.id);
-              resolve();
-            } catch(err) { 
-              console.error('Verification error:', err);
-              showToast('Payment verification failed: ' + err.message, 'error'); 
-              reject(err); 
-            }
-          },
-          modal: { 
-            ondismiss: () => { 
-              showToast('Payment cancelled', 'info'); 
-              reject(new Error('cancelled')); 
-            } 
-          },
-        });
-        rzp.on('payment.failed', (r) => { 
-          const errMsg = r?.error?.description || 'Payment failed';
-          showToast(errMsg, 'error'); 
-          reject(new Error(errMsg)); 
-        });
-        rzp.open();
-      });
-    }
-  } catch(err) {
-    console.error('Order error:', err);
-    if (err.message !== 'cancelled' && err.message !== 'failed') {
-      showToast('Could not place order. Please try again.', 'error');
-    }
-  } finally {
-    btn.disabled = false; btn.textContent = 'Buy Now';
-  }
-});
-</script>
-
 <?php include 'includes/scripts.php'; ?>
 </body>
 </html>
