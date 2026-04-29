@@ -76,6 +76,7 @@
     <div class="border-t border-white/10 mt-10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 flex-wrap">
       <p class="text-xs text-white/40">&copy; 2025 Kesar Kosmetics. All rights reserved.</p>
       <p class="text-xs text-white/40">Made with ❤️ for a sustainable future</p>
+      <p class="text-xs text-white/40">Designed and made by <a href="https://velfound.com" target="_blank" rel="noopener noreferrer" class="text-[#F5A800] hover:text-[#E8620A] transition-colors font-medium">Velfound</a></p>
       <button id="admin-footer-btn" class="text-xs text-white/10 hover:text-white/30 transition-colors" aria-label="Admin">Admin</button>
     </div>
   </div>
