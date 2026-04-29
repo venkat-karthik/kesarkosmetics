@@ -142,6 +142,7 @@ function renderCartDrawer() {
     body.innerHTML = '<p class="text-center text-[#8A7768] py-8">Your cart is empty.</p>';
     if (totalEl) totalEl.textContent = '₹0';
     updateFreeShippingBar(0);
+    _freeShippingCelebrationShown = false; // reset so celebration fires on next add
     return;
   }
   body.innerHTML = items.map(item => `
@@ -176,21 +177,16 @@ let _freeShippingCelebrationShown = false;
 function updateFreeShippingBar(total) {
   const bar = document.getElementById('cart-free-shipping-bar');
   if (!bar) return;
-  
-  // Always show unlocked since threshold is 0
-  const unlocked = total >= FREE_SHIPPING_THRESHOLD;
-  
-  bar.innerHTML = unlocked
-    ? `<p class="text-xs font-semibold text-green-700 text-center">🎉 You've unlocked FREE shipping!</p>
-       <div class="mt-1.5 h-2 rounded-full bg-green-100 overflow-hidden"><div class="h-full rounded-full bg-green-500 transition-all duration-500" style="width:100%"></div></div>`
-    : `<p class="text-xs text-[#7A3B00]">Add <span class="font-bold text-[#D97736]">₹0</span> more for <span class="font-bold text-green-700">FREE shipping</span> 🚚</p>
-       <div class="mt-1.5 h-2 rounded-full bg-[#F5EEE6] overflow-hidden"><div class="h-full rounded-full bg-[#D97736] transition-all duration-500" style="width:100%"></div></div>`;
 
-  // Trigger celebration only when crossing the threshold for the first time
-  if (unlocked && !_freeShippingCelebrationShown) {
+  // Free shipping on all orders — always show unlocked
+  bar.innerHTML = `<p class="text-xs font-semibold text-green-700 text-center">🎉 You've unlocked FREE shipping!</p>
+     <div class="mt-1.5 h-2 rounded-full bg-green-100 overflow-hidden"><div class="h-full rounded-full bg-green-500 transition-all duration-500" style="width:100%"></div></div>`;
+
+  // Trigger celebration only once per cart session (first item added)
+  if (!_freeShippingCelebrationShown && total > 0) {
     triggerFreeShippingCelebration();
+    _freeShippingCelebrationShown = true;
   }
-  _freeShippingCelebrationShown = unlocked;
 }
 
 function triggerFreeShippingCelebration() {
