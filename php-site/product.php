@@ -41,6 +41,8 @@ async function load() {
       }
       
       const data = snap.data();
+      console.log('Product updated from Firestore:', { id: snap.id, price: data.price, name: data.name });
+      
       const rawVariants = Array.isArray(data.variants) ? data.variants : [];
       const variants = rawVariants.filter(v => v.name && v.name !== 'Default');
       
@@ -62,6 +64,7 @@ async function load() {
       // Only pre-select a variant if real variants exist
       selectedVariant = product.variants?.length > 0 ? product.variants[0].name : null;
       selectedVariantPrice = product.variants?.length > 0 ? (product.variants[0].price || product.price) : null;
+      console.log('Rendering product with price:', product.price);
       render();
     }, (error) => {
       console.error('Firestore listener error:', error);
