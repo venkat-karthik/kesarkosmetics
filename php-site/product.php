@@ -10,9 +10,10 @@ include 'includes/header.php';
 <?php include 'includes/footer.php'; ?>
 <script type="module">
 import { getProduct, getAllProducts, addReview } from './js/products.js';
-import { getCurrentUser, onUserChange } from './js/firebase-config.js';
+import { getCurrentUser, onUserChange, db } from './js/firebase-config.js';
 import { addToCart, getGstLabel } from './js/cart.js';
 import { toggleWishlist, isWishlisted } from './js/wishlist.js';
+import { doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const urlParams = new URLSearchParams(window.location.search);
 const productId = urlParams.get('id');
@@ -25,18 +26,65 @@ let selectedVariant = null;
 let selectedVariantPrice = null; // tracks the currently selected variant's price
 let quantity = 1;
 let currentUser = null;
+let unsubscribe = null;
 
 onUserChange(u => { currentUser = u; });
 
 async function load() {
   try {
-    [product, allProducts] = await Promise.all([getProduct(productId), getAllProducts()]);
-    if (!product) { window.location.href = 'products.php'; return; }
-    // Only pre-select a variant if real variants exist
-    selectedVariant = product.variants?.length > 0 ? product.variants[0].name : null;
-    selectedVariantPrice = product.variants?.length > 0 ? (product.variants[0].price || product.price) : null;
-    render();
+    // Set up real-time listener for the product
+    const productRef = doc(db, 'products', productId);
+    unsubscribe = onSnapshot(productRef, (snap) => {
+      if (!snap.exists()) {
+        window.location.href = 'products.php';
+        return;
+      }
+      
+      const data = snap.data();
+      const rawVariants = Array.isArray(data.variants) ? data.variants : [];
+      const variants = rawVariants.filter(v => v.name && v.name !== 'Default');
+      
+      product = {
+        id: snap.id,
+        name: data.name || "",
+        description: data.description || "",
+        price: Number(data.price || 0),
+        compare_at_price: data.compare_at_price ? Number(data.compare_at_price) : null,
+        category: data.category || "General",
+        images: Array.isArray(data.images) ? data.images : [],
+        video: data.video || null,
+        rating: Number(data.rating || 4.5),
+        reviews: Array.isArray(data.reviews) ? data.reviews : [],
+        variants,
+        createdAt: data.createdAt || null,
+      };
+      
+      // Only pre-select a variant if real variants exist
+      selectedVariant = product.variants?.length > 0 ? product.variants[0].name : null;
+      selectedVariantPrice = product.variants?.length > 0 ? (product.variants[0].price || product.price) : null;
+      render();
+    }, (error) => {
+      console.error('Firestore listener error:', error);
+      // Fallback to static fetch if listener fails
+      getProduct(productId).then(p => {
+        if (!p) {
+          window.location.href = 'products.php';
+          return;
+        }
+        product = p;
+        selectedVariant = product.variants?.length > 0 ? product.variants[0].name : null;
+        selectedVariantPrice = product.variants?.length > 0 ? (product.variants[0].price || product.price) : null;
+        render();
+      });
+    });
+    
+    // Also load all products for related items
+    getAllProducts().then(products => {
+      allProducts = products;
+      render();
+    });
   } catch(e) {
+    console.error('Error loading product:', e);
     window.location.href = 'products.php';
   }
 }
@@ -330,6 +378,11 @@ window.handleWishlist = () => {
 
 onUserChange(u => { currentUser = u; updateReviewSection(); });
 load();
+
+// Clean up listener when page unloads
+window.addEventListener('beforeunload', () => {
+  if (unsubscribe) unsubscribe();
+});
 </script>
 <?php include 'includes/scripts.php'; ?>
 </body>
