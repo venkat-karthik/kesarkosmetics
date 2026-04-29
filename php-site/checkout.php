@@ -226,8 +226,6 @@ document.querySelectorAll('.payment-method-label').forEach(label => {
       document.getElementById('coupon-input').value = '';
       document.getElementById('coupon-message').classList.add('hidden');
     }
-    // Re-render review totals if on review step
-    if (!document.getElementById('step-review').classList.contains('hidden')) renderReview();
   });
 });
 document.getElementById('pm-cod')?.classList.add('ring-2', 'ring-[#D97736]', 'shadow-lg');
@@ -315,9 +313,8 @@ function clearFieldError(fieldId) {
 function renderReview() {
   const items    = readCart();
   const subtotal = getCartTotal(items);
-  const codCharge    = selectedPayment === 'cod' ? COD_CHARGE : 0;
-  const discountAmt  = selectedPayment === 'cod' ? discountApplied : 0;
-  const total    = subtotal + codCharge - discountAmt;
+  // Review step never shows COD charge — that's only added after payment method confirmation
+  const total    = subtotal;
 
   document.getElementById('review-address').innerHTML = Object.entries({
     Name: shippingForm.name, Phone: shippingForm.phone,
@@ -340,8 +337,6 @@ function renderReview() {
   document.getElementById('review-totals').innerHTML = `
     <div class="flex justify-between"><span>Subtotal (incl. GST)</span><span class="font-medium">${formatPrice(subtotal)}</span></div>
     <div class="flex justify-between"><span>Shipping</span><span class="font-medium text-green-600">FREE</span></div>
-    ${codCharge > 0 ? `<div class="flex justify-between text-red-600"><span>COD Charge</span><span class="font-medium">+${formatPrice(codCharge)}</span></div>` : ''}
-    ${discountAmt > 0 ? `<div class="flex justify-between text-green-600"><span>Discount Applied</span><span class="font-medium">-${formatPrice(discountAmt)}</span></div>` : ''}
     <div class="flex justify-between pt-3 border-t-2 border-[#D97736] text-lg font-bold text-[#3E2723]"><span>Total</span><span class="text-[#D97736]">${formatPrice(total)}</span></div>`;
 }
 
