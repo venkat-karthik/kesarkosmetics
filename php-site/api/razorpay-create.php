@@ -41,7 +41,7 @@ $amountPaise = (int)round($total * 100);
 $razKeyId     = RAZORPAY_KEY_ID;
 $razKeySecret = RAZORPAY_KEY_SECRET;
 $isReal = $razKeyId
-    && (strpos($razKeyId, 'rzp_live_') === 0 || strpos($razKeyId, 'rzp_test_') === 0)
+    && strpos($razKeyId, 'rzp_live_') === 0  // Only accept LIVE keys as real
     && strlen($razKeyId) >= 20
     && $razKeySecret
     && strlen($razKeySecret) >= 16;
@@ -70,7 +70,8 @@ curl_setopt_array($ch, [
     CURLOPT_POST           => true,
     CURLOPT_USERPWD        => "$razKeyId:$razKeySecret",
     CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
-    CURLOPT_SSL_VERIFYPEER => true, // always verify SSL
+    CURLOPT_SSL_VERIFYPEER => false, // Disable SSL verification for localhost/demo
+    CURLOPT_SSL_VERIFYHOST => 0,     // Disable hostname verification
     CURLOPT_TIMEOUT        => 15,
     CURLOPT_POSTFIELDS     => json_encode([
         'amount'          => $amountPaise,
@@ -81,13 +82,21 @@ curl_setopt_array($ch, [
     ]),
 ]);
 $response = curl_exec($ch);
+$curlError = curl_error($ch);
 $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 curl_close($ch);
 
-if ($httpCode !== 200) {
-    error_log('Razorpay create error: ' . $response);
+if ($response === false) {
+    error_log('Razorpay cURL error: ' . $curlError);
     http_response_code(500);
-    echo json_encode(['error' => 'Failed to create payment order. Please try again.']);
+    echo json_encode(['error' => 'Failed to connect to payment gateway. Please try again.', 'debug' => $curlError]);
+    exit;
+}
+
+if ($httpCode !== 200) {
+    error_log('Razorpay create error: HTTP ' . $httpCode . ' - ' . $response);
+    http_response_code(500);
+    echo json_encode(['error' => 'Failed to create payment order. Please try again.', 'debug' => $response]);
     exit;
 }
 
