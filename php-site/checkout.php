@@ -72,7 +72,7 @@ include 'includes/header.php';
             <p class="mb-3 text-sm font-semibold text-[#3E2723]">Address Type *</p>
             <div class="grid grid-cols-3 gap-2 sm:gap-3">
               <?php foreach ([['home','Home','Residential address'],['office','Office','Work location'],['others','Others','Any other address']] as [$val,$label,$sub]): ?>
-              <button type="button" onclick="selectAddressType('<?= $val ?>')" id="addr-<?= $val ?>" class="addr-type-btn flex flex-col sm:flex-row items-center sm:items-start gap-1 sm:gap-3 rounded-2xl border-2 border-[#E0D8C8] bg-white px-2 sm:px-4 py-3 sm:py-4 text-center sm:text-left transition-all hover:border-[#D97736] min-h-[60px]">
+              <button type="button" onclick="window.selectAddressType('<?= $val ?>')" id="addr-<?= $val ?>" class="addr-type-btn flex flex-col sm:flex-row items-center sm:items-start gap-1 sm:gap-3 rounded-2xl border-2 border-[#E0D8C8] bg-white px-2 sm:px-4 py-3 sm:py-4 text-center sm:text-left transition-all hover:border-[#D97736] min-h-[60px]">
                 <div class="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-[#F5EEE6] text-[#3E2723] shrink-0">
                   <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/></svg>
                 </div>
@@ -182,12 +182,16 @@ window.addEventListener('cart:updated', () => {
 // ── Address type selection ────────────────────────────────────────────────
 let selectedAddressType = '';
 window.selectAddressType = (type) => {
+  console.log('selectAddressType called with:', type);
   selectedAddressType = type;
+  console.log('selectedAddressType set to:', selectedAddressType);
   document.querySelectorAll('.addr-type-btn').forEach(btn => {
     const isActive = btn.id === 'addr-' + type;
+    console.log('Button:', btn.id, 'isActive:', isActive);
     btn.className = `addr-type-btn flex flex-col sm:flex-row items-center sm:items-start gap-1 sm:gap-3 rounded-2xl border-2 px-2 sm:px-4 py-3 sm:py-4 text-center sm:text-left transition-all min-h-[60px] ${isActive ? 'border-[#D97736] bg-[#FFF4E8] shadow-sm' : 'border-[#E0D8C8] bg-white hover:border-[#D97736]'}`;
   });
   document.getElementById('addr-type-error').classList.add('hidden');
+  console.log('Address type selection complete');
 };
 
 // ── Payment method selection ──────────────────────────────────────────────
@@ -288,7 +292,6 @@ document.getElementById('shipping-form').addEventListener('submit', (e) => {
   clearFieldError('f-state');
 
   // Pincode: 6 digits for India, flexible for international
-  const isIndia = country === 'India';
   if (isIndia && !/^\d{6}$/.test(pincode)) {
     showFieldError('f-pincode', 'Enter a valid 6-digit pincode.');
     return;
