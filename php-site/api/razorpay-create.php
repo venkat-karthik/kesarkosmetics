@@ -70,8 +70,8 @@ curl_setopt_array($ch, [
     CURLOPT_POST           => true,
     CURLOPT_USERPWD        => "$razKeyId:$razKeySecret",
     CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
-    CURLOPT_SSL_VERIFYPEER => false, // Disable SSL verification for localhost/demo
-    CURLOPT_SSL_VERIFYHOST => 0,     // Disable hostname verification
+    CURLOPT_SSL_VERIFYPEER => true,  // Always verify SSL in production
+    CURLOPT_SSL_VERIFYHOST => 2,
     CURLOPT_TIMEOUT        => 15,
     CURLOPT_POSTFIELDS     => json_encode([
         'amount'          => $amountPaise,
@@ -89,14 +89,14 @@ curl_close($ch);
 if ($response === false) {
     error_log('Razorpay cURL error: ' . $curlError);
     http_response_code(500);
-    echo json_encode(['error' => 'Failed to connect to payment gateway. Please try again.', 'debug' => $curlError]);
+    echo json_encode(['error' => 'Failed to connect to payment gateway. Please try again.']);
     exit;
 }
 
 if ($httpCode !== 200) {
     error_log('Razorpay create error: HTTP ' . $httpCode . ' - ' . $response);
     http_response_code(500);
-    echo json_encode(['error' => 'Failed to create payment order. Please try again.', 'debug' => $response]);
+    echo json_encode(['error' => 'Failed to create payment order. Please try again.']);
     exit;
 }
 
