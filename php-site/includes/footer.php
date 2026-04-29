@@ -30,22 +30,11 @@
       <!-- Products -->
       <div>
         <h4 class="footer-heading">Products</h4>
-        <ul class="space-y-3" id="footer-products-col1">
+        <ul class="space-y-3">
           <li><a href="products.php">All Products</a></li>
-          <li><a href="products.php?category=Saffron">Saffron</a></li>
-          <li><a href="products.php?category=Skincare">Skincare</a></li>
-          <li><a href="products.php?category=Wellness">Wellness</a></li>
-        </ul>
-      </div>
-
-      <!-- More Products -->
-      <div>
-        <h4 class="footer-heading">More Products</h4>
-        <ul class="space-y-3" id="footer-products-col2">
-          <li><a href="products.php?category=Oils">Oils</a></li>
-          <li><a href="products.php?category=Ghee">Ghee</a></li>
-          <li><a href="products.php?category=Flours">Flours</a></li>
-          <li><a href="products.php?category=Gift+Hampers">Gift Hampers</a></li>
+          <li><a href="track-order.php">Track Order</a></li>
+          <li><a href="products.php?category=Skin+Care">Skincare</a></li>
+          <li><a href="products.php?category=General">General</a></li>
         </ul>
       </div>
 
@@ -56,7 +45,7 @@
           <li><a href="about.php">About Us</a></li>
           <li><a href="contact.php">Contact Us</a></li>
           <li><a href="blogs.php">Blogs</a></li>
-          <li><a href="track-order.php">Track Order</a></li>
+          <li><a href="faq.php">FAQ</a></li>
         </ul>
       </div>
 
