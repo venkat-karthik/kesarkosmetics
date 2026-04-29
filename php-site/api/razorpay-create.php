@@ -28,9 +28,15 @@ $userPhone = sanitize_string($body['user_phone'] ?? '', 20);
 if (!$userId) { http_response_code(401); echo json_encode(['error'=>'Not authenticated']); exit; }
 
 $total    = floatval($body['total'] ?? 0);
-// Whitelist valid currencies
-$validCurrencies = ['INR', 'USD', 'GBP', 'EUR', 'AED', 'SGD', 'MYR', 'SAR'];
-$currency = in_array(strtoupper($body['currency'] ?? 'INR'), $validCurrencies) ? strtoupper($body['currency']) : 'INR';
+// Always default to INR — frontend doesn't send currency
+$currency = 'INR';
+if (!empty($body['currency'])) {
+    $validCurrencies = ['INR', 'USD', 'GBP', 'EUR', 'AED', 'SGD', 'MYR', 'SAR'];
+    $requested = strtoupper(trim($body['currency']));
+    if (in_array($requested, $validCurrencies, true)) {
+        $currency = $requested;
+    }
+}
 if ($total <= 0) { http_response_code(400); echo json_encode(['error'=>'Invalid order total']); exit; }
 if ($total > 500000) { http_response_code(400); echo json_encode(['error'=>'Order total exceeds maximum allowed']); exit; }
 
