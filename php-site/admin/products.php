@@ -366,16 +366,22 @@ document.getElementById('product-form').addEventListener('submit', async (e) => 
     return { name: (name||'').trim(), price: parseFloat(price) || parseFloat(document.getElementById('p-price').value) };
   });
 
+  const priceValue = parseFloat(document.getElementById('p-price').value);
+  console.log('Admin form - Price field value:', document.getElementById('p-price').value);
+  console.log('Admin form - Parsed price:', priceValue);
+
   const data = {
     name: document.getElementById('p-name').value.trim(),
-    price: parseFloat(document.getElementById('p-price').value),
+    price: priceValue,
     compare_at_price: parseFloat(document.getElementById('p-compare-price').value) || null,
     category: document.getElementById('p-category').value,
     description: document.getElementById('p-description').value.trim(),
     images: pendingImages,
     video: pendingVideo || null,
-    variants: variants.length > 0 ? variants : [{ name: 'Default', price: parseFloat(document.getElementById('p-price').value) }],
+    variants: variants.length > 0 ? variants : [{ name: 'Default', price: priceValue }],
   };
+
+  console.log('Data being saved:', data);
 
   if (!data.name) { showToast('Product name is required', 'error'); btn.disabled=false; btn.textContent='Save Product'; return; }
   if (!data.price || data.price <= 0) { showToast('Valid price is required', 'error'); btn.disabled=false; btn.textContent='Save Product'; return; }
@@ -396,10 +402,14 @@ document.getElementById('product-form').addEventListener('submit', async (e) => 
 
   try {
     if (editingId) {
+      console.log('Updating product ID:', editingId, 'with data:', data);
       await updateProduct(editingId, data);
+      console.log('Product updated successfully');
       showToast('Product updated!', 'success');
     } else {
+      console.log('Creating new product with data:', data);
       await createProduct(data);
+      console.log('Product created successfully');
       showToast('Product created!', 'success');
     }
     modal.classList.remove('open');

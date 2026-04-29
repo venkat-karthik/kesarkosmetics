@@ -9,86 +9,105 @@ include 'includes/header.php';
 <div id="product-content" class="hidden min-h-screen bg-[#FFF8EC] pb-28 md:pb-0"></div>
 <?php include 'includes/footer.php'; ?>
 <script type="module">
+console.log('=== PRODUCT PAGE SCRIPT STARTING ===');
 import { getProduct, getAllProducts, addReview } from './js/products.js';
-import { getCurrentUser, onUserChange, db } from './js/firebase-config.js';
-import { addToCart, getGstLabel } from './js/cart.js';
+import { getCurrentUser, onUserChange } from './js/firebase-config.js';
+import { addToCart, getGstLabel, formatPrice } from './js/cart.js';
 import { toggleWishlist, isWishlisted } from './js/wishlist.js';
-import { doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+console.log('=== IMPORTS COMPLETE ===');
 
 const urlParams = new URLSearchParams(window.location.search);
 const productId = urlParams.get('id');
+console.log('Product ID from URL:', productId);
 if (!productId) { window.location.href = 'products.php'; }
 
 let product = null;
 let allProducts = [];
 let selectedImage = 0;
 let selectedVariant = null;
-let selectedVariantPrice = null; // tracks the currently selected variant's price
+let selectedVariantPrice = null;
 let quantity = 1;
 let currentUser = null;
-let unsubscribe = null;
 
-onUserChange(u => { currentUser = u; });
+onUserChange(u => { currentUser = u; updateReviewSection(); });
 
 async function load() {
   try {
-    // Set up real-time listener for the product
-    const productRef = doc(db, 'products', productId);
-    unsubscribe = onSnapshot(productRef, (snap) => {
-      if (!snap.exists()) {
-        window.location.href = 'products.php';
-        return;
-      }
-      
-      const data = snap.data();
-      console.log('Product updated from Firestore:', { id: snap.id, price: data.price, name: data.name });
-      
-      const rawVariants = Array.isArray(data.variants) ? data.variants : [];
-      const variants = rawVariants.filter(v => v.name && v.name !== 'Default');
-      
-      product = {
-        id: snap.id,
-        name: data.name || "",
-        description: data.description || "",
-        price: Number(data.price || 0),
-        compare_at_price: data.compare_at_price ? Number(data.compare_at_price) : null,
-        category: data.category || "General",
-        images: Array.isArray(data.images) ? data.images : [],
-        video: data.video || null,
-        rating: Number(data.rating || 4.5),
-        reviews: Array.isArray(data.reviews) ? data.reviews : [],
-        variants,
-        createdAt: data.createdAt || null,
-      };
-      
-      // Only pre-select a variant if real variants exist
-      selectedVariant = product.variants?.length > 0 ? product.variants[0].name : null;
-      selectedVariantPrice = product.variants?.length > 0 ? (product.variants[0].price || product.price) : null;
-      console.log('Rendering product with price:', product.price);
-      render();
-    }, (error) => {
-      console.error('Firestore listener error:', error);
-      // Fallback to static fetch if listener fails
-      getProduct(productId).then(p => {
-        if (!p) {
-          window.location.href = 'products.php';
-          return;
-        }
-        product = p;
-        selectedVariant = product.variants?.length > 0 ? product.variants[0].name : null;
-        selectedVariantPrice = product.variants?.length > 0 ? (product.variants[0].price || product.price) : null;
-        render();
-      });
-    });
+    product = await getProduct(productId);
+    if (!product) { window.location.href = 'products.php'; return; }
     
-    // Also load all products for related items
-    getAllProducts().then(products => {
-      allProducts = products;
-      render();
-    });
+    console.log('Product loaded from database:', product);
+    console.log('Product price:', product.price);
+    
+    selectedVariant = product.variants?.length > 0 ? product.variants[0].name : null;
+    selectedVariantPrice = null; // Don't auto-select variant price - use main price by default
+    
+    allProducts = await getAllProducts();
+    render();
+    
+    // Start polling for price updates every 30 seconds
+    startPricePolling();
   } catch(e) {
     console.error('Error loading product:', e);
     window.location.href = 'products.php';
+  }
+}
+
+// Poll for price updates every 30 seconds
+let pollInterval = null;
+async function startPricePolling() {
+  pollInterval = setInterval(async () => {
+    try {
+      console.log('Polling for price updates...');
+      const updatedProduct = await getProduct(productId);
+      if (!updatedProduct) {
+        console.log('Product not found during polling');
+        return;
+      }
+      
+      console.log('Updated product from DB:', updatedProduct);
+      console.log('Current product price:', product.price);
+      console.log('Updated product price:', updatedProduct.price);
+      
+      // Check if price or variants changed
+      const priceChanged = updatedProduct.price !== product.price;
+      const variantsChanged = JSON.stringify(updatedProduct.variants) !== JSON.stringify(product.variants);
+      
+      console.log('Price changed?', priceChanged);
+      console.log('Variants changed?', variantsChanged);
+      
+      if (priceChanged || variantsChanged) {
+        console.log('Updating product data...');
+        product = updatedProduct;
+        // Update the display with new prices
+        updatePriceDisplay();
+        showToast('Product price updated!', 'info', 2000);
+      }
+    } catch(e) {
+      console.error('Price polling error:', e);
+    }
+  }, 5000); // Poll every 5 seconds for testing
+}
+
+function updatePriceDisplay() {
+  // Update main price
+  const priceEl = document.getElementById('current-price');
+  if (priceEl) {
+    const displayPrice = selectedVariantPrice || product.price;
+    priceEl.textContent = formatPrice(displayPrice);
+  }
+  
+  // Update compare price if exists
+  const comparePriceEl = document.getElementById('compare-price');
+  if (comparePriceEl && product.compare_at_price) {
+    comparePriceEl.textContent = formatPrice(product.compare_at_price);
+  }
+  
+  // Update variant buttons with new prices
+  const variantsGrid = document.getElementById('variants-grid');
+  if (variantsGrid && product.variants?.length > 0) {
+    variantsGrid.innerHTML = product.variants.map(v=>`<button onclick="selectVariant('${v.name}', ${v.price||product.price})" class="variant-btn rounded-xl border-2 px-3 py-2.5 text-left transition-all ${v.name===selectedVariant?'border-[#E8620A] bg-[#E8620A] text-white':'border-[#F5A800]/30 bg-[#FFF3D6] text-[#4A1A00] hover:border-[#E8620A]'}" data-variant="${v.name}" data-price="${v.price||product.price}"><div class="font-bold text-sm">${v.name}</div><div class="text-xs mt-0.5 opacity-80">${formatPrice(v.price||product.price)}</div></button>`).join('');
   }
 }
 
@@ -100,13 +119,15 @@ function render() {
 
   const images = product.images?.length ? product.images : ['/assets/main.png'];
   const videoUrl = product.video || null;
-  // Build YouTube embed URL if video is a YouTube link
   const ytMatch = videoUrl?.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/);
   const ytEmbedUrl = ytMatch ? `https://www.youtube.com/embed/${ytMatch[1]}` : null;
   const related = allProducts.filter(p => p.id !== product.id).slice(0, 4);
   const wishlisted = isWishlisted(product.id);
 
-  // Media items: [0] = cover image, [1] = video (if any), [2+] = rest of images
+  console.log('Rendering product with price:', product.price);
+  console.log('Selected variant price:', selectedVariantPrice);
+  console.log('Display price will be:', selectedVariantPrice || product.price);
+
   const mediaItems = [
     { type: 'image', src: images[0] },
     ...(ytEmbedUrl ? [{ type: 'video', embed: ytEmbedUrl }] : []),
@@ -164,15 +185,15 @@ function render() {
             </div>
             <p class="mt-2 text-sm leading-relaxed text-[#7A3B00]">${product.description||'Authentic product crafted with traditional care.'}</p>
             <div class="mt-4 flex items-baseline gap-3 flex-wrap" id="price-display">
-              <p class="text-2xl sm:text-3xl font-bold text-[#4A1A00]" id="current-price">${window._formatPrice(selectedVariantPrice || product.price)}</p>
-              ${product.compare_at_price && product.compare_at_price > product.price ? `<p class="text-base font-medium text-[#B0906A] line-through" id="compare-price">${window._formatPrice(product.compare_at_price)}</p><span class="rounded-full bg-[#E8620A] px-2.5 py-0.5 text-xs font-bold text-white">${Math.round(((product.compare_at_price-product.price)/product.compare_at_price)*100)}% OFF</span>` : ''}
+              <p class="text-2xl sm:text-3xl font-bold text-[#4A1A00]" id="current-price">${formatPrice(selectedVariantPrice || product.price)}</p>
+              ${product.compare_at_price && product.compare_at_price > product.price ? `<p class="text-base font-medium text-[#B0906A] line-through" id="compare-price">${formatPrice(product.compare_at_price)}</p><span class="rounded-full bg-[#E8620A] px-2.5 py-0.5 text-xs font-bold text-white">${Math.round(((product.compare_at_price-product.price)/product.compare_at_price)*100)}% OFF</span>` : ''}
               <span class="text-xs text-[#A07850] font-medium w-full" id="gst-label">${getGstLabel(product.name)}</span>
             </div>
             ${product.variants?.length > 0 ? `
             <div class="mt-4">
               <p class="text-sm font-bold text-[#4A1A00] mb-2">Size</p>
               <div class="flex flex-wrap gap-2" id="variants-grid">
-                ${product.variants.map(v=>`<button onclick="selectVariant('${v.name}', ${v.price||product.price})" class="variant-btn rounded-xl border-2 px-3 py-2.5 text-left transition-all ${v.name===selectedVariant?'border-[#E8620A] bg-[#E8620A] text-white':'border-[#F5A800]/30 bg-[#FFF3D6] text-[#4A1A00] hover:border-[#E8620A]'}" data-variant="${v.name}" data-price="${v.price||product.price}"><div class="font-bold text-sm">${v.name}</div><div class="text-xs mt-0.5 opacity-80">${window._formatPrice(v.price||product.price)}</div></button>`).join('')}
+                ${product.variants.map(v=>`<button onclick="selectVariant('${v.name}', ${v.price||product.price})" class="variant-btn rounded-xl border-2 px-3 py-2.5 text-left transition-all ${v.name===selectedVariant?'border-[#E8620A] bg-[#E8620A] text-white':'border-[#F5A800]/30 bg-[#FFF3D6] text-[#4A1A00] hover:border-[#E8620A]'}" data-variant="${v.name}" data-price="${v.price||product.price}"><div class="font-bold text-sm">${v.name}</div><div class="text-xs mt-0.5 opacity-80">${formatPrice(v.price||product.price)}</div></button>`).join('')}
               </div>
             </div>` : ''}
             <div class="mt-4 rounded-xl bg-[#E8F5E9] p-3 flex items-center gap-2">
@@ -237,7 +258,6 @@ function render() {
     </div>
   `;
 
-  // Review write section
   updateReviewSection();
 }
 
@@ -321,13 +341,10 @@ window.selectMedia = (idx) => {
 window.selectVariant = (name, price) => {
   selectedVariant = name;
   selectedVariantPrice = price;
-  // Update displayed price
   const priceEl = document.getElementById('current-price');
   if (priceEl) priceEl.textContent = window._formatPrice(price);
-  // Update GST label based on variant name
   const gstEl = document.getElementById('gst-label');
   if (gstEl) gstEl.textContent = getGstLabel(name || product.name);
-  // Update variant button styles
   document.querySelectorAll('.variant-btn').forEach(btn => {
     const active = btn.dataset.variant === name;
     btn.className = `variant-btn rounded-xl border-2 px-3 py-2.5 text-left transition-all ${active?'border-[#E8620A] bg-[#E8620A] text-white':'border-[#F5A800]/30 bg-[#FFF3D6] text-[#4A1A00] hover:border-[#E8620A]'}`;
@@ -347,7 +364,6 @@ window.handleAddToCart = async () => {
   const btns = document.querySelectorAll('[onclick="handleAddToCart()"]');
   btns.forEach(b => { b.disabled = true; b.textContent = 'Adding…'; });
   try {
-    // Use variant price if a variant is selected
     const productToAdd = selectedVariantPrice
       ? { ...product, price: selectedVariantPrice }
       : product;
@@ -379,13 +395,12 @@ window.handleWishlist = () => {
   showToast(was ? 'Removed from wishlist' : 'Added to wishlist', 'success');
 };
 
-onUserChange(u => { currentUser = u; updateReviewSection(); });
-load();
-
-// Clean up listener when page unloads
+// Clean up polling when page unloads
 window.addEventListener('beforeunload', () => {
-  if (unsubscribe) unsubscribe();
+  if (pollInterval) clearInterval(pollInterval);
 });
+
+load();
 </script>
 <?php include 'includes/scripts.php'; ?>
 </body>

@@ -88,70 +88,51 @@ import { getAllProducts } from './js/products.js';
 import { formatPrice, addToCart, readCart } from './js/cart.js';
 import { isWishlisted, toggleWishlist } from './js/wishlist.js';
 import { getCurrentUser } from './js/firebase-config.js';
-import { db } from './js/firebase-config.js';
-import { collection, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 // ── Products ──────────────────────────────────────────────────────────────
 let allProducts = [];
 let currentSlide = 0;
 let slideInterval;
-let unsubscribe = null;
+let productPollInterval = null;
 
 async function loadProducts() {
   const urlParams = new URLSearchParams(window.location.search);
   const category = urlParams.get('category');
   document.getElementById('products-heading').textContent = category || 'Our Products';
   try {
-    // Set up real-time listener for products
-    const q = category
-      ? query(collection(db, 'products'), where('category', '==', category))
-      : collection(db, 'products');
-    
-    unsubscribe = onSnapshot(q, (snap) => {
-      // Normalize products
-      allProducts = snap.docs.map(d => {
-        const data = d.data();
-        const rawVariants = Array.isArray(data.variants) ? data.variants : [];
-        const variants = rawVariants.filter(v => v.name && v.name !== 'Default');
-        return {
-          id: d.id,
-          name: data.name || "",
-          description: data.description || "",
-          price: Number(data.price || 0),
-          compare_at_price: data.compare_at_price ? Number(data.compare_at_price) : null,
-          category: data.category || "General",
-          images: Array.isArray(data.images) ? data.images : [],
-          video: data.video || null,
-          rating: Number(data.rating || 4.5),
-          reviews: Array.isArray(data.reviews) ? data.reviews : [],
-          variants,
-          createdAt: data.createdAt || null,
-        };
-      }).sort((a, b) => {
-        const ta = a.createdAt?.toMillis?.() || (a.createdAt?.seconds || 0) * 1000;
-        const tb = b.createdAt?.toMillis?.() || (b.createdAt?.seconds || 0) * 1000;
-        return tb - ta;
-      });
-      
-      renderHero();
-      renderProducts();
-      renderReviews();
-    }, (error) => {
-      console.error('Firestore listener error:', error);
-      // Fallback to static fetch if listener fails
-      getAllProducts(category || null).then(products => {
-        allProducts = products;
-        renderHero();
-        renderProducts();
-        renderReviews();
-      });
-    });
+    allProducts = await getAllProducts(category || null);
+    renderHero();
+    renderProducts();
+    renderReviews();
+    // Start polling for price updates
+    startProductPolling(category);
   } catch (e) {
     console.error('Error loading products:', e);
     document.getElementById('products-loading').classList.add('hidden');
     document.getElementById('products-error').textContent = 'Could not load products.';
     document.getElementById('products-error').classList.remove('hidden');
   }
+}
+
+// Poll for product price updates every 30 seconds
+async function startProductPolling(category) {
+  productPollInterval = setInterval(async () => {
+    try {
+      const updatedProducts = await getAllProducts(category || null);
+      // Check if any prices changed
+      const pricesChanged = updatedProducts.some((p, i) => 
+        allProducts[i] && p.price !== allProducts[i].price
+      );
+      
+      if (pricesChanged) {
+        allProducts = updatedProducts;
+        renderProducts();
+        showToast('Product prices updated!', 'info', 2000);
+      }
+    } catch(e) {
+      console.error('Product polling error:', e);
+    }
+  }, 30000); // Poll every 30 seconds
 }
 
 function renderHero() {
@@ -369,17 +350,17 @@ function attachCardHover(container) {
 
 loadProducts();
 
-// Clean up listener when page unloads
-window.addEventListener('beforeunload', () => {
-  if (unsubscribe) unsubscribe();
-});
-
 // Show session expired message if redirected from admin timeout
 if (new URLSearchParams(window.location.search).get('session') === 'expired') {
   setTimeout(() => showToast('Your admin session expired. Please sign in again.', 'info', 5000), 500);
   // Clean URL
   history.replaceState({}, '', 'index.php');
 }
+
+// Clean up polling when page unloads
+window.addEventListener('beforeunload', () => {
+  if (productPollInterval) clearInterval(productPollInterval);
+});
 </script>
 
 <?php include 'includes/scripts.php'; ?>

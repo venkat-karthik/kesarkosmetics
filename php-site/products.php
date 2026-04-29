@@ -53,64 +53,24 @@ include 'includes/header.php';
 import { getAllProducts } from './js/products.js';
 import { getCurrentUser } from './js/firebase-config.js';
 import { getGstLabel } from './js/cart.js';
-import { db } from './js/firebase-config.js';
-import { collection, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const urlParams = new URLSearchParams(window.location.search);
 const activeCategory = urlParams.get('category') || null;
 
-// Update "All Products" link active state
 if (activeCategory) {
   document.getElementById('cat-all').className = 'px-4 py-2 rounded-full text-sm font-medium transition-colors bg-[#F5EEE6] text-[#5D4037] hover:bg-[#E8DECF]';
 }
 
 let allProducts = [];
-let unsubscribe = null;
+let productPollInterval = null;
 
 async function load() {
   try {
-    // Set up real-time listener for products
-    const q = activeCategory
-      ? query(collection(db, 'products'), where('category', '==', activeCategory))
-      : collection(db, 'products');
-    
-    unsubscribe = onSnapshot(q, (snap) => {
-      // Normalize products
-      allProducts = snap.docs.map(d => {
-        const data = d.data();
-        const rawVariants = Array.isArray(data.variants) ? data.variants : [];
-        const variants = rawVariants.filter(v => v.name && v.name !== 'Default');
-        return {
-          id: d.id,
-          name: data.name || "",
-          description: data.description || "",
-          price: Number(data.price || 0),
-          compare_at_price: data.compare_at_price ? Number(data.compare_at_price) : null,
-          category: data.category || "General",
-          images: Array.isArray(data.images) ? data.images : [],
-          video: data.video || null,
-          rating: Number(data.rating || 4.5),
-          reviews: Array.isArray(data.reviews) ? data.reviews : [],
-          variants,
-          createdAt: data.createdAt || null,
-        };
-      }).sort((a, b) => {
-        const ta = a.createdAt?.toMillis?.() || (a.createdAt?.seconds || 0) * 1000;
-        const tb = b.createdAt?.toMillis?.() || (b.createdAt?.seconds || 0) * 1000;
-        return tb - ta;
-      });
-      
-      renderCategories();
-      renderProducts();
-    }, (error) => {
-      console.error('Firestore listener error:', error);
-      // Fallback to static fetch if listener fails
-      getAllProducts(activeCategory).then(products => {
-        allProducts = products;
-        renderCategories();
-        renderProducts();
-      });
-    });
+    allProducts = await getAllProducts(activeCategory);
+    renderCategories();
+    renderProducts();
+    // Start polling for price updates
+    startProductPolling();
   } catch (e) {
     console.error('Error loading products:', e);
     document.getElementById('products-loading').classList.add('hidden');
@@ -118,6 +78,151 @@ async function load() {
     document.getElementById('products-error').classList.remove('hidden');
   }
 }
+
+// Poll for product price updates every 30 seconds
+async function startProductPolling() {
+  productPollInterval = setInterval(async () => {
+    try {
+      const updatedProducts = await getAllProducts(activeCategory);
+      // Check if any prices changed
+      const pricesChanged = updatedProducts.some((p, i) => 
+        allProducts[i] && p.price !== allProducts[i].price
+      );
+      
+      if (pricesChanged) {
+        allProducts = updatedProducts;
+        renderProducts();
+        showToast('Product prices updated!', 'info', 2000);
+      }
+    } catch(e) {
+      console.error('Product polling error:', e);
+    }
+  }, 30000); // Poll every 30 seconds
+}
+
+function renderCategories() {
+  getAllProducts(null).then(all => {
+    const cats = [...new Set(all.map(p=>p.category).filter(Boolean))];
+    const container = document.getElementById('category-filters');
+    const existing = container.querySelectorAll('a:not(#cat-all)');
+    existing.forEach(el => el.remove());
+    
+    cats.forEach(cat => {
+      const a = document.createElement('a');
+      a.href = `products.php?category=${encodeURIComponent(cat)}`;
+      a.textContent = cat;
+      a.className = `px-4 py-2 rounded-full text-sm font-medium transition-colors ${activeCategory===cat?'bg-[#D97736] text-white':'bg-[#F5EEE6] text-[#5D4037] hover:bg-[#E8DECF]'}`;
+      container.appendChild(a);
+    });
+  });
+}
+
+function renderProducts() {
+  document.getElementById('products-loading').classList.add('hidden');
+  const grid = document.getElementById('products-grid');
+  if (allProducts.length === 0) {
+    document.getElementById('products-empty').classList.remove('hidden');
+    grid.classList.add('hidden');
+    return;
+  }
+  grid.classList.remove('hidden');
+  document.getElementById('products-empty').classList.add('hidden');
+  grid.innerHTML = allProducts.map(p => productCard(p)).join('');
+
+  grid.querySelectorAll('.wishlist-btn').forEach(btn => {
+    btn.classList.toggle('active', window._isWishlisted(btn.dataset.pid));
+    btn.addEventListener('click', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const pid = btn.dataset.pid;
+      const product = allProducts.find(p => p.id === pid);
+      if (!product) return;
+      const was = window._isWishlisted(pid);
+      window._toggleWishlist(product);
+      btn.classList.toggle('active', !was);
+      showToast(was ? 'Removed from wishlist' : 'Added to wishlist', 'success');
+    });
+  });
+
+  grid.querySelectorAll('.add-to-cart-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const user = getCurrentUser();
+      if (!user) { window.location.href = 'login.php?redirect=products.php'; return; }
+      const pid = btn.dataset.pid;
+      const product = allProducts.find(p => p.id === pid);
+      if (!product) return;
+      btn.disabled = true; btn.textContent = 'Adding…';
+      await window._addToCart(product, 1);
+      btn.disabled = false; btn.textContent = 'Add to Cart';
+      showToast(`${product.name} added to cart!`, 'success');
+    });
+  });
+
+  attachCardHover(grid);
+}
+
+function attachCardHover(container) {
+  container.querySelectorAll('.product-card').forEach(card => {
+    const imgCount = parseInt(card.dataset.imgCount || '0');
+    if (imgCount < 2) return;
+
+    const slides = card.querySelectorAll('.product-card-slide');
+    const pid = card.dataset.pid;
+    const dots = card.querySelectorAll(`#dots-${pid} span`);
+    let timer = null, idx = 0;
+
+    function showSlide(i) {
+      slides.forEach((s, j) => s.style.opacity = j === i ? '1' : '0');
+      dots.forEach((d, j) => {
+        d.style.background = j === i ? 'white' : 'rgba(255,255,255,0.5)';
+        d.style.width = j === i ? '1rem' : '0.375rem';
+      });
+    }
+
+    card.addEventListener('mouseenter', () => {
+      idx = 0;
+      timer = setInterval(() => { idx = (idx + 1) % slides.length; showSlide(idx); }, 900);
+    });
+    card.addEventListener('mouseleave', () => {
+      clearInterval(timer); timer = null; idx = 0; showSlide(0);
+    });
+  });
+}
+
+function productCard(p) {
+  const wishlisted = window._isWishlisted(p.id);
+  const stars = [1,2,3,4,5].map(s=>`<svg viewBox="0 0 20 20" style="width:.875rem;height:.875rem;fill:${s<=Math.round(p.rating||4.8)?'#F5A800':'#E5E7EB'}"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>`).join('');
+
+  const imgs = p.images?.length ? p.images : ['assets/main.png'];
+  const hasMultiple = imgs.length > 1;
+
+  return `
+    <div class="product-card" data-pid="${p.id}" data-img-count="${imgs.length}">
+      <div class="product-card-img relative">
+        <button class="wishlist-btn${wishlisted?' active':''}" data-pid="${p.id}" aria-label="${wishlisted?'Remove from wishlist':'Add to wishlist'}">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="${wishlisted?'currentColor':'none'}" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z"/></svg>
+        </button>
+        <a href="product.php?id=${p.id}" class="block w-full h-full">
+          ${imgs.map((src, i) => `<img class="product-card-slide absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${i===0?'opacity-100':'opacity-0'}" src="${src}" alt="${p.name}" loading="lazy" />`).join('')}
+          ${hasMultiple ? `<div class="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1 pointer-events-none" id="dots-${p.id}">${imgs.map((_,i)=>`<span class="w-1.5 h-1.5 rounded-full transition-all duration-300 ${i===0?'bg-white':'bg-white/50'}"></span>`).join('')}</div>` : ''}
+          ${p.video ? `<div class="absolute top-2 left-2 bg-black/60 rounded-full px-2 py-0.5 text-white text-[10px] flex items-center gap-1 pointer-events-none"><svg viewBox="0 0 24 24" class="w-3 h-3 fill-white"><path d="M8 5v14l11-7z"/></svg>Video</div>` : ''}
+        </a>
+      </div>
+      <div class="product-card-body">
+        <a href="product.php?id=${p.id}" class="product-card-title">${p.name}</a>
+        <div class="stars justify-center mb-2">${stars}<span class="text-xs text-[#7A3B00] ml-1 font-medium">${p.rating||4.8}</span></div>
+        <div class="product-card-price">
+          ${window._formatPrice(p.price)}
+          ${p.compare_at_price&&p.compare_at_price>p.price?`<span class="product-card-old-price">${window._formatPrice(p.compare_at_price)}</span>`:''}
+        </div>
+        <p class="text-[10px] text-[#A07850] mt-0.5 text-center">${getGstLabel(p.name)}</p>
+        <button class="add-to-cart-btn btn btn-primary w-full mt-auto" data-pid="${p.id}">Add to Cart</button>
+      </div>
+    </div>
+  `;
+}
+
+load();
+</script>
 
 function renderCategories() {
   // Fetch all for categories
@@ -242,9 +347,9 @@ function productCard(p) {
   `;
 }
 
-// Clean up listener when page unloads
+// Clean up polling when page unloads
 window.addEventListener('beforeunload', () => {
-  if (unsubscribe) unsubscribe();
+  if (productPollInterval) clearInterval(productPollInterval);
 });
 
 load();
