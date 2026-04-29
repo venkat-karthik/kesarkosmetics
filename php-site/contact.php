@@ -146,9 +146,19 @@ document.getElementById('contact-form').addEventListener('submit', async (e) => 
       body: JSON.stringify(data),
     });
     if (res.ok) {
-      form.classList.add('hidden');
-      const successEl = document.getElementById('form-success');
-      successEl.style.display = 'block';
+      // Fade out form
+      form.style.opacity = '0';
+      form.style.transition = 'opacity 0.3s ease-out';
+      setTimeout(() => {
+        form.classList.add('hidden');
+        const successEl = document.getElementById('form-success');
+        successEl.style.display = 'block';
+        successEl.style.opacity = '0';
+        successEl.style.transition = 'opacity 0.5s ease-in';
+        // Trigger reflow to enable transition
+        void successEl.offsetHeight;
+        successEl.style.opacity = '1';
+      }, 300);
       showToast("Message sent! We'll get back to you soon.", 'success');
     } else {
       throw new Error('Server error');

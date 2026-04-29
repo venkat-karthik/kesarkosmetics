@@ -7,6 +7,7 @@ $navLinks = [
   ['href' => 'track-order.php','label' => 'Track Order'],
   ['href' => 'about.php',      'label' => 'About Us'],
   ['href' => 'blogs.php',      'label' => 'Blogs'],
+  ['href' => 'faq.php',        'label' => 'FAQ'],
   ['href' => 'contact.php',    'label' => 'Contact'],
 ];
 ?>
