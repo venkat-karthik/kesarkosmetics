@@ -38,9 +38,10 @@ $phone   = sanitize_string($body['phone']   ?? '', 20);
 $subject = sanitize_string($body['subject'] ?? '', 200);
 $message = sanitize_string($body['message'] ?? '', 5000);
 
-// Strip newlines from name/email/subject to prevent header injection
+// Sanitize all fields to prevent header injection
 $name    = preg_replace('/[\r\n\t]/', ' ', $name);
 $subject = preg_replace('/[\r\n\t]/', ' ', $subject);
+$message = preg_replace('/[\r\n]/', "\n", $message); // Allow only LF, not CRLF
 
 if (!$name || !$email || !$message) {
     http_response_code(400);

@@ -13,7 +13,7 @@ function set_cors_headers() {
         'http://127.0.0.1',
     ];
 
-    // Add production domain if configured (both www and non-www)
+    // Add production domain if configured
     if (defined('SITE_URL') && SITE_URL && SITE_URL !== 'https://yourdomain.com') {
         $base = rtrim(SITE_URL, '/');
         $allowed_origins[] = $base;
@@ -22,10 +22,6 @@ function set_cors_headers() {
             $allowed_origins[] = str_replace('://', '://www.', $base);
         } else {
             $allowed_origins[] = str_replace('://www.', '://', $base);
-        }
-        // Also allow https if http was configured and vice versa
-        if (strpos($base, 'https://') === 0) {
-            $allowed_origins[] = str_replace('https://', 'http://', $base);
         }
     }
 

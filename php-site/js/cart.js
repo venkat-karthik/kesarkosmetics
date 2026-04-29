@@ -16,9 +16,9 @@ function writeCart(items) {
   localStorage.setItem(LS_KEY, JSON.stringify(items));
 }
 
-// Normalise variant: treat empty string the same as null
+// Normalize variant: treat empty string and undefined as null for consistency
 function normVariant(v) {
-  return (v === '' || v === undefined) ? null : v;
+  return (v === '' || v === undefined || v === null) ? null : String(v).trim();
 }
 
 async function saveToFirestore(uid, items) {

@@ -96,6 +96,13 @@ document.addEventListener('click', (e) => {
 
 // ── Logout ────────────────────────────────────────────────────────────────
 async function doLogout() {
+  // Clear all user-related data from localStorage and sessionStorage
+  const keysToRemove = ['kesar_cart', 'kesar_wishlist', 'kesar_admin_last_active'];
+  keysToRemove.forEach(key => {
+    try { localStorage.removeItem(key); } catch(e) { console.warn('Could not clear localStorage key:', key); }
+  });
+  sessionStorage.setItem('kesar_logged_out', 'true');
+  
   await logout();
   showToast('Logged out successfully', 'success');
   setTimeout(() => window.location.replace('index.php'), 500);
@@ -116,9 +123,9 @@ function openCartDrawer() {
   if (!user) { window.location.href = 'login.php?redirect=cart.php'; return; }
   renderCartDrawer();
   cartDrawer?.classList.add('open');
-  // Sync bar state on open without triggering celebration for already-unlocked carts
+  // Sync bar state on open
   const total = getCartTotal(readCart());
-  _prevFreeShippingUnlocked = total >= FREE_SHIPPING_THRESHOLD;
+  _freeShippingCelebrationShown = total >= FREE_SHIPPING_THRESHOLD;
 }
 function closeCartDrawer() { cartDrawer?.classList.remove('open'); }
 document.getElementById('cart-btn')?.addEventListener('click', openCartDrawer);
@@ -163,27 +170,27 @@ function renderCartDrawer() {
   updateFreeShippingBar(total);
 }
 
-const FREE_SHIPPING_THRESHOLD = 0;
-let _prevFreeShippingUnlocked = false;
+const FREE_SHIPPING_THRESHOLD = 0; // Free shipping on all orders
+let _freeShippingCelebrationShown = false;
 
 function updateFreeShippingBar(total) {
   const bar = document.getElementById('cart-free-shipping-bar');
   if (!bar) return;
-  const pct = Math.min(100, (total / FREE_SHIPPING_THRESHOLD) * 100);
-  const remaining = FREE_SHIPPING_THRESHOLD - total;
+  
+  // Always show unlocked since threshold is 0
   const unlocked = total >= FREE_SHIPPING_THRESHOLD;
-
+  
   bar.innerHTML = unlocked
     ? `<p class="text-xs font-semibold text-green-700 text-center">🎉 You've unlocked FREE shipping!</p>
        <div class="mt-1.5 h-2 rounded-full bg-green-100 overflow-hidden"><div class="h-full rounded-full bg-green-500 transition-all duration-500" style="width:100%"></div></div>`
-    : `<p class="text-xs text-[#7A3B00]">Add <span class="font-bold text-[#D97736]">${formatPrice(remaining)}</span> more for <span class="font-bold text-green-700">FREE shipping</span> 🚚</p>
-       <div class="mt-1.5 h-2 rounded-full bg-[#F5EEE6] overflow-hidden"><div class="h-full rounded-full bg-[#D97736] transition-all duration-500" style="width:${pct}%"></div></div>`;
+    : `<p class="text-xs text-[#7A3B00]">Add <span class="font-bold text-[#D97736]">₹0</span> more for <span class="font-bold text-green-700">FREE shipping</span> 🚚</p>
+       <div class="mt-1.5 h-2 rounded-full bg-[#F5EEE6] overflow-hidden"><div class="h-full rounded-full bg-[#D97736] transition-all duration-500" style="width:100%"></div></div>`;
 
   // Trigger celebration only when crossing the threshold for the first time
-  if (unlocked && !_prevFreeShippingUnlocked) {
+  if (unlocked && !_freeShippingCelebrationShown) {
     triggerFreeShippingCelebration();
   }
-  _prevFreeShippingUnlocked = unlocked;
+  _freeShippingCelebrationShown = unlocked;
 }
 
 function triggerFreeShippingCelebration() {
@@ -295,7 +302,7 @@ document.getElementById('search-input')?.addEventListener('input', (e) => {
         </div>
       </a>
     `).join('');
-  }, 300);
+  }, 200);
 });
 
 // ── Policy modal ──────────────────────────────────────────────────────────

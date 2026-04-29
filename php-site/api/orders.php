@@ -35,6 +35,7 @@ if ($method === 'POST') {
     $userName  = sanitize_string($body['user_name']  ?? 'Customer', 100);
     $userPhone = sanitize_string($body['user_phone'] ?? '', 20);
 
+    // Validate user ID is not empty (frontend should validate against Firebase auth token)
     if (!$userId) { http_response_code(401); echo json_encode(['error' => 'Not authenticated']); exit; }
 
     $total = floatval($body['total'] ?? 0);

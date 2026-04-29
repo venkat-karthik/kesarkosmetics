@@ -242,11 +242,23 @@ document.getElementById('shipping-form').addEventListener('submit', (e) => {
   }
   clearFieldError('f-name');
 
-  // Phone: 10 digits for India, allow optional +91 prefix, spaces/dashes stripped
-  const phoneDigits = phone.replace(/[\s\-\+]/g, '').replace(/^91/, '');
-  if (!phoneDigits || !/^\d{10}$/.test(phoneDigits)) {
-    showFieldError('f-phone', 'Enter a valid 10-digit phone number.');
-    return;
+  // Phone: validate based on country
+  const phoneDigits = phone.replace(/[\s\-\+]/g, '');
+  const isIndia = country === 'India';
+  
+  if (isIndia) {
+    // India: 10 digits, optionally prefixed with 91
+    const cleanPhone = phoneDigits.replace(/^91/, '');
+    if (!cleanPhone || !/^\d{10}$/.test(cleanPhone)) {
+      showFieldError('f-phone', 'Enter a valid 10-digit phone number.');
+      return;
+    }
+  } else {
+    // International: at least 7 digits
+    if (!phoneDigits || !/^\d{7,}$/.test(phoneDigits)) {
+      showFieldError('f-phone', 'Enter a valid phone number.');
+      return;
+    }
   }
   clearFieldError('f-phone');
 

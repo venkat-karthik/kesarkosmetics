@@ -28,7 +28,9 @@ $userPhone = sanitize_string($body['user_phone'] ?? '', 20);
 if (!$userId) { http_response_code(401); echo json_encode(['error'=>'Not authenticated']); exit; }
 
 $total    = floatval($body['total'] ?? 0);
-$currency = preg_replace('/[^A-Z]/', '', strtoupper($body['currency'] ?? 'INR'));
+// Whitelist valid currencies
+$validCurrencies = ['INR', 'USD', 'GBP', 'EUR', 'AED', 'SGD', 'MYR', 'SAR'];
+$currency = in_array(strtoupper($body['currency'] ?? 'INR'), $validCurrencies) ? strtoupper($body['currency']) : 'INR';
 if ($total <= 0) { http_response_code(400); echo json_encode(['error'=>'Invalid order total']); exit; }
 if ($total > 500000) { http_response_code(400); echo json_encode(['error'=>'Order total exceeds maximum allowed']); exit; }
 
