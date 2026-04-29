@@ -33,8 +33,7 @@ async function saveToFirestore(uid, items) {
 }
 
 export async function loadCartForUser(uid) {
-  // Wait for any in-flight save to finish before reading Firestore,
-  // so we never pull stale data that was already overwritten.
+  // Wait for any in-flight save to finish before reading Firestore
   await _pendingSave;
 
   try {
@@ -44,9 +43,10 @@ export async function loadCartForUser(uid) {
     if (snap.exists()) {
       const firestoreItems = snap.data().items || [];
 
-      if (local.length > 0) {
-        // Merge: add any local items not already in Firestore cart.
-        // Do NOT overwrite items that exist in Firestore — Firestore is authoritative.
+      // If Firestore has fewer items than local, Firestore wins — a delete happened
+      // If local has items not in Firestore, they were added offline — merge them in
+      if (local.length > 0 && firestoreItems.length >= local.length) {
+        // Firestore has same or more items — merge any local-only items in
         const merged = [...firestoreItems];
         for (const li of local) {
           const nv = normVariant(li.variant);
@@ -62,7 +62,7 @@ export async function loadCartForUser(uid) {
         return merged;
       }
 
-      // No local items — just use Firestore as source of truth
+      // Firestore is authoritative (has fewer items = delete happened, or local is empty)
       writeCart(firestoreItems);
       window.dispatchEvent(new Event("cart:updated"));
       return firestoreItems;
@@ -91,11 +91,13 @@ export async function addToCart(product, quantity = 1, variant = null) {
   }
   writeCart(items);
   window.dispatchEvent(new Event("cart:updated"));
-  // Fire-and-forget Firestore save — don't block the UI waiting for network
+
+  // Chain onto _pendingSave so this save never races with a concurrent remove/update.
+  // We don't await here (instant UI response) but the chain ensures ordering.
   const user = getCurrentUser();
   if (user?._id) {
-    _pendingSave = saveToFirestore(user._id, items);
-    // intentionally not awaited here — caller gets instant response
+    const snapshot = items; // capture current items for this save
+    _pendingSave = _pendingSave.then(() => saveToFirestore(user._id, snapshot));
     _pendingSave.catch(e => console.error("Cart sync error:", e));
   }
   return items;
