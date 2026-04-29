@@ -1,30 +1,45 @@
 // ── Auth guard — wait for Firebase to resolve before deciding ─────────────────
 import { logout, authReady, isAdmin } from './firebase-config.js';
 
-// ── Session timeout — 8 hours of inactivity ──────────────────────────────────
+// ── Session timeout — 24 hours of inactivity ──────────────────────────────────
 const SESSION_KEY = 'kesar_admin_last_active';
-const SESSION_TIMEOUT_MS = 8 * 60 * 60 * 1000; // 8 hours
+const SESSION_TIMEOUT_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 function touchSession() {
-  localStorage.setItem(SESSION_KEY, Date.now().toString());
+  try {
+    localStorage.setItem(SESSION_KEY, Date.now().toString());
+  } catch (e) {
+    console.warn('Could not update session timestamp:', e);
+  }
 }
 
 function isSessionExpired() {
-  const last = parseInt(localStorage.getItem(SESSION_KEY) || '0', 10);
-  if (!last) return false;
-  return (Date.now() - last) > SESSION_TIMEOUT_MS;
+  try {
+    const last = parseInt(localStorage.getItem(SESSION_KEY) || '0', 10);
+    if (!last) {
+      // First time — initialize session
+      touchSession();
+      return false;
+    }
+    const elapsed = Date.now() - last;
+    return elapsed > SESSION_TIMEOUT_MS;
+  } catch (e) {
+    console.warn('Could not check session expiry:', e);
+    return false;
+  }
 }
 
-['click', 'keydown', 'mousemove', 'touchstart'].forEach(evt => {
+['click', 'keydown', 'mousemove', 'touchstart', 'scroll'].forEach(evt => {
   document.addEventListener(evt, touchSession, { passive: true });
 });
 
+// Check session every 5 minutes instead of every minute
 setInterval(async () => {
   if (isSessionExpired()) {
     await logout();
     window.location.replace('../index.php?session=expired');
   }
-}, 60_000);
+}, 5 * 60 * 1000);
 
 // ── Auth overlay — covers page while Firebase resolves ────────────────────────
 const _overlay = document.createElement('div');
