@@ -182,6 +182,7 @@ window.addEventListener('cart:updated', () => {
 // ── Address type selection ────────────────────────────────────────────────
 let selectedAddressType = '';
 window.selectAddressType = (type) => {
+  event?.preventDefault?.();
   selectedAddressType = type;
   document.querySelectorAll('.addr-type-btn').forEach(btn => {
     const isActive = btn.id === 'addr-' + type;
@@ -198,6 +199,10 @@ document.querySelectorAll('.payment-method-label').forEach(label => {
       el.classList.remove('ring-2', 'ring-[#D97736]', 'shadow-lg');
     });
     document.getElementById('pm-' + selectedPayment)?.classList.add('ring-2', 'ring-[#D97736]', 'shadow-lg');
+    // Re-render review to update COD charge if on review step
+    if (!document.getElementById('step-review').classList.contains('hidden')) {
+      renderReview();
+    }
   });
 });
 // Set initial active state for COD
@@ -329,7 +334,8 @@ function renderReview() {
   const items = readCart();
   const subtotal = getCartTotal(items);
   const shipping = 0;
-  const total = subtotal + shipping;
+  const codCharge = selectedPayment === 'cod' ? 50 : 0;
+  const total = subtotal + shipping + codCharge;
 
   document.getElementById('review-address').innerHTML = Object.entries({
     Name: shippingForm.name, Phone: shippingForm.phone,
@@ -352,7 +358,8 @@ function renderReview() {
 
   document.getElementById('review-totals').innerHTML = `
     <div class="flex justify-between"><span>Subtotal (incl. GST)</span><span class="font-medium">${formatPrice(subtotal)}</span></div>
-    <div class="flex justify-between"><span>Shipping</span><span class="font-medium">${shipping===0?'<span class="text-green-600">FREE</span>':formatPrice(shipping)}</span></div>
+    <div class="flex justify-between"><span>Shipping</span><span class="font-medium"><span class="text-green-600">FREE</span></span></div>
+    ${codCharge > 0 ? `<div class="flex justify-between"><span>Cash on Delivery Charge</span><span class="font-medium">${formatPrice(codCharge)}</span></div>` : ''}
     <div class="flex justify-between pt-3 border-t-2 border-[#D97736] text-lg font-bold text-[#3E2723]"><span>Total</span><span class="text-[#D97736]">${formatPrice(total)}</span></div>
   `;
 }
@@ -377,7 +384,8 @@ document.getElementById('payment-form').addEventListener('submit', async (e) => 
     return;
   }
   const shipping = 0;
-  const grandTotal = subtotal + shipping;
+  const codCharge = selectedPayment === 'cod' ? 50 : 0;
+  const grandTotal = subtotal + shipping + codCharge;
 
   const payload = {
     items: items.map(i => ({
