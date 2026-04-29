@@ -102,6 +102,14 @@ async function load() {
       
       renderCategories();
       renderProducts();
+    }, (error) => {
+      console.error('Firestore listener error:', error);
+      // Fallback to static fetch if listener fails
+      getAllProducts(activeCategory).then(products => {
+        allProducts = products;
+        renderCategories();
+        renderProducts();
+      });
     });
   } catch (e) {
     console.error('Error loading products:', e);

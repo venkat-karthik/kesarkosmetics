@@ -182,7 +182,6 @@ window.addEventListener('cart:updated', () => {
 // ── Address type selection ────────────────────────────────────────────────
 let selectedAddressType = '';
 window.selectAddressType = (type) => {
-  event?.preventDefault?.();
   selectedAddressType = type;
   document.querySelectorAll('.addr-type-btn').forEach(btn => {
     const isActive = btn.id === 'addr-' + type;
