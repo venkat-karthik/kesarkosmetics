@@ -360,11 +360,20 @@ function clearFieldError(fieldId) {
 // ── Render review step ────────────────────────────────────────────────────
 function renderReview() {
   const items = readCart();
+  console.log('renderReview called with items:', items);
+  
   const subtotal = getCartTotal(items);
+  console.log('Subtotal calculated:', subtotal);
+  
   const shipping = 0;
   const codCharge = selectedPayment === 'cod' ? 50 : 0;
   const discountAmount = selectedPayment === 'cod' ? discountApplied : 0;
   const total = subtotal + shipping + codCharge - discountAmount;
+
+  console.log('Payment method:', selectedPayment);
+  console.log('COD Charge:', codCharge);
+  console.log('Discount:', discountAmount);
+  console.log('Total:', total);
 
   document.getElementById('review-address').innerHTML = Object.entries({
     Name: shippingForm.name, Phone: shippingForm.phone,
@@ -373,25 +382,36 @@ function renderReview() {
     'Address Type': shippingForm.addressType, Pincode: shippingForm.pincode,
   }).map(([k,v]) => `<p><span class="font-medium">${k}:</span> ${v||'—'}</p>`).join('');
 
-  document.getElementById('review-items').innerHTML = items.map(item => `
+  document.getElementById('review-items').innerHTML = items.map(item => {
+    const itemPrice = item.product?.price || 0;
+    const itemTotal = itemPrice * item.quantity;
+    console.log(`Item: ${item.product?.name}, Price: ${itemPrice}, Qty: ${item.quantity}, Total: ${itemTotal}`);
+    return `
     <div class="flex gap-3 p-3 rounded-xl border border-[#E9E0D2] bg-[#FCFAF7]">
       <img src="${item.product?.images?.[0]||'assets/main.png'}" alt="${item.product?.name||''}" class="w-16 h-16 object-cover rounded-xl shrink-0" />
       <div class="flex-1">
         <p class="font-semibold text-[#3E2723]">${item.product?.name||'Product'}</p>
         <p class="text-xs text-[#A07850]">${getGstLabel(item.product?.name||'')}</p>
-        <p class="text-sm text-[#5D4037]">Qty: ${item.quantity} × ${formatPrice(item.product?.price||0)}</p>
-        <p class="font-bold text-[#3E2723]">${formatPrice((item.product?.price||0)*item.quantity)}</p>
+        <p class="text-sm text-[#5D4037]">Qty: ${item.quantity} × ${formatPrice(itemPrice)}</p>
+        <p class="font-bold text-[#3E2723]">${formatPrice(itemTotal)}</p>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 
   let totalsHtml = `
     <div class="flex justify-between"><span>Subtotal (incl. GST)</span><span class="font-medium">${formatPrice(subtotal)}</span></div>
-    <div class="flex justify-between"><span>Shipping</span><span class="font-medium"><span class="text-green-600">FREE</span></span></div>
-    ${codCharge > 0 ? `<div class="flex justify-between"><span>Cash on Delivery Charge</span><span class="font-medium">${formatPrice(codCharge)}</span></div>` : ''}
-    ${discountAmount > 0 ? `<div class="flex justify-between text-green-600"><span>Discount Applied</span><span class="font-medium">-${formatPrice(discountAmount)}</span></div>` : ''}
-    <div class="flex justify-between pt-3 border-t-2 border-[#D97736] text-lg font-bold text-[#3E2723]"><span>Total</span><span class="text-[#D97736]">${formatPrice(total)}</span></div>
-  `;
+    <div class="flex justify-between"><span>Shipping</span><span class="font-medium"><span class="text-green-600">FREE</span></span></div>`;
+  
+  if (selectedPayment === 'cod') {
+    totalsHtml += `<div class="flex justify-between"><span>Cash on Delivery Charge</span><span class="font-medium">${formatPrice(codCharge)}</span></div>`;
+  }
+  
+  if (discountAmount > 0) {
+    totalsHtml += `<div class="flex justify-between text-green-600"><span>Discount Applied</span><span class="font-medium">-${formatPrice(discountAmount)}</span></div>`;
+  }
+  
+  totalsHtml += `<div class="flex justify-between pt-3 border-t-2 border-[#D97736] text-lg font-bold text-[#3E2723]"><span>Total</span><span class="text-[#D97736]">${formatPrice(total)}</span></div>`;
   
   document.getElementById('review-totals').innerHTML = totalsHtml;
 }
