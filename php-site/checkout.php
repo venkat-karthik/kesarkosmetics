@@ -119,7 +119,7 @@ include 'includes/header.php';
           <div class="grid sm:grid-cols-2 gap-4 mb-8">
             <?php
             $methods = [
-              ['cod','Cash on Delivery','Pay at doorstep','from-orange-50 to-amber-50'],
+              ['cod','Cash on Delivery','Pay at doorstep · +₹50 COD charge','from-orange-50 to-amber-50'],
               ['online','Debit/Credit Card','Powered by Razorpay','from-blue-50 to-cyan-50'],
               ['upi','UPI / Google Pay','Powered by Razorpay','from-green-50 to-emerald-50'],
               ['bank','Net Banking','Powered by Razorpay','from-purple-50 to-pink-50'],
@@ -193,16 +193,12 @@ window.addEventListener('cart:updated', () => {
 // ── Address type selection ────────────────────────────────────────────────
 let selectedAddressType = '';
 window.selectAddressType = (type) => {
-  console.log('selectAddressType called with:', type);
   selectedAddressType = type;
-  console.log('selectedAddressType set to:', selectedAddressType);
   document.querySelectorAll('.addr-type-btn').forEach(btn => {
     const isActive = btn.id === 'addr-' + type;
-    console.log('Button:', btn.id, 'isActive:', isActive);
     btn.className = `addr-type-btn flex flex-col sm:flex-row items-center sm:items-start gap-1 sm:gap-3 rounded-2xl border-2 px-2 sm:px-4 py-3 sm:py-4 text-center sm:text-left transition-all min-h-[60px] ${isActive ? 'border-[#D97736] bg-[#FFF4E8] shadow-sm' : 'border-[#E0D8C8] bg-white hover:border-[#D97736]'}`;
   });
   document.getElementById('addr-type-error').classList.add('hidden');
-  console.log('Address type selection complete');
 };
 
 // ── Payment method selection ──────────────────────────────────────────────
@@ -358,13 +354,15 @@ function clearFieldError(fieldId) {
 }
 
 // ── Render review step ────────────────────────────────────────────────────
+const COD_CHARGE = 50;
+
 function renderReview() {
   const items = readCart();
   const subtotal = getCartTotal(items);
   const shipping = 0;
-  // Don't include COD charge in review total - only show on payment page
+  const codCharge = selectedPayment === 'cod' ? COD_CHARGE : 0;
   const discountAmount = selectedPayment === 'cod' ? discountApplied : 0;
-  const total = subtotal + shipping - discountAmount;
+  const total = subtotal + shipping + codCharge - discountAmount;
 
   document.getElementById('review-address').innerHTML = Object.entries({
     Name: shippingForm.name, Phone: shippingForm.phone,
@@ -387,11 +385,12 @@ function renderReview() {
 
   let totalsHtml = `
     <div class="flex justify-between"><span>Subtotal (incl. GST)</span><span class="font-medium">${formatPrice(subtotal)}</span></div>
-    <div class="flex justify-between"><span>Shipping</span><span class="font-medium"><span class="text-green-600">FREE</span></span></div>
+    <div class="flex justify-between"><span>Shipping</span><span class="font-medium text-green-600">FREE</span></div>
+    ${codCharge > 0 ? `<div class="flex justify-between text-red-600"><span>COD Charge</span><span class="font-medium">+${formatPrice(codCharge)}</span></div>` : ''}
     ${discountAmount > 0 ? `<div class="flex justify-between text-green-600"><span>Discount Applied</span><span class="font-medium">-${formatPrice(discountAmount)}</span></div>` : ''}
     <div class="flex justify-between pt-3 border-t-2 border-[#D97736] text-lg font-bold text-[#3E2723]"><span>Total</span><span class="text-[#D97736]">${formatPrice(total)}</span></div>
   `;
-  
+
   document.getElementById('review-totals').innerHTML = totalsHtml;
 }
 
@@ -439,6 +438,50 @@ window.applyCoupon = () => {
   }
 };
 
+// ── COD confirmation dialog ───────────────────────────────────────────────
+function showCodConfirmation(total, codCharge) {
+  return new Promise((resolve) => {
+    // Remove any existing dialog
+    document.getElementById('cod-confirm-dialog')?.remove();
+
+    const dialog = document.createElement('div');
+    dialog.id = 'cod-confirm-dialog';
+    dialog.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);padding:1rem;';
+    dialog.innerHTML = `
+      <div style="background:#fff;border-radius:1.5rem;padding:2rem;max-width:380px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.25);text-align:center;">
+        <div style="font-size:2.5rem;margin-bottom:.75rem;">🚚</div>
+        <h3 style="font-size:1.25rem;font-weight:700;color:#3E2723;margin-bottom:.5rem;">Cash on Delivery</h3>
+        <p style="color:#5D4037;font-size:.9rem;margin-bottom:1rem;line-height:1.5;">
+          A <strong style="color:#E8620A;">₹${codCharge} COD handling charge</strong> has been added to your order.
+        </p>
+        <div style="background:#FFF8EC;border:1px solid #F5A800;border-radius:.75rem;padding:.875rem;margin-bottom:1.5rem;">
+          <p style="font-size:.8rem;color:#7A3B00;margin:0;">Order Total: <strong style="font-size:1rem;color:#3E2723;">${formatPrice(total)}</strong></p>
+          <p style="font-size:.75rem;color:#A07850;margin:.25rem 0 0;">Includes ₹${codCharge} COD charge</p>
+        </div>
+        <p style="font-size:.8rem;color:#8A7768;margin-bottom:1.5rem;">Pay online to avoid this charge.</p>
+        <div style="display:flex;gap:.75rem;">
+          <button id="cod-cancel-btn" style="flex:1;padding:.75rem;border-radius:.75rem;border:2px solid #E0D8C8;background:#fff;color:#5D4037;font-weight:600;cursor:pointer;font-size:.875rem;">Cancel</button>
+          <button id="cod-confirm-btn" style="flex:1;padding:.75rem;border-radius:.75rem;border:none;background:linear-gradient(to right,#E8620A,#F5A800);color:#fff;font-weight:700;cursor:pointer;font-size:.875rem;">Yes, Proceed</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(dialog);
+
+    dialog.querySelector('#cod-confirm-btn').addEventListener('click', () => {
+      dialog.remove();
+      resolve(true);
+    });
+    dialog.querySelector('#cod-cancel-btn').addEventListener('click', () => {
+      dialog.remove();
+      resolve(false);
+    });
+    dialog.addEventListener('click', (e) => {
+      if (e.target === dialog) { dialog.remove(); resolve(false); }
+    });
+  });
+}
+
 // ── Payment form submit ───────────────────────────────────────────────────
 document.getElementById('payment-form').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -459,11 +502,23 @@ document.getElementById('payment-form').addEventListener('submit', async (e) => 
     return;
   }
   const shipping = 0;
-  const codCharge = selectedPayment === 'cod' ? 50 : 0;
+  const codCharge = selectedPayment === 'cod' ? COD_CHARGE : 0;
   const discount = selectedPayment === 'cod' ? discountApplied : 0;
   const grandTotal = subtotal + shipping + codCharge - discount;
 
-  const payload = {
+  const btn = document.getElementById('buy-btn');
+  btn.disabled = true;
+  btn.innerHTML = `<svg class="animate-spin w-4 h-4 mr-2 inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>Processing…`;
+
+  // COD confirmation dialog
+  if (selectedPayment === 'cod') {
+    const confirmed = await showCodConfirmation(grandTotal, codCharge);
+    if (!confirmed) {
+      btn.disabled = false;
+      btn.textContent = 'Buy Now';
+      return;
+    }
+  }
     items: items.map(i => ({
       product_id: i.product_id,
       product_name: i.product?.name || 'Product',
@@ -482,17 +537,15 @@ document.getElementById('payment-form').addEventListener('submit', async (e) => 
     user_phone: currentUser.phone || shippingForm.phone,
   };
 
-  const btn = document.getElementById('buy-btn');
-  btn.disabled = true;
-  btn.innerHTML = `<svg class="animate-spin w-4 h-4 mr-2 inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>Processing…`;
-
   const saveToFirestore = async (orderId, status = 'confirmed') => {
     try {
       await addDoc(collection(db, 'orders'), {
         orderId, userId: currentUser._id, userEmail: currentUser.email,
         userName: currentUser.name, items: payload.items,
         shippingAddress: shippingForm, paymentMethod: selectedPayment,
-        subtotal, discount: discountApplied, shipping, total: grandTotal,
+        subtotal, discount: discountApplied, shipping,
+        codCharge: selectedPayment === 'cod' ? COD_CHARGE : 0,
+        total: grandTotal,
         status, createdAt: serverTimestamp(),
       });
     } catch(err) { console.error('Firestore save error:', err); }
@@ -539,6 +592,13 @@ document.getElementById('payment-form').addEventListener('submit', async (e) => 
       }
 
       await new Promise((resolve, reject) => {
+        // Map our method names to Razorpay's method config
+        const rzpMethodConfig = {
+          online: { card: 1 },
+          upi:    { upi: 1 },
+          bank:   { netbanking: 1 },
+        };
+
         const rzp = new window.Razorpay({
           key: data.razorpay.key_id,
           amount: data.razorpay.amount,
@@ -552,6 +612,7 @@ document.getElementById('payment-form').addEventListener('submit', async (e) => 
             contact: shippingForm.phone 
           },
           theme: { color: '#D97736' },
+          method: rzpMethodConfig[selectedPayment] || {},
           handler: async (response) => {
             try {
               const vRes = await fetch('api/razorpay-verify.php', {

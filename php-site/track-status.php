@@ -129,9 +129,14 @@ function renderOrder(order) {
             </div>
           </div>`).join('')}
       </div>
-      <div class="mt-4 pt-4 border-t border-[#E9E0D2] flex justify-between text-sm font-semibold text-[#3E2723]">
-        <span>Total</span>
-        <span class="text-[#D97736] text-lg">${formatPrice(Number(order.total||0))}</span>
+      <div class="mt-4 pt-4 border-t border-[#E9E0D2] space-y-2 text-sm text-[#5D4037]">
+        ${order.subtotal ? `<div class="flex justify-between"><span>Subtotal</span><span>${formatPrice(Number(order.subtotal||0))}</span></div>` : ''}
+        ${order.codCharge > 0 ? `<div class="flex justify-between text-red-600"><span>COD Charge</span><span>+${formatPrice(Number(order.codCharge))}</span></div>` : ''}
+        ${order.discount > 0 ? `<div class="flex justify-between text-green-600"><span>Discount</span><span>-${formatPrice(Number(order.discount))}</span></div>` : ''}
+        <div class="flex justify-between font-semibold text-[#3E2723] pt-2 border-t border-[#E9E0D2]">
+          <span>Total</span>
+          <span class="text-[#D97736] text-lg">${formatPrice(Number(order.total||0))}</span>
+        </div>
       </div>
     </div>
 
