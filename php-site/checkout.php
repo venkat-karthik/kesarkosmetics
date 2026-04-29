@@ -134,6 +134,17 @@ include 'includes/header.php';
             </label>
             <?php endforeach; ?>
           </div>
+
+          <!-- Coupon Code Section (Only for COD) -->
+          <div id="coupon-section" class="mb-8 p-6 rounded-2xl border-2 border-[#F5A800]/30 bg-[#FFF8EC]">
+            <p class="text-sm font-semibold text-[#3E2723] mb-3">💰 Have a coupon code?</p>
+            <div class="flex gap-2">
+              <input type="text" id="coupon-input" placeholder="Enter coupon code (e.g., KESAR10)" class="form-input flex-1" />
+              <button type="button" onclick="applyCoupon()" class="btn btn-primary px-6">Apply</button>
+            </div>
+            <div id="coupon-message" class="hidden mt-2 text-sm font-medium"></div>
+            <p class="mt-3 text-xs text-[#5D4037]">Available codes: <strong>KESAR10</strong> (10% off), <strong>SAVE20</strong> (20% off), <strong>SUMMER5</strong> (5% off)</p>
+          </div>
           <div class="flex flex-col gap-3 mb-8">
             <button type="submit" id="buy-btn" class="btn btn-primary w-full justify-center h-12 text-base">Buy Now</button>
             <button type="button" onclick="goToStep('review')" class="btn btn-dark w-full justify-center h-12 text-base">← Back to Review</button>
@@ -202,6 +213,19 @@ document.querySelectorAll('.payment-method-label').forEach(label => {
       el.classList.remove('ring-2', 'ring-[#D97736]', 'shadow-lg');
     });
     document.getElementById('pm-' + selectedPayment)?.classList.add('ring-2', 'ring-[#D97736]', 'shadow-lg');
+    
+    // Show/hide coupon section based on payment method
+    const couponSection = document.getElementById('coupon-section');
+    if (selectedPayment === 'cod') {
+      couponSection.classList.remove('hidden');
+    } else {
+      couponSection.classList.add('hidden');
+      // Reset coupon if switching away from COD
+      discountApplied = 0;
+      document.getElementById('coupon-input').value = '';
+      document.getElementById('coupon-message').classList.add('hidden');
+    }
+    
     // Re-render review to update COD charge if on review step
     if (!document.getElementById('step-review').classList.contains('hidden')) {
       renderReview();
@@ -210,6 +234,8 @@ document.querySelectorAll('.payment-method-label').forEach(label => {
 });
 // Set initial active state for COD
 document.getElementById('pm-cod')?.classList.add('ring-2', 'ring-[#D97736]', 'shadow-lg');
+// Show coupon section initially (COD is default)
+document.getElementById('coupon-section').classList.remove('hidden');
 
 // ── Step navigation ───────────────────────────────────────────────────────
 window.goToStep = (step) => {
@@ -337,7 +363,8 @@ function renderReview() {
   const subtotal = getCartTotal(items);
   const shipping = 0;
   const codCharge = selectedPayment === 'cod' ? 50 : 0;
-  const total = subtotal + shipping + codCharge;
+  const discountAmount = selectedPayment === 'cod' ? discountApplied : 0;
+  const total = subtotal + shipping + codCharge - discountAmount;
 
   document.getElementById('review-address').innerHTML = Object.entries({
     Name: shippingForm.name, Phone: shippingForm.phone,
@@ -358,13 +385,60 @@ function renderReview() {
     </div>
   `).join('');
 
-  document.getElementById('review-totals').innerHTML = `
+  let totalsHtml = `
     <div class="flex justify-between"><span>Subtotal (incl. GST)</span><span class="font-medium">${formatPrice(subtotal)}</span></div>
     <div class="flex justify-between"><span>Shipping</span><span class="font-medium"><span class="text-green-600">FREE</span></span></div>
     ${codCharge > 0 ? `<div class="flex justify-between"><span>Cash on Delivery Charge</span><span class="font-medium">${formatPrice(codCharge)}</span></div>` : ''}
+    ${discountAmount > 0 ? `<div class="flex justify-between text-green-600"><span>Discount Applied</span><span class="font-medium">-${formatPrice(discountAmount)}</span></div>` : ''}
     <div class="flex justify-between pt-3 border-t-2 border-[#D97736] text-lg font-bold text-[#3E2723]"><span>Total</span><span class="text-[#D97736]">${formatPrice(total)}</span></div>
   `;
+  
+  document.getElementById('review-totals').innerHTML = totalsHtml;
 }
+
+// ── Coupon validation ────────────────────────────────────────────────────
+const VALID_COUPONS = {
+  'KESAR10': 0.10,  // 10% off
+  'SAVE20': 0.20,   // 20% off
+  'SUMMER5': 0.05,  // 5% off
+};
+
+window.applyCoupon = () => {
+  if (selectedPayment !== 'cod') {
+    showToast('Coupons are only available for Cash on Delivery', 'error');
+    return;
+  }
+
+  const code = document.getElementById('coupon-input').value.trim().toUpperCase();
+  const msgEl = document.getElementById('coupon-message');
+
+  if (!code) {
+    msgEl.classList.add('hidden');
+    return;
+  }
+
+  if (!VALID_COUPONS[code]) {
+    msgEl.classList.remove('hidden');
+    msgEl.className = 'mt-2 text-sm font-medium text-red-600';
+    msgEl.textContent = '❌ Invalid coupon code';
+    discountApplied = 0;
+    return;
+  }
+
+  const items = readCart();
+  const subtotal = getCartTotal(items);
+  const discountPercent = VALID_COUPONS[code];
+  discountApplied = Math.round(subtotal * discountPercent);
+
+  msgEl.classList.remove('hidden');
+  msgEl.className = 'mt-2 text-sm font-medium text-green-600';
+  msgEl.textContent = `✓ Coupon applied! You save ${formatPrice(discountApplied)}`;
+
+  // Re-render review if visible
+  if (!document.getElementById('step-review').classList.contains('hidden')) {
+    renderReview();
+  }
+};
 
 // ── Payment form submit ───────────────────────────────────────────────────
 document.getElementById('payment-form').addEventListener('submit', async (e) => {
@@ -387,7 +461,8 @@ document.getElementById('payment-form').addEventListener('submit', async (e) => 
   }
   const shipping = 0;
   const codCharge = selectedPayment === 'cod' ? 50 : 0;
-  const grandTotal = subtotal + shipping + codCharge;
+  const discount = selectedPayment === 'cod' ? discountApplied : 0;
+  const grandTotal = subtotal + shipping + codCharge - discount;
 
   const payload = {
     items: items.map(i => ({
@@ -401,7 +476,7 @@ document.getElementById('payment-form').addEventListener('submit', async (e) => 
     shipping_address: shippingForm,
     payment_method: selectedPayment,
     total: grandTotal,
-    discount: discountApplied,
+    discount: discount,
     user_id: currentUser._id,
     user_email: currentUser.email,
     user_name: currentUser.name,
@@ -448,6 +523,10 @@ document.getElementById('payment-form').addEventListener('submit', async (e) => 
       });
       const data = await res.json();
 
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to create payment order');
+      }
+
       if (data.demo) {
         showToast('Demo payment successful!', 'success');
         await saveToFirestore(data.order.id, 'paid');
@@ -457,15 +536,8 @@ document.getElementById('payment-form').addEventListener('submit', async (e) => 
       }
 
       if (!data.razorpay?.key_id || !window.Razorpay) {
-        throw new Error('Razorpay not available');
+        throw new Error('Razorpay not available. Please check your configuration.');
       }
-
-      // Map our method names to Razorpay's method config
-      const rzpMethodConfig = {
-        online: { card: 1 },
-        upi:    { upi: 1 },
-        bank:   { netbanking: 1 },
-      };
 
       await new Promise((resolve, reject) => {
         const rzp = new window.Razorpay({
@@ -475,11 +547,12 @@ document.getElementById('payment-form').addEventListener('submit', async (e) => 
           name: 'Kesar Kosmetics',
           description: 'Order payment',
           order_id: data.razorpay.order_id,
-          prefill: { name: shippingForm.name, email: currentUser.email, contact: shippingForm.phone },
+          prefill: { 
+            name: shippingForm.name, 
+            email: currentUser.email, 
+            contact: shippingForm.phone 
+          },
           theme: { color: '#D97736' },
-          // Pre-select the tab the user already chose
-          config: { display: { hide: [], sequence: [], preferences: { show_default_blocks: true } } },
-          method: rzpMethodConfig[selectedPayment] || {},
           handler: async (response) => {
             try {
               const vRes = await fetch('api/razorpay-verify.php', {
@@ -494,16 +567,32 @@ document.getElementById('payment-form').addEventListener('submit', async (e) => 
                 }),
               });
               const vData = await vRes.json();
-              showToast('Payment verified!', 'success');
+              if (!vRes.ok) {
+                throw new Error(vData.error || 'Payment verification failed');
+              }
+              showToast('Payment verified successfully!', 'success');
               await saveToFirestore(vData.id || data.order.id, 'paid');
               await clearCart();
               window.location.href = 'order-success.php?orderId=' + encodeURIComponent(vData.id || data.order.id);
               resolve();
-            } catch(err) { showToast('Payment verification failed', 'error'); reject(err); }
+            } catch(err) { 
+              console.error('Verification error:', err);
+              showToast('Payment verification failed: ' + err.message, 'error'); 
+              reject(err); 
+            }
           },
-          modal: { ondismiss: () => { showToast('Payment cancelled', 'error'); reject(new Error('cancelled')); } },
+          modal: { 
+            ondismiss: () => { 
+              showToast('Payment cancelled', 'info'); 
+              reject(new Error('cancelled')); 
+            } 
+          },
         });
-        rzp.on('payment.failed', (r) => { showToast(r?.error?.description || 'Payment failed', 'error'); reject(new Error('failed')); });
+        rzp.on('payment.failed', (r) => { 
+          const errMsg = r?.error?.description || 'Payment failed';
+          showToast(errMsg, 'error'); 
+          reject(new Error(errMsg)); 
+        });
         rzp.open();
       });
     }
