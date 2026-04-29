@@ -88,22 +88,57 @@ import { getAllProducts } from './js/products.js';
 import { formatPrice, addToCart, readCart } from './js/cart.js';
 import { isWishlisted, toggleWishlist } from './js/wishlist.js';
 import { getCurrentUser } from './js/firebase-config.js';
+import { db } from './js/firebase-config.js';
+import { collection, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 // ── Products ──────────────────────────────────────────────────────────────
 let allProducts = [];
 let currentSlide = 0;
 let slideInterval;
+let unsubscribe = null;
 
 async function loadProducts() {
   const urlParams = new URLSearchParams(window.location.search);
   const category = urlParams.get('category');
   document.getElementById('products-heading').textContent = category || 'Our Products';
   try {
-    allProducts = await getAllProducts(category || null);
-    renderHero();
-    renderProducts();
-    renderReviews();
+    // Set up real-time listener for products
+    const q = category
+      ? query(collection(db, 'products'), where('category', '==', category))
+      : collection(db, 'products');
+    
+    unsubscribe = onSnapshot(q, (snap) => {
+      // Normalize products
+      allProducts = snap.docs.map(d => {
+        const data = d.data();
+        const rawVariants = Array.isArray(data.variants) ? data.variants : [];
+        const variants = rawVariants.filter(v => v.name && v.name !== 'Default');
+        return {
+          id: d.id,
+          name: data.name || "",
+          description: data.description || "",
+          price: Number(data.price || 0),
+          compare_at_price: data.compare_at_price ? Number(data.compare_at_price) : null,
+          category: data.category || "General",
+          images: Array.isArray(data.images) ? data.images : [],
+          video: data.video || null,
+          rating: Number(data.rating || 4.5),
+          reviews: Array.isArray(data.reviews) ? data.reviews : [],
+          variants,
+          createdAt: data.createdAt || null,
+        };
+      }).sort((a, b) => {
+        const ta = a.createdAt?.toMillis?.() || (a.createdAt?.seconds || 0) * 1000;
+        const tb = b.createdAt?.toMillis?.() || (b.createdAt?.seconds || 0) * 1000;
+        return tb - ta;
+      });
+      
+      renderHero();
+      renderProducts();
+      renderReviews();
+    });
   } catch (e) {
+    console.error('Error loading products:', e);
     document.getElementById('products-loading').classList.add('hidden');
     document.getElementById('products-error').textContent = 'Could not load products.';
     document.getElementById('products-error').classList.remove('hidden');
@@ -324,6 +359,11 @@ function attachCardHover(container) {
 }
 
 loadProducts();
+
+// Clean up listener when page unloads
+window.addEventListener('beforeunload', () => {
+  if (unsubscribe) unsubscribe();
+});
 
 // Show session expired message if redirected from admin timeout
 if (new URLSearchParams(window.location.search).get('session') === 'expired') {

@@ -53,6 +53,8 @@ include 'includes/header.php';
 import { getAllProducts } from './js/products.js';
 import { getCurrentUser } from './js/firebase-config.js';
 import { getGstLabel } from './js/cart.js';
+import { db } from './js/firebase-config.js';
+import { collection, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const urlParams = new URLSearchParams(window.location.search);
 const activeCategory = urlParams.get('category') || null;
@@ -63,13 +65,46 @@ if (activeCategory) {
 }
 
 let allProducts = [];
+let unsubscribe = null;
 
 async function load() {
   try {
-    allProducts = await getAllProducts(activeCategory);
-    renderCategories();
-    renderProducts();
+    // Set up real-time listener for products
+    const q = activeCategory
+      ? query(collection(db, 'products'), where('category', '==', activeCategory))
+      : collection(db, 'products');
+    
+    unsubscribe = onSnapshot(q, (snap) => {
+      // Normalize products
+      allProducts = snap.docs.map(d => {
+        const data = d.data();
+        const rawVariants = Array.isArray(data.variants) ? data.variants : [];
+        const variants = rawVariants.filter(v => v.name && v.name !== 'Default');
+        return {
+          id: d.id,
+          name: data.name || "",
+          description: data.description || "",
+          price: Number(data.price || 0),
+          compare_at_price: data.compare_at_price ? Number(data.compare_at_price) : null,
+          category: data.category || "General",
+          images: Array.isArray(data.images) ? data.images : [],
+          video: data.video || null,
+          rating: Number(data.rating || 4.5),
+          reviews: Array.isArray(data.reviews) ? data.reviews : [],
+          variants,
+          createdAt: data.createdAt || null,
+        };
+      }).sort((a, b) => {
+        const ta = a.createdAt?.toMillis?.() || (a.createdAt?.seconds || 0) * 1000;
+        const tb = b.createdAt?.toMillis?.() || (b.createdAt?.seconds || 0) * 1000;
+        return tb - ta;
+      });
+      
+      renderCategories();
+      renderProducts();
+    });
   } catch (e) {
+    console.error('Error loading products:', e);
     document.getElementById('products-loading').classList.add('hidden');
     document.getElementById('products-error').textContent = 'Could not load products.';
     document.getElementById('products-error').classList.remove('hidden');
@@ -77,11 +112,14 @@ async function load() {
 }
 
 function renderCategories() {
-  const allProds = allProducts; // already filtered if category set
   // Fetch all for categories
   getAllProducts(null).then(all => {
     const cats = [...new Set(all.map(p=>p.category).filter(Boolean))];
     const container = document.getElementById('category-filters');
+    // Clear existing categories (except "All Products")
+    const existing = container.querySelectorAll('a:not(#cat-all)');
+    existing.forEach(el => el.remove());
+    
     cats.forEach(cat => {
       const a = document.createElement('a');
       a.href = `products.php?category=${encodeURIComponent(cat)}`;
@@ -97,9 +135,11 @@ function renderProducts() {
   const grid = document.getElementById('products-grid');
   if (allProducts.length === 0) {
     document.getElementById('products-empty').classList.remove('hidden');
+    grid.classList.add('hidden');
     return;
   }
   grid.classList.remove('hidden');
+  document.getElementById('products-empty').classList.add('hidden');
   grid.innerHTML = allProducts.map(p => productCard(p)).join('');
 
   grid.querySelectorAll('.wishlist-btn').forEach(btn => {
@@ -193,6 +233,11 @@ function productCard(p) {
     </div>
   `;
 }
+
+// Clean up listener when page unloads
+window.addEventListener('beforeunload', () => {
+  if (unsubscribe) unsubscribe();
+});
 
 load();
 </script>
