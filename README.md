@@ -1,135 +1,199 @@
-# Kesar Kosmetics — PHP Site
+<div align="center">
 
-Full conversion of the React/Node.js e-commerce app to **HTML + CSS + JavaScript + PHP**.
+<img src="assets/main.png" alt="Kesar Kosmetics Logo" width="120" />
 
-## Structure
+# 🌸 Kesar Kosmetics
+
+### *The Red Gold of Kashmir — Delivered to Your Door*
+
+[![Live Site](https://img.shields.io/badge/🌐_Live_Site-kesarkosmetics.vercel.app-D97736?style=for-the-badge&logoColor=white)](https://kesarkosmetics.vercel.app)
+[![GitHub Stars](https://img.shields.io/github/stars/venkat-karthik/kesarkosmetics?style=for-the-badge&color=F5A800)](https://github.com/venkat-karthik/kesarkosmetics)
+[![Vercel](https://img.shields.io/badge/Deployed_on-Vercel-000000?style=for-the-badge&logo=vercel)](https://vercel.com)
+[![Firebase](https://img.shields.io/badge/Powered_by-Firebase-FFCA28?style=for-the-badge&logo=firebase&logoColor=black)](https://firebase.google.com)
+
+---
+
+*Premium Kashmiri saffron skincare & wellness — hand-harvested at 2,200m altitude in Pampore, Kashmir.*
+
+</div>
+
+---
+
+## ✨ About the Project
+
+**Kesar Kosmetics** is a full-featured e-commerce web application for authentic Kashmiri saffron-based skincare and wellness products. Built with a modern static frontend powered by Firebase, the site delivers a premium shopping experience — from browsing products to Razorpay-powered checkout.
+
+> 🏔️ Every product begins with saffron hand-harvested at dawn in the Karewa fields of Pampore, J&K — the saffron capital of India.
+
+---
+
+## 🚀 Tech Stack
+
+| Layer | Technology |
+|---|---|
+| **Frontend** | Vanilla HTML5 · CSS3 · JavaScript (ES Modules) |
+| **Styling** | Tailwind CSS (CDN) · Custom CSS |
+| **Database** | Firebase Firestore |
+| **Auth** | Firebase Authentication (Google OAuth) |
+| **Payments** | Razorpay Payment Gateway |
+| **Hosting** | Vercel (Static) |
+| **Analytics** | Google Analytics 4 |
+
+---
+
+## 🛍️ Features
+
+### 🛒 Shopping Experience
+- **Product catalog** with category filters and real-time price updates (polls Firestore every 30s)
+- **Product detail pages** with image gallery, YouTube video embed, size/variant selection
+- **Hover slideshow** on product cards — images cycle automatically on mouse-over
+- **Smart search overlay** — instant results as you type
+
+### 💳 Cart & Checkout
+- **Firebase-synced cart** — persists across devices when logged in
+- **Cart drawer** with free-shipping celebration animation 🎉
+- **Full checkout flow** — address, payment method (Razorpay / COD), order confirmation
+- **GST labels** auto-applied per product category
+
+### 👤 User Account
+- **Google Sign-In** — one-click authentication
+- **Wishlist** — saved across sessions
+- **Order tracking** — live status updates
+- **Review system** — verified-purchase reviews with star ratings
+
+### 🔐 Admin Panel
+- Protected dashboard at `/admin/`
+- Manage products, orders, users, blogs, subscribers, revenue
+- Real-time Firestore sync
+
+---
+
+## 📁 Project Structure
 
 ```
-php-site/
-├── index.php              # Home page
-├── products.php           # Products listing
-├── product.php            # Product detail (dynamic, ?id=...)
-├── cart.php               # Shopping cart
-├── checkout.php           # Multi-step checkout
-├── order-success.php      # Order confirmation
-├── login.php              # Google OAuth login
-├── wishlist.php           # Wishlist
-├── track-order.php        # Order tracking (my orders + search)
-├── track-results.php      # Search results
-├── track-status.php       # Order status detail
-├── about.php              # About Us
-├── contact.php            # Contact form
-├── faq.php                # FAQ accordion
-├── blogs.php              # Blog posts
-├── config.php             # ← FILL IN YOUR CREDENTIALS
-├── .htaccess              # Apache config
-│
-├── api/
-│   ├── contact.php        # POST — sends contact form email
-│   ├── orders.php         # POST/GET — COD order creation
-│   ├── razorpay-create.php # POST — create Razorpay order
-│   └── razorpay-verify.php # POST — verify Razorpay payment
-│
-├── admin/
-│   ├── dashboard.php      # Admin overview + stats
-│   ├── orders.php         # Order management (update status)
-│   ├── products.php       # Product CRUD
-│   └── blogs.php          # Blog management
-│
-├── js/
-│   ├── firebase-config.js # Firebase init + auth helpers
-│   ├── cart.js            # Cart logic (localStorage + Firestore)
-│   ├── products.js        # Firestore product CRUD
-│   └── wishlist.js        # Wishlist (localStorage)
+kesarkosmetics/
+├── index.html              # Homepage — hero carousel, products, reviews
+├── products.html           # Product listing with category filters
+├── product.html            # Product detail — gallery, variants, reviews
+├── cart.html               # Cart page
+├── checkout.html           # Checkout — address, payment, confirmation
+├── login.html              # Firebase Google Sign-In
+├── wishlist.html           # Saved products
+├── about.html              # Brand story — Kashmir saffron heritage
+├── blogs.html              # Wellness & saffron blogs
+├── faq.html                # Frequently asked questions
+├── contact.html            # Contact form + office info
+├── track-order.html        # Order tracking
 │
 ├── css/
-│   └── style.css          # All custom styles
+│   └── style.css           # Main stylesheet (~35KB)
 │
-├── includes/
-│   ├── head.php           # HTML <head> block
-│   ├── header.php         # Site header + nav + drawers
-│   ├── footer.php         # Footer + policy modals
-│   └── scripts.php        # Shared JS (auth, cart, search, etc.)
+├── js/
+│   ├── firebase-config.js  # Firebase init, auth helpers
+│   ├── products.js         # Firestore product queries
+│   ├── cart.js             # Cart logic (localStorage + Firestore sync)
+│   └── wishlist.js         # Wishlist management
 │
-├── assets/
-│   ├── logo.png
-│   └── background1.jpeg
+├── admin/                  # Admin dashboard (Firebase-auth protected)
+│   ├── dashboard.php
+│   ├── products.php
+│   ├── orders.php
+│   └── ...
 │
-└── data/
-    └── orders.json        # Local order backup (auto-created)
+├── assets/                 # Images & favicon
+├── vercel.json             # Vercel deployment config
+└── convert_php_to_html.py  # Tool used to convert PHP → static HTML
 ```
 
-## Setup
+---
 
-### 1. Configure credentials
+## 🌿 Branches
 
-Edit `config.php` and fill in:
+| Branch | Description |
+|---|---|
+| `main` | ✅ **Production** — Static HTML/JS/CSS, deployed on Vercel |
+| `php-version` | 📦 **Legacy** — Original PHP site (requires Apache/Nginx + PHP) |
 
-```php
-define('SMTP_HOST',        'smtp.gmail.com');
-define('SMTP_PORT',        587);
-define('SMTP_USER',        'your@gmail.com');
-define('SMTP_PASS',        'your-app-password');   // Gmail App Password
-define('SMTP_FROM',        'your@gmail.com');
-define('RAZORPAY_KEY_ID',  'rzp_live_...');
-define('RAZORPAY_KEY_SECRET', '...');
-define('SITE_URL',         'https://yourdomain.com');
-```
+---
 
-### 2. Install PHPMailer (optional but recommended)
+## ⚡ Getting Started
+
+### Run Locally
+
+Since this is a **static site**, no build step needed:
 
 ```bash
-composer require phpmailer/phpmailer
+# Clone the repo
+git clone https://github.com/venkat-karthik/kesarkosmetics.git
+cd kesarkosmetics
+
+# Serve with any static server
+npx serve .
+# or
+python3 -m http.server 3000
 ```
 
-If Composer is not available, the site falls back to PHP's built-in `mail()` function.
+Then open `http://localhost:3000`
 
-### 3. Upload to hosting
+### Deploy to Vercel
 
-Upload the entire `php-site/` folder to your web host's `public_html` (or `www`) directory.
+```bash
+npm i -g vercel
+vercel --prod
+```
 
-Make sure:
-- PHP 7.4+ is available
-- `mod_rewrite` is enabled (for `.htaccess`)
-- The `data/` folder is writable: `chmod 755 data/`
+Or connect your GitHub repo to [vercel.com](https://vercel.com) for automatic deployments on every push.
 
-### 4. Firebase stays the same
+---
 
-The Firebase project, Firestore database, and all data remain **unchanged**. The JS files use the same Firebase config as the original React app.
+## 🎨 Design Highlights
 
-## What changed vs the original
+- **Dark saffron palette** — `#3E2723` brown · `#F5A800` gold · `#E8620A` orange
+- **Playfair Display** headings + **Inter** body text
+- **Glassmorphism** cards with subtle shadows and warm borders
+- **Micro-animations** — hero carousel, falling saffron particles, product hover slides
+- **Fully responsive** — mobile-first, tested across 4 breakpoints
 
-| Feature | Original | PHP Version |
-|---|---|---|
-| Frontend framework | React 19 | Vanilla HTML/JS |
-| Routing | React Router | Multi-page PHP files |
-| Backend | Node.js/Express | PHP |
-| Email | Nodemailer | PHPMailer / mail() |
-| Razorpay backend | Node.js | PHP (curl) |
-| Firebase Auth | React context | Firebase JS SDK (CDN) |
-| Firestore | React context | Firebase JS SDK (CDN) |
-| Cart | React context | Vanilla JS module |
-| Wishlist | React context | Vanilla JS module |
-| Styling | Tailwind (npm) | Tailwind CDN + custom CSS |
+---
 
-## Admin Access
+## 📦 Key Pages
 
-1. Go to `yourdomain.com/index.php`
-2. Scroll to footer → click "Admin" (hidden link)
-3. Enter admin email + password
-4. Redirects to `admin/dashboard.php`
+| Page | URL |
+|---|---|
+| Home | `/` |
+| Products | `/products.html` |
+| Product Detail | `/product.html?id=<id>` |
+| Cart | `/cart.html` |
+| Checkout | `/checkout.html` |
+| Track Order | `/track-order.html` |
+| About | `/about.html` |
+| Blogs | `/blogs.html` |
+| FAQ | `/faq.html` |
+| Contact | `/contact.html` |
 
-Admin emails: `gsrinadh55@gmail.com`, `kesarkosmetics@gmail.com`
+---
 
-## Coupon Codes
+## 📞 Contact
 
-- `KESAR10` — 10% off
-- `SAVE20` — 20% off
-- `SUMMER5` — 5% off
+**Kesar Kosmetics**  
+📍 Befina Pampore, Near Govt Middle School, Pampore – 192121, J&K, India  
+📧 [kesarkosmetics@gmail.com](mailto:kesarkosmetics@gmail.com)  
+📞 +91 98415 24064  
 
-## Notes
+**Branch Office — Chennai**  
+📍 19, Valliammal Road, Vepery, Chennai – 600007, Tamil Nadu, India
 
-- All product images are stored as base64 in Firestore (same as original)
-- Orders are saved to Firestore by the frontend JS (same as original)
-- The PHP backend also saves a local JSON backup in `data/orders.json`
-- Razorpay runs in demo mode if keys are not configured
+---
+
+## 🏗️ Built & Designed by
+
+<div align="center">
+
+**[Velfound](https://velfound.com)**  
+*Crafting digital experiences that feel as premium as the products they represent.*
+
+---
+
+<sub>© 2025 Kesar Kosmetics · All rights reserved · Made with ❤️ for a sustainable future</sub>
+
+</div>
