@@ -1,10 +1,19 @@
-# ── The only deployable project is php-site/ ─────────────────────────────
-# Ignore the React frontend and Node backend entirely
-backend/
-frontend/
-node_modules/
+# Large files
+assets/logo.png
 
-# Misc root-level files not needed in repo
-*.log
-.env
-.env.*
+# Sensitive config — NEVER commit real credentials
+config.php
+
+# Razorpay keys and any credential files in data/
+data/karthik-rzp-key.csv
+data/rzp-key.csv
+data/*.csv
+data/*.key
+data/*.env
+
+# Local data (runtime files)
+data/orders.json
+
+# OS files
+.DS_Store
+Thumbs.db
